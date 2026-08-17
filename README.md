@@ -11,7 +11,7 @@
 - 运行日志与 Trace：无
 - 实测指标与效果数据：无
 - 生产部署：无
-- 远程仓库：无
+- 远程仓库：https://github.com/MyGarfield/ProofFlow
 
 截至 2026 年 8 月 17 日，ProofFlow 处于方案设计与原型整合阶段。本目录中的架构、Agent Identity、Skill、接口、安全边界、评测指标和开放计划均为设计或后续计划，不代表已完成实现或运行验证。
 
