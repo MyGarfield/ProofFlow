@@ -1,0 +1,10 @@
+.DS_Store
+Thumbs.db
+
+# Local submission profile contains personal contact and delivery data.
+/submission/private/
+
+# Generated office exports and local QA artifacts.
+*.tmp
+*.bak
+~$*

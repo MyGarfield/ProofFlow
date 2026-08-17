@@ -1,0 +1,27 @@
+schema_version: "1.0"
+status: EXAMPLE_ONLY
+
+registration_email: "[填写报名/注册邮箱]"
+project_name: "ProofFlow：证据驱动的高风险决策多 Agent 协同基座"
+track_and_challenge: "Agent Infra｜新智基座"
+
+captain:
+  organization: "[填写高校/单位；个人开发者可填：独立开发者]"
+  role: "[填写个人职务/身份]"
+  tshirt_size: "[填写尺码]"
+
+recipient:
+  name: "[填写真实收件人姓名]"
+  phone: "[填写真实手机号]"
+  address: "[填写完整收件地址]"
+
+members:
+  - organization: "[成员 2，如无则留空]"
+    role: "[成员 2，如无则留空]"
+    tshirt_size: "[成员 2，如无则留空]"
+  - organization: "[成员 3，如无则留空]"
+    role: "[成员 3，如无则留空]"
+    tshirt_size: "[成员 3，如无则留空]"
+
+code_repository: ""
+demo_url: ""

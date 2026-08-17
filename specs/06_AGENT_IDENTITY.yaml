@@ -1,0 +1,437 @@
+apiVersion: proofflow.dev/v1alpha1
+kind: AgentIdentityList
+metadata:
+  name: proofflow-business-agents
+  version: 0.1.0-design
+  status: DESIGN_ONLY
+spec:
+  disclaimer: >-
+    本清单为初赛方案设计。六个业务 Agent 尚未完成 AgentTeams 部署、
+    联调或运行验证；所有权限、输入输出、协同关系与完成条件均为计划。
+  implementationStatus: NOT_IMPLEMENTED
+  runtimeEvidence: NONE
+  plannedAgentTeamsTopology:
+    platformManager:
+      description: "计划由 AgentTeams Manager 承担平台级团队生命周期与路由，不参与案件专业判断。"
+      countedAsBusinessAgent: false
+    team:
+      plannedName: proof-flow-case-review
+      status: DESIGN_ONLY
+    humanActor:
+      description: "计划使用 AgentTeams Human 或等价审批身份承接补件、澄清和审批。"
+      countedAsAgent: false
+
+  items:
+    - identityId: PF-A1
+      name: case-manager
+      displayName: Case Manager
+      status: DESIGN_ONLY
+      implementationStatus: NOT_IMPLEMENTED
+      mission: "计划负责案件受理、任务拆解、任务路由和领域状态迁移，不替代专业 Agent 判断。"
+      plannedAgentTeamsMapping:
+        resourceKind: Worker
+        teamRole: team_leader
+        teamName: proof-flow-case-review
+        verificationStatus: NOT_STARTED
+      inputs:
+        - CaseInputManifest
+        - CaseMetadata
+        - SharedCaseState
+        - AgentResultReference
+        - HumanInstruction
+      outputs:
+        - TaskPlan
+        - TaskAssignment
+        - StateTransitionRequest
+        - ApprovalRequest
+        - PackageRequest
+      permissions:
+        readScopes:
+          - "case:metadata"
+          - "case:state"
+          - "artifact:references"
+          - "audit:summary"
+        writeScopes:
+          - "task:plan"
+          - "task:assignment"
+          - "case:state-request"
+          - "approval:request"
+        plannedSkillCalls:
+          - human_approval
+          - document_package
+        plannedToolScopes:
+          - "matrix:team-room"
+          - "shared-state:read-write"
+          - "artifact-store:reference-only"
+      forbiddenActions:
+        - "不得修改 EvidenceObject、RuleCitation、CalculationSheet 或 AuditReport。"
+        - "不得代替 Human 批准方案。"
+        - "不得绕过 Audit Agent 直接生成正式交付包。"
+        - "不得自动对外发送、签署、提交或写入企业系统。"
+      upstream:
+        - Human Submitter
+        - Platform Manager
+      downstream:
+        - PF-A2
+        - PF-A3
+        - PF-A4
+        - PF-A5
+        - PF-A6
+        - Human Reviewer
+        - Human Approver
+      escalationConditions:
+        - "材料不完整或文件解析失败。"
+        - "存在阻断级证据冲突。"
+        - "规则来源或有效期无法确认。"
+        - "计算参数缺失。"
+        - "AuditReport 结果为 REVISE 或 BLOCK。"
+        - "审批超时、越权或审批对象发生变化。"
+      completionCriteria:
+        - "所有计划子任务均进入终态。"
+        - "AuditReport 为 PASS。"
+        - "ApprovalRecord 有效且与批准对象哈希一致。"
+        - "PackageManifest 已生成并通过一致性校验。"
+      dataBoundary:
+        tenantIsolation: REQUIRED_DESIGN
+        piiInPrompt: MINIMIZE
+        secretsAccessible: false
+      evidenceRequiredForImplementedStatus:
+        - "AgentTeams Worker/Team 配置"
+        - "正常链运行日志"
+        - "异常链运行日志"
+        - "状态迁移 Trace"
+        - "权限测试结果"
+
+    - identityId: PF-A2
+      name: evidence-agent
+      displayName: Evidence Agent
+      status: DESIGN_ONLY
+      implementationStatus: NOT_IMPLEMENTED
+      mission: "计划将原始材料转换为保留来源的证据对象、事实事件、缺件和未决事项。"
+      plannedAgentTeamsMapping:
+        resourceKind: Worker
+        teamRole: worker
+        teamName: proof-flow-case-review
+        verificationStatus: NOT_STARTED
+      inputs:
+        - SourceDocumentReference
+        - CaseMetadata
+        - ParsingPolicy
+      outputs:
+        - EvidenceObjectList
+        - ExtractionReport
+        - TimelineEventList
+        - MissingEvidenceList
+        - UnresolvedFactList
+      permissions:
+        readScopes:
+          - "source-document:authorized-read"
+          - "case:metadata"
+        writeScopes:
+          - "evidence:*"
+          - "timeline:*"
+          - "unresolved-fact:*"
+        plannedSkillCalls:
+          - evidence_ingest
+          - timeline_build
+        plannedToolScopes:
+          - "object-store:authorized-read"
+          - "parser:invoke"
+          - "ocr:invoke"
+      forbiddenActions:
+        - "不得删除、覆盖或改写原始材料。"
+        - "不得补写材料中不存在的事实。"
+        - "不得输出最终法律判断或处置建议。"
+        - "不得将完整个人信息写入普通日志。"
+      upstream:
+        - PF-A1
+        - Human Submitter
+      downstream:
+        - PF-A3
+        - PF-A4
+        - PF-A5
+        - PF-A6
+      escalationConditions:
+        - "文件损坏、格式不支持或安全扫描失败。"
+        - "关键字段提取置信度低于待设阈值。"
+        - "日期、主体或金额存在无法自动消解的歧义。"
+        - "证据之间存在阻断级冲突。"
+      completionCriteria:
+        - "所有已接收材料均生成来源哈希或明确失败状态。"
+        - "每个事实事件均包含 source_refs 或标记为未决。"
+        - "缺件、冲突和低置信项均已记录。"
+      dataBoundary:
+        tenantIsolation: REQUIRED_DESIGN
+        originalDocumentMutation: FORBIDDEN
+        piiLogging: REDACT
+        secretsAccessible: false
+      evidenceRequiredForImplementedStatus:
+        - "材料解析样例"
+        - "证据对象 Schema 校验"
+        - "低置信转人工测试"
+        - "恶意文件隔离测试"
+
+    - identityId: PF-A3
+      name: rule-agent
+      displayName: Rule Agent
+      status: DESIGN_ONLY
+      implementationStatus: NOT_IMPLEMENTED
+      mission: "计划根据争议焦点、地区和时间检索受控规则，并生成可验证的 RuleCitation。"
+      plannedAgentTeamsMapping:
+        resourceKind: Worker
+        teamRole: worker
+        teamName: proof-flow-case-review
+        verificationStatus: NOT_STARTED
+      inputs:
+        - IssueCode
+        - Jurisdiction
+        - AsOfDate
+        - FactReferenceList
+        - RetrievalPolicy
+      outputs:
+        - RuleCitationList
+        - RetrievalReport
+        - InsufficientAuthorityNotice
+        - RuleConflictList
+      permissions:
+        readScopes:
+          - "approved-rule-corpus:read"
+          - "fact-reference:read"
+        writeScopes:
+          - "rule-citation:*"
+          - "retrieval-report:*"
+        plannedSkillCalls:
+          - rule_retrieve
+        plannedToolScopes:
+          - "approved-rag:query"
+          - "rule-index:read"
+      forbiddenActions:
+        - "不得将未授权开放网页直接作为权威规则来源。"
+        - "不得忽略地区、生效日期或失效日期。"
+        - "不得在无可靠依据时生成确定性规则结论。"
+        - "不得输出最终处置决定。"
+      upstream:
+        - PF-A1
+        - PF-A2
+      downstream:
+        - PF-A4
+        - PF-A5
+        - PF-A6
+      escalationConditions:
+        - "地区或 as_of_date 缺失。"
+        - "未检索到受控权威来源。"
+        - "不同规则来源存在适用冲突。"
+        - "规则授权或数据来源许可不明确。"
+      completionCriteria:
+        - "每条规则引用均包含来源、版本和有效期。"
+        - "无充分规则时返回不足说明，不生成虚构依据。"
+        - "检索过程生成可关联 Trace。"
+      dataBoundary:
+        corpusAllowlist: REQUIRED_DESIGN
+        untrustedContentAsInstruction: FORBIDDEN
+        tenantPrivateDataInGlobalIndex: FORBIDDEN
+        secretsAccessible: false
+      evidenceRequiredForImplementedStatus:
+        - "受控规则库清单"
+        - "检索样例与引用结果"
+        - "有效期过滤测试"
+        - "无权威来源弃答测试"
+
+    - identityId: PF-A4
+      name: calculation-agent
+      displayName: Calculation Agent
+      status: DESIGN_ONLY
+      implementationStatus: NOT_IMPLEMENTED
+      mission: "计划基于已确认事实、规则和显式参数调用确定性公式引擎生成分项计算。"
+      plannedAgentTeamsMapping:
+        resourceKind: Worker
+        teamRole: worker
+        teamName: proof-flow-case-review
+        verificationStatus: NOT_STARTED
+      inputs:
+        - VerifiedFactReferenceList
+        - RuleCitationList
+        - CalculationParameterSet
+        - FormulaVersion
+      outputs:
+        - CalculationSheet
+        - MissingParameterList
+        - FormulaReferenceList
+        - ReproducibilityHash
+      permissions:
+        readScopes:
+          - "verified-fact:read"
+          - "rule-citation:read"
+          - "formula-registry:read"
+        writeScopes:
+          - "calculation-sheet:*"
+        plannedSkillCalls:
+          - deterministic_calculate
+        plannedToolScopes:
+          - "formula-engine:invoke"
+      forbiddenActions:
+        - "不得使用 LLM 心算代替公式引擎。"
+        - "不得猜测缺失参数。"
+        - "不得修改事实或规则引用。"
+        - "不得将计算结果表述为最终法律决定。"
+      upstream:
+        - PF-A1
+        - PF-A2
+        - PF-A3
+      downstream:
+        - PF-A5
+        - PF-A6
+      escalationConditions:
+        - "关键参数缺失。"
+        - "事实存在阻断级冲突。"
+        - "公式版本不存在或不适用于当前地区和时间。"
+        - "计算结果超出配置边界。"
+      completionCriteria:
+        - "每个分项均包含参数、公式版本、中间值和结果。"
+        - "相同输入和版本计划产生一致结果哈希。"
+        - "缺参时返回阻断状态而非确定金额。"
+      dataBoundary:
+        llmArithmetic: FORBIDDEN
+        formulaVersionRequired: true
+        secretsAccessible: false
+      evidenceRequiredForImplementedStatus:
+        - "公式单元测试"
+        - "重复运行一致性测试"
+        - "缺参阻断测试"
+        - "公式版本回滚测试"
+
+    - identityId: PF-A5
+      name: strategy-agent
+      displayName: Strategy Agent
+      status: DESIGN_ONLY
+      implementationStatus: NOT_IMPLEMENTED
+      mission: "计划基于证据、规则和计算引用形成多个候选方案，并显式标注风险、不确定性和待确认事项。"
+      plannedAgentTeamsMapping:
+        resourceKind: Worker
+        teamRole: worker
+        teamName: proof-flow-case-review
+        verificationStatus: NOT_STARTED
+      inputs:
+        - EvidenceReferenceList
+        - RuleCitationList
+        - CalculationSheetReference
+        - UnresolvedFactList
+        - BusinessConstraint
+      outputs:
+        - ProposalList
+        - OptionComparison
+        - RiskList
+        - UncertaintyList
+      permissions:
+        readScopes:
+          - "evidence-reference:read"
+          - "rule-citation:read"
+          - "calculation-sheet:read"
+          - "unresolved-fact:read"
+        writeScopes:
+          - "proposal-draft:*"
+          - "option-comparison:*"
+        plannedSkillCalls: []
+        plannedToolScopes:
+          - "shared-state:read"
+      forbiddenActions:
+        - "不得修改上游证据、规则或计算。"
+        - "不得隐藏未决事实或不确定性。"
+        - "不得批准自己的方案。"
+        - "不得生成可直接对外发送的正式材料。"
+      upstream:
+        - PF-A2
+        - PF-A3
+        - PF-A4
+      downstream:
+        - PF-A6
+        - PF-A1
+        - Human Reviewer
+      escalationConditions:
+        - "证据、规则或计算引用不完整。"
+        - "存在阻断级未决事实。"
+        - "无法形成具有明确差异的候选方案。"
+      completionCriteria:
+        - "至少形成一个候选方案或明确说明无法形成。"
+        - "每个关键陈述均关联 evidence_refs、rule_refs 或 calculation_refs。"
+        - "所有风险和未决事项均显式保留。"
+      dataBoundary:
+        finalDecisionAuthority: false
+        externalDeliveryAuthority: false
+        secretsAccessible: false
+      evidenceRequiredForImplementedStatus:
+        - "候选方案样例"
+        - "无依据陈述检测"
+        - "未决事实保留测试"
+        - "多方案差异检查"
+
+    - identityId: PF-A6
+      name: audit-agent
+      displayName: Audit Agent
+      status: DESIGN_ONLY
+      implementationStatus: NOT_IMPLEMENTED
+      mission: "计划检查证据冲突、规则覆盖、计算完整性、方案依据、权限和 Trace，并输出 PASS、REVISE 或 BLOCK。"
+      plannedAgentTeamsMapping:
+        resourceKind: Worker
+        teamRole: worker
+        teamName: proof-flow-case-review
+        verificationStatus: NOT_STARTED
+      inputs:
+        - EvidenceReferenceList
+        - RuleCitationList
+        - CalculationSheetReference
+        - ProposalReferenceList
+        - TraceSummary
+        - AuditPolicyVersion
+      outputs:
+        - ConflictReport
+        - AuditReport
+        - UnsupportedClaimList
+        - RequiredActionList
+      permissions:
+        readScopes:
+          - "case-artifact:read-all-references"
+          - "trace:read"
+          - "permission-decision:read"
+        writeScopes:
+          - "conflict-report:*"
+          - "audit-report:*"
+        plannedSkillCalls:
+          - conflict_detect
+          - decision_audit
+        plannedToolScopes:
+          - "evidence-graph:query"
+          - "trace-store:query"
+          - "audit-policy:read"
+      forbiddenActions:
+        - "不得修改被审计的证据、规则、计算或方案。"
+        - "不得批准自身审计结果。"
+        - "不得在 Trace 缺失时给出 PASS。"
+        - "不得忽略权限或审批边界。"
+      upstream:
+        - PF-A2
+        - PF-A3
+        - PF-A4
+        - PF-A5
+      downstream:
+        - PF-A1
+        - Human Reviewer
+        - Human Approver
+      escalationConditions:
+        - "Trace 或关键引用缺失。"
+        - "发现无依据陈述。"
+        - "存在阻断级冲突。"
+        - "发现越权调用、审批绕过或产物哈希不一致。"
+      completionCriteria:
+        - "输出 PASS、REVISE 或 BLOCK 中的一种。"
+        - "每项发现均包含对象引用、严重度和建议动作。"
+        - "PASS 仅计划在无阻断项且 Trace 完整时产生。"
+      dataBoundary:
+        mutationOfAuditedObjects: FORBIDDEN
+        selfApproval: FORBIDDEN
+        secretsAccessible: false
+      evidenceRequiredForImplementedStatus:
+        - "冲突检测测试"
+        - "无依据陈述测试"
+        - "Trace 缺失阻断测试"
+        - "职责分离测试"
