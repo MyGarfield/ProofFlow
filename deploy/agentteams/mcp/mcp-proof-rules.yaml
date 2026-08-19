@@ -1,0 +1,77 @@
+server:
+  name: proof-rules-mcp-server
+  config:
+    accessToken: ""
+  allowTools:
+    - retrieve_rules
+
+tools:
+  - name: retrieve_rules
+    description: >-
+      Retrieve controlled, effective-date-aware citations from the public synthetic ProofFlow rule
+      catalog. Read the returned SkillResult.status; BLOCKED is a valid fail-closed business result.
+    args:
+      - name: fixture_status
+        description: Must be SYNTHETIC; real or private cases are forbidden in this reference runtime.
+        type: string
+        required: false
+        default: SYNTHETIC
+      - name: context
+        description: ProofFlow invocation context; the PF-A3 identity is bound by this endpoint.
+        type: object
+        required: true
+        properties:
+          schema_version:
+            type: string
+            default: proofflow.dev/v1alpha1
+          tenant_id:
+            type: string
+            required: true
+            minLength: 1
+          case_id:
+            type: string
+            required: true
+            minLength: 1
+          trace_id:
+            type: string
+            required: true
+            minLength: 1
+          idempotency_key:
+            type: string
+            required: true
+            minLength: 1
+          expected_state_version:
+            type: integer
+            required: true
+            minimum: 0
+      - name: arguments
+        description: Controlled rule query.
+        type: object
+        required: true
+        properties:
+          issue_codes:
+            type: array
+            required: true
+            minItems: 1
+            maxItems: 32
+            uniqueItems: true
+            items:
+              type: string
+              minLength: 1
+          jurisdiction:
+            type: string
+            required: true
+            minLength: 1
+          as_of_date:
+            type: string
+            required: true
+            format: date
+    requestTemplate:
+      url: "http://proofflow-tool-service.local:8787/v1/tools/rule-retrieve"
+      method: POST
+      headers:
+        - key: Authorization
+          value: "Bearer {{.config.accessToken}}"
+        - key: Content-Type
+          value: application/json
+      argsToJsonBody: true

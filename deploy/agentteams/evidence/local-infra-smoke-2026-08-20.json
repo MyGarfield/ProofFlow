@@ -1,0 +1,109 @@
+{
+  "schema_version": "1.2",
+  "evidence_kind": "agentteams-local-infra-smoke",
+  "collected_at": "2026-08-19T18:56:44Z",
+  "collector": {
+    "name": "collect-public-evidence.sh",
+    "version": "1.2",
+    "read_only_runtime_checks": true
+  },
+  "scope": {
+    "host_os": "darwin",
+    "deployment_mode": "docker-embedded-local",
+    "synthetic_data_only": true
+  },
+  "source": {
+    "expected_version": "v1.2.2",
+    "expected_commit": "849182af8e017168a5a200a87b1062142caf462d",
+    "checkout_supplied": true,
+    "observed_commit": "849182af8e017168a5a200a87b1062142caf462d",
+    "commit_matches": true,
+    "local_colima_socket_patch_present": true,
+    "local_embedded_console_patch_present": true,
+    "checkout_has_local_modifications": true,
+    "verification_status": "pass"
+  },
+  "runtime": {
+    "manager_runtime_observed": "openclaw",
+    "worker_runtime_contract": "openclaw",
+    "worker_resources_declared_stopped": true,
+    "worker_runtime_observed": "none-zero-workers",
+    "worker_containers_observed": 0,
+    "proof_flow_worker_containers_running": 0
+  },
+  "container_socket": {
+    "docker_context_class": "colima-host-socket",
+    "colima_running": true,
+    "colima_daemon_local_socket_present": true,
+    "controller_socket_present": true,
+    "controller_docker_api_ping_ok": true
+  },
+  "resolver": {
+    "backup_present": true,
+    "backup_first_line_has_invalid_dash_e_prefix": true,
+    "current_syntax_allowlist_ok": true,
+    "normalized_backup_matches_current": true,
+    "resolver_addresses_emitted": false,
+    "resolver_file_hashes_emitted": false,
+    "verification_status": "pass"
+  },
+  "images": [
+    {
+      "component": "controller-embedded",
+      "tag": "higress-registry.cn-hangzhou.cr.aliyuncs.com/agentteams/agentteams-embedded:v1.2.2",
+      "reference_local_image_id": "sha256:c7e467bfa5a2a733ea021c19f223180eef85e3e534873feceb8a7a132253125f",
+      "observed_local_image_id": "sha256:c7e467bfa5a2a733ea021c19f223180eef85e3e534873feceb8a7a132253125f",
+      "local_image_id_matches_reference": true,
+      "reference_repo_digest": "higress-registry.cn-hangzhou.cr.aliyuncs.com/agentteams/agentteams-embedded@sha256:c7e467bfa5a2a733ea021c19f223180eef85e3e534873feceb8a7a132253125f",
+      "observed_repo_digest": "higress-registry.cn-hangzhou.cr.aliyuncs.com/agentteams/agentteams-embedded@sha256:c7e467bfa5a2a733ea021c19f223180eef85e3e534873feceb8a7a132253125f",
+      "repo_digest_matches_reference": true
+    },
+    {
+      "component": "manager-openclaw",
+      "tag": "higress-registry.cn-hangzhou.cr.aliyuncs.com/agentteams/agentteams-manager:v1.2.2",
+      "reference_local_image_id": "sha256:dd11878943e4a425ff38dcc152c9d44ea0e68d97bac89f711207134b8636c0fb",
+      "observed_local_image_id": "sha256:dd11878943e4a425ff38dcc152c9d44ea0e68d97bac89f711207134b8636c0fb",
+      "local_image_id_matches_reference": true,
+      "reference_repo_digest": "higress-registry.cn-hangzhou.cr.aliyuncs.com/agentteams/agentteams-manager@sha256:dd11878943e4a425ff38dcc152c9d44ea0e68d97bac89f711207134b8636c0fb",
+      "observed_repo_digest": "higress-registry.cn-hangzhou.cr.aliyuncs.com/agentteams/agentteams-manager@sha256:dd11878943e4a425ff38dcc152c9d44ea0e68d97bac89f711207134b8636c0fb",
+      "repo_digest_matches_reference": true
+    },
+    {
+      "component": "worker-openclaw",
+      "tag": "higress-registry.cn-hangzhou.cr.aliyuncs.com/agentteams/agentteams-worker:v1.2.2",
+      "reference_local_image_id": "sha256:301f9e311654eca203246fa666d63a126244ea8793f700603d2a6d37b7ffea75",
+      "observed_local_image_id": "sha256:301f9e311654eca203246fa666d63a126244ea8793f700603d2a6d37b7ffea75",
+      "local_image_id_matches_reference": true,
+      "reference_repo_digest": "higress-registry.cn-hangzhou.cr.aliyuncs.com/agentteams/agentteams-worker@sha256:301f9e311654eca203246fa666d63a126244ea8793f700603d2a6d37b7ffea75",
+      "observed_repo_digest": "higress-registry.cn-hangzhou.cr.aliyuncs.com/agentteams/agentteams-worker@sha256:301f9e311654eca203246fa666d63a126244ea8793f700603d2a6d37b7ffea75",
+      "repo_digest_matches_reference": true
+    }
+  ],
+  "health_checks": [
+    {"check_id": "controller-container", "status": "pass", "expected_http_status": null, "http_status": null, "observation": true},
+    {"check_id": "controller-api", "status": "pass", "expected_http_status": "200", "http_status": "200", "observation": null},
+    {"check_id": "minio-live", "status": "pass", "expected_http_status": "200", "http_status": "200", "observation": null},
+    {"check_id": "matrix-versions", "status": "pass", "expected_http_status": "200", "http_status": "200", "observation": null},
+    {"check_id": "higress-matrix-route", "status": "pass", "expected_http_status": "200", "http_status": "200", "observation": null},
+    {"check_id": "higress-console", "status": "pass", "expected_http_status": "200", "http_status": "200", "observation": null},
+    {"check_id": "element-web", "status": "pass", "expected_http_status": "200", "http_status": "200", "observation": null},
+    {"check_id": "controller-docker-socket-api", "status": "pass", "expected_http_status": null, "http_status": null, "observation": true},
+    {"check_id": "manager-container", "status": "pass", "expected_http_status": null, "http_status": null, "observation": true},
+    {"check_id": "manager-openclaw-gateway", "status": "pass", "expected_http_status": null, "http_status": null, "observation": true}
+  ],
+  "summary": {
+    "passed": 10,
+    "failed": 0,
+    "skipped": 0,
+    "all_observed_components_healthy": true,
+    "all_six_proof_flow_workers_running": false,
+    "strict_collection_gate_passed": true,
+    "claim_level": "local-infrastructure-smoke-only"
+  },
+  "limitations": [
+    "No ProofFlow Worker, Team, Human, Skill distribution, MCP authorization, Matrix collaboration, model inference, or end-to-end case execution was verified.",
+    "A healthy endpoint proves point-in-time reachability only; it is not an availability, security, or production-readiness claim.",
+    "Resolver evidence publishes only syntax and normalization booleans, not resolver contents or file hashes; it does not prove how an invalid line was originally introduced.",
+    "The strict collection gate is a narrow consistency gate, not a security audit; it does not execute llm-preflight help, inspect secrets, or verify MCP and Worker integration."
+  ]
+}

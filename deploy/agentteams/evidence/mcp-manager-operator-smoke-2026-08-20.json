@@ -1,0 +1,422 @@
+{
+  "schema_version": "1.1",
+  "evidence_kind": "agentteams-manager-operator-mcp-smoke",
+  "collected_at": "2026-08-19T20:35:39Z",
+  "tool_service_image_id": "sha256:eb1ced4bfd38ee333c17bfac99716486a5850fbfb12bdfc4c11f178514868505",
+  "collector": {
+    "name": "allowlisted-mcp-post-run-verification",
+    "version": "1.1",
+    "read_only_post_run_checks": true,
+    "response_allowlist_only": true
+  },
+  "scope": {
+    "deployment": "agentteams-v1.2.2-embedded-local",
+    "fixture_status": "SYNTHETIC",
+    "data_classification": "PUBLIC_SYNTHETIC",
+    "initiator": "manager-operator",
+    "worker_execution": false,
+    "llm_inference": false
+  },
+  "provenance": {
+    "resource_inventory": "read-only-agt-cli-allowlist",
+    "tool_inventory": "read-only-mcporter-allowlist",
+    "tool_service_image": "read-only-docker-inspect-and-supply-chain-cross-check",
+    "skill_distribution": "read-only-agt-cli-manager-files-and-minio-hash-allowlist",
+    "gateway_acl": "operator-sanitized-observation",
+    "workflow": "operator-sanitized-result-allowlist"
+  },
+  "privacy": {
+    "existing_client_credentials_used": true,
+    "credential_values_inspected_or_emitted": false,
+    "cookies_inspected_or_emitted": false,
+    "environment_dumped": false,
+    "raw_material_values_emitted": false,
+    "personal_identifiers_emitted": false
+  },
+  "mcp_servers": [
+    {
+      "name": "mcp-proof-evidence",
+      "status": "ok",
+      "tool_count": 1,
+      "tools": [
+        "evidence_ingest"
+      ],
+      "allowed_consumers": [
+        "manager",
+        "worker-evidence-agent"
+      ]
+    },
+    {
+      "name": "mcp-proof-rules",
+      "status": "ok",
+      "tool_count": 1,
+      "tools": [
+        "retrieve_rules"
+      ],
+      "allowed_consumers": [
+        "manager",
+        "worker-rule-agent"
+      ]
+    },
+    {
+      "name": "mcp-proof-calc",
+      "status": "ok",
+      "tool_count": 1,
+      "tools": [
+        "deterministic_calculate"
+      ],
+      "allowed_consumers": [
+        "manager",
+        "worker-calculation-agent"
+      ]
+    }
+  ],
+  "access_probes": [
+    {
+      "probe_id": "evidence-worker-evidence-tools-list",
+      "caller": "worker-evidence-agent",
+      "target": "mcp-proof-evidence",
+      "operation": "tools/list",
+      "expected_http_status": 200,
+      "http_status": 200,
+      "outcome": "allow",
+      "provenance": "operator-sanitized-observation"
+    },
+    {
+      "probe_id": "calculation-worker-evidence-tools-list",
+      "caller": "worker-calculation-agent",
+      "target": "mcp-proof-evidence",
+      "operation": "tools/list",
+      "expected_http_status": 403,
+      "http_status": 403,
+      "outcome": "deny",
+      "provenance": "operator-sanitized-observation"
+    }
+  ],
+  "manager_workflow": {
+    "evidence_ingest": {
+      "calls": 3,
+      "successful_calls": 3,
+      "emitted_evidence_objects": 13
+    },
+    "rule_retrieve": {
+      "status": "SUCCESS",
+      "citation_count": 4,
+      "missing_issue_code_count": 0
+    },
+    "deterministic_calculate": {
+      "status": "SUCCESS",
+      "observed_total_decimal_string": "60000",
+      "reproducibility_hash": "sha256:e27533ee98fa3e7b51fbd8f49569399e3d6c8985a9b732f536655de49b5c4b43",
+      "output_hash": "sha256:09bc4629ea45b4b521bad6a925aed8b2a6868d03e35dc73b86c0bb48d214a044",
+      "value_present": true
+    },
+    "tamper_probe": {
+      "mutation": "same-scope-value-change-then-reseal",
+      "deterministic_calculate_status": "BLOCKED",
+      "issue_codes": [
+        "UNTRUSTED_EVIDENCE"
+      ],
+      "value_is_null": true
+    }
+  },
+  "skill_distribution": {
+    "observed_at": "2026-08-19T20:35:39Z",
+    "worker_assignments": [
+      {
+        "worker_name": "case-manager",
+        "assigned_skills": [
+          "human_approval",
+          "document_package"
+        ]
+      },
+      {
+        "worker_name": "evidence-agent",
+        "assigned_skills": [
+          "evidence_ingest",
+          "timeline_build"
+        ]
+      },
+      {
+        "worker_name": "rule-agent",
+        "assigned_skills": [
+          "rule_retrieve"
+        ]
+      },
+      {
+        "worker_name": "calculation-agent",
+        "assigned_skills": [
+          "deterministic_calculate"
+        ]
+      },
+      {
+        "worker_name": "strategy-agent",
+        "assigned_skills": []
+      },
+      {
+        "worker_name": "audit-agent",
+        "assigned_skills": [
+          "conflict_detect",
+          "decision_audit"
+        ]
+      }
+    ],
+    "skill_content": [
+      {
+        "skill_name": "conflict_detect",
+        "repository_path": "skills/conflict_detect/SKILL.md",
+        "repository_sha256": "sha256:08f48c6be75e92cf599dea2c9e0eee367840e601142b4e5412f9da925b7e87fb",
+        "manager_source_observed": true,
+        "manager_source_sha256": "sha256:08f48c6be75e92cf599dea2c9e0eee367840e601142b4e5412f9da925b7e87fb",
+        "manager_matches_repository": true,
+        "worker_storage": [
+          {
+            "worker_name": "audit-agent",
+            "object_observed": true,
+            "sha256": "sha256:08f48c6be75e92cf599dea2c9e0eee367840e601142b4e5412f9da925b7e87fb",
+            "matches_repository": true
+          }
+        ]
+      },
+      {
+        "skill_name": "decision_audit",
+        "repository_path": "skills/decision_audit/SKILL.md",
+        "repository_sha256": "sha256:91919701450921e403bc7b56e48ce07828be49b2fd2c92a53db63e46c0c87fb8",
+        "manager_source_observed": true,
+        "manager_source_sha256": "sha256:91919701450921e403bc7b56e48ce07828be49b2fd2c92a53db63e46c0c87fb8",
+        "manager_matches_repository": true,
+        "worker_storage": [
+          {
+            "worker_name": "audit-agent",
+            "object_observed": true,
+            "sha256": "sha256:91919701450921e403bc7b56e48ce07828be49b2fd2c92a53db63e46c0c87fb8",
+            "matches_repository": true
+          }
+        ]
+      },
+      {
+        "skill_name": "deterministic_calculate",
+        "repository_path": "skills/deterministic_calculate/SKILL.md",
+        "repository_sha256": "sha256:d7835064bb7f4b3a37e2edb0ef339e6a89d6d988821c4485d6826bc326b2d57d",
+        "manager_source_observed": true,
+        "manager_source_sha256": "sha256:d7835064bb7f4b3a37e2edb0ef339e6a89d6d988821c4485d6826bc326b2d57d",
+        "manager_matches_repository": true,
+        "worker_storage": [
+          {
+            "worker_name": "calculation-agent",
+            "object_observed": true,
+            "sha256": "sha256:d7835064bb7f4b3a37e2edb0ef339e6a89d6d988821c4485d6826bc326b2d57d",
+            "matches_repository": true
+          }
+        ]
+      },
+      {
+        "skill_name": "document_package",
+        "repository_path": "skills/document_package/SKILL.md",
+        "repository_sha256": "sha256:7637686145dd68e0159f5a765237c1aad4a93b2cc316816f093894302096a9fc",
+        "manager_source_observed": true,
+        "manager_source_sha256": "sha256:7637686145dd68e0159f5a765237c1aad4a93b2cc316816f093894302096a9fc",
+        "manager_matches_repository": true,
+        "worker_storage": [
+          {
+            "worker_name": "case-manager",
+            "object_observed": true,
+            "sha256": "sha256:7637686145dd68e0159f5a765237c1aad4a93b2cc316816f093894302096a9fc",
+            "matches_repository": true
+          }
+        ]
+      },
+      {
+        "skill_name": "evidence_ingest",
+        "repository_path": "skills/evidence_ingest/SKILL.md",
+        "repository_sha256": "sha256:88b837a0f8dd2e0226a7f3f38835f9cf395f1dccad9e02410876d4e677b2f149",
+        "manager_source_observed": true,
+        "manager_source_sha256": "sha256:88b837a0f8dd2e0226a7f3f38835f9cf395f1dccad9e02410876d4e677b2f149",
+        "manager_matches_repository": true,
+        "worker_storage": [
+          {
+            "worker_name": "evidence-agent",
+            "object_observed": true,
+            "sha256": "sha256:88b837a0f8dd2e0226a7f3f38835f9cf395f1dccad9e02410876d4e677b2f149",
+            "matches_repository": true
+          }
+        ]
+      },
+      {
+        "skill_name": "human_approval",
+        "repository_path": "skills/human_approval/SKILL.md",
+        "repository_sha256": "sha256:a6a9416f7cffe3a7f74fecb18992af8a56cb692b99fe1e806ad353cbdb7f70c3",
+        "manager_source_observed": true,
+        "manager_source_sha256": "sha256:a6a9416f7cffe3a7f74fecb18992af8a56cb692b99fe1e806ad353cbdb7f70c3",
+        "manager_matches_repository": true,
+        "worker_storage": [
+          {
+            "worker_name": "case-manager",
+            "object_observed": true,
+            "sha256": "sha256:a6a9416f7cffe3a7f74fecb18992af8a56cb692b99fe1e806ad353cbdb7f70c3",
+            "matches_repository": true
+          }
+        ]
+      },
+      {
+        "skill_name": "rule_retrieve",
+        "repository_path": "skills/rule_retrieve/SKILL.md",
+        "repository_sha256": "sha256:49cfde77e213c3b9db18c8f2d5eef45fde5ae3faa5321f15acf25d6a63cdb3ca",
+        "manager_source_observed": true,
+        "manager_source_sha256": "sha256:49cfde77e213c3b9db18c8f2d5eef45fde5ae3faa5321f15acf25d6a63cdb3ca",
+        "manager_matches_repository": true,
+        "worker_storage": [
+          {
+            "worker_name": "rule-agent",
+            "object_observed": true,
+            "sha256": "sha256:49cfde77e213c3b9db18c8f2d5eef45fde5ae3faa5321f15acf25d6a63cdb3ca",
+            "matches_repository": true
+          }
+        ]
+      },
+      {
+        "skill_name": "timeline_build",
+        "repository_path": "skills/timeline_build/SKILL.md",
+        "repository_sha256": "sha256:3af6905881c21332d5cad595b9d44cf0ac3d6552ada65ca7a4baf7bf2d52e02f",
+        "manager_source_observed": true,
+        "manager_source_sha256": "sha256:3af6905881c21332d5cad595b9d44cf0ac3d6552ada65ca7a4baf7bf2d52e02f",
+        "manager_matches_repository": true,
+        "worker_storage": [
+          {
+            "worker_name": "evidence-agent",
+            "object_observed": true,
+            "sha256": "sha256:3af6905881c21332d5cad595b9d44cf0ac3d6552ada65ca7a4baf7bf2d52e02f",
+            "matches_repository": true
+          }
+        ]
+      }
+    ],
+    "summary": {
+      "proof_flow_workers": 6,
+      "assignment_entries": 8,
+      "distinct_skills": 8,
+      "repository_source_files_observed": 8,
+      "manager_repository_hash_matches": 8,
+      "worker_storage_objects_observed": 8,
+      "worker_storage_repository_hash_matches": 8,
+      "exact_assignment_match": true,
+      "all_content_hashes_match": true,
+      "worker_runtime_consumption_observed": false
+    }
+  },
+  "resources": {
+    "workers": [
+      {
+        "name": "case-manager",
+        "desired_state": "Stopped",
+        "phase": "Stopped",
+        "runtime": "openclaw",
+        "team": "proof-flow-case-review",
+        "role": "team_leader",
+        "mcp_servers": []
+      },
+      {
+        "name": "evidence-agent",
+        "desired_state": "Stopped",
+        "phase": "Stopped",
+        "runtime": "openclaw",
+        "team": "proof-flow-case-review",
+        "role": "worker",
+        "mcp_servers": [
+          "mcp-proof-evidence"
+        ]
+      },
+      {
+        "name": "rule-agent",
+        "desired_state": "Stopped",
+        "phase": "Stopped",
+        "runtime": "openclaw",
+        "team": "proof-flow-case-review",
+        "role": "worker",
+        "mcp_servers": [
+          "mcp-proof-rules"
+        ]
+      },
+      {
+        "name": "calculation-agent",
+        "desired_state": "Stopped",
+        "phase": "Stopped",
+        "runtime": "openclaw",
+        "team": "proof-flow-case-review",
+        "role": "worker",
+        "mcp_servers": [
+          "mcp-proof-calc"
+        ]
+      },
+      {
+        "name": "strategy-agent",
+        "desired_state": "Stopped",
+        "phase": "Stopped",
+        "runtime": "openclaw",
+        "team": "proof-flow-case-review",
+        "role": "worker",
+        "mcp_servers": []
+      },
+      {
+        "name": "audit-agent",
+        "desired_state": "Stopped",
+        "phase": "Stopped",
+        "runtime": "openclaw",
+        "team": "proof-flow-case-review",
+        "role": "worker",
+        "mcp_servers": []
+      }
+    ],
+    "proof_flow_worker_containers": 0,
+    "team": {
+      "name": "proof-flow-case-review",
+      "controller_phase": "Active",
+      "leader_name": "case-manager",
+      "leader_worker_phase": "Stopped",
+      "member_count": 6,
+      "specialist_worker_count": 5,
+      "ready_workers": 0,
+      "operational_ready": false
+    },
+    "humans": [
+      {
+        "name": "proof-reviewer",
+        "phase": "Active",
+        "permission_level": 2,
+        "accessible_teams": [
+          "proof-flow-case-review"
+        ]
+      },
+      {
+        "name": "proof-approver",
+        "phase": "Active",
+        "permission_level": 2,
+        "accessible_teams": [
+          "proof-flow-case-review"
+        ]
+      }
+    ]
+  },
+  "summary": {
+    "mcp_servers_ok": 3,
+    "exact_acl_match": true,
+    "authorized_tools_list_passed": true,
+    "cross_role_denial_observed": true,
+    "manager_positive_workflow_passed": true,
+    "resealed_tamper_blocked": true,
+    "all_workers_stopped": true,
+    "worker_runtime_observed": false,
+    "team_operational_ready": false,
+    "human_resources_configured": 2,
+    "skill_distribution_verified": true,
+    "skill_runtime_consumption_observed": false,
+    "claim_level": "manager-operator-public-synthetic-mcp-smoke-only"
+  },
+  "limitations": [
+    "The successful tool chain was initiated by a Manager operator without Worker execution or LLM inference; it is not a multi-agent run.",
+    "Team controller phase Active records reconciled configuration only; six Stopped Workers, zero Worker containers, and zero ready Workers make the Team operationally not ready.",
+    "Gateway ACL and negative HTTP observations are sanitized operator observations; this artifact does not contain credentials, cookies, environment dumps, raw responses, or signed attestations.",
+    "Skill assignment and SHA-256 equality prove Stopped CR configuration plus stored SKILL.md copies; they do not prove that any Worker loaded, discovered, or executed a Skill.",
+    "Schema and semantic validation prove this public artifact is internally consistent, not that the underlying point-in-time observations are authentic, fresh, available, secure, or production-ready."
+  ]
+}

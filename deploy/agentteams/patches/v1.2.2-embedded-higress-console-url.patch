@@ -1,0 +1,13 @@
+diff --git a/manager/agent/skills/mcp-server-management/scripts/setup-mcp-server.sh b/manager/agent/skills/mcp-server-management/scripts/setup-mcp-server.sh
+index 34c0638..4083577 100644
+--- a/manager/agent/skills/mcp-server-management/scripts/setup-mcp-server.sh
++++ b/manager/agent/skills/mcp-server-management/scripts/setup-mcp-server.sh
+@@ -120,7 +120,7 @@ else
+ fi
+ 
+ AI_GATEWAY_DOMAIN="${AGENTTEAMS_AI_GATEWAY_DOMAIN:-aigw-local.agentteams.io}"
+-CONSOLE_URL="http://127.0.0.1:8001"
++CONSOLE_URL="${HIGRESS_CONSOLE_URL:-http://127.0.0.1:8001}"
+ 
+ # Unified credential key — all YAML configs use accessToken in server.config
+ CREDENTIAL_KEY="accessToken"

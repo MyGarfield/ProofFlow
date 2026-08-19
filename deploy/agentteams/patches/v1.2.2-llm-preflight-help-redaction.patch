@@ -1,0 +1,119 @@
+diff --git a/agentteams-controller/cmd/agt/llm_preflight.go b/agentteams-controller/cmd/agt/llm_preflight.go
+--- a/agentteams-controller/cmd/agt/llm_preflight.go
++++ b/agentteams-controller/cmd/agt/llm_preflight.go
+@@ -78,12 +78,18 @@ func (e *llmPreflightTransportError) Unwrap() error {
+ 
+ func llmPreflightCmd() *cobra.Command {
+ 	opts := llmPreflightOptionsFromEnv()
++	var apiKeyFlag string
+ 	timeoutSeconds := int(opts.Timeout.Seconds())
+ 
+ 	cmd := &cobra.Command{
+ 		Use:   "llm-preflight",
+ 		Short: "Validate LLM API key, base URL, and model before startup",
+ 		RunE: func(cmd *cobra.Command, args []string) error {
++			if cmd.Flags().Changed("api-key") {
++				opts.APIKey = apiKeyFlag
++			} else {
++				opts.APIKey = os.Getenv("AGENTTEAMS_LLM_API_KEY")
++			}
+ 			opts.Timeout = time.Duration(timeoutSeconds) * time.Second
+ 			if err := runLLMPreflight(cmd.Context(), opts); err != nil {
+ 				if !opts.Strict {
+@@ -98,7 +104,7 @@ func llmPreflightCmd() *cobra.Command {
+ 	}
+ 
+ 	cmd.Flags().StringVar(&opts.Provider, "provider", opts.Provider, "LLM provider (openai-compat|qwen|custom)")
+-	cmd.Flags().StringVar(&opts.APIKey, "api-key", opts.APIKey, "LLM API key")
++	cmd.Flags().StringVar(&apiKeyFlag, "api-key", "", "LLM API key (prefer AGENTTEAMS_LLM_API_KEY)")
+ 	cmd.Flags().StringVar(&opts.BaseURL, "base-url", opts.BaseURL, "OpenAI-compatible base URL")
+ 	cmd.Flags().StringVar(&opts.Model, "model", opts.Model, "Model name to probe")
+ 	cmd.Flags().IntVar(&timeoutSeconds, "timeout", timeoutSeconds, "HTTP timeout in seconds")
+@@ -110,6 +116,5 @@ func llmPreflightOptionsFromEnv() llmPreflightOptions {
+ 	return llmPreflightOptions{
+ 		Provider: envOrDefaultLocal("AGENTTEAMS_LLM_PROVIDER", "openai-compat"),
+-		APIKey:   os.Getenv("AGENTTEAMS_LLM_API_KEY"),
+ 		BaseURL:  os.Getenv("AGENTTEAMS_OPENAI_BASE_URL"),
+ 		Model:    os.Getenv("AGENTTEAMS_DEFAULT_MODEL"),
+ 		Timeout: time.Duration(envIntDefaultLocal(
+diff --git a/agentteams-controller/cmd/agt/llm_preflight_test.go b/agentteams-controller/cmd/agt/llm_preflight_test.go
+--- a/agentteams-controller/cmd/agt/llm_preflight_test.go
++++ b/agentteams-controller/cmd/agt/llm_preflight_test.go
+@@ -1,6 +1,7 @@
+ package main
+ 
+ import (
++	"bytes"
+ 	"context"
+ 	"encoding/json"
+ 	"errors"
+@@ -12,6 +13,69 @@ import (
+ 	"time"
+ )
+ 
++func TestLLMPreflightHelpDoesNotExposeAPIKeyFromEnv(t *testing.T) {
++	const sentinel = "sentinel-help-secret"
++	t.Setenv("AGENTTEAMS_LLM_API_KEY", sentinel)
++
++	cmd := llmPreflightCmd()
++	var output bytes.Buffer
++	cmd.SetOut(&output)
++	cmd.SetErr(&output)
++	cmd.SetArgs([]string{"--help"})
++	if err := cmd.Execute(); err != nil {
++		t.Fatalf("execute help: %v", err)
++	}
++	if strings.Contains(output.String(), sentinel) {
++		t.Fatal("help output leaked the environment API key")
++	}
++	if flag := cmd.Flags().Lookup("api-key"); flag == nil || strings.Contains(flag.DefValue, sentinel) {
++		t.Fatal("api-key flag default contains the environment API key")
++	}
++}
++
++func TestLLMPreflightCommandUsesAPIKeyFromEnvAtRunTime(t *testing.T) {
++	const apiKey = "sentinel-runtime-env-key"
++	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		if got := r.Header.Get("Authorization"); got != "Bearer "+apiKey {
++			t.Fatalf("Authorization header did not use the environment key")
++		}
++		w.WriteHeader(http.StatusOK)
++	}))
++	defer srv.Close()
++
++	t.Setenv("AGENTTEAMS_LLM_PROVIDER", "custom")
++	t.Setenv("AGENTTEAMS_LLM_API_KEY", apiKey)
++	t.Setenv("AGENTTEAMS_OPENAI_BASE_URL", srv.URL+"/v1")
++	t.Setenv("AGENTTEAMS_DEFAULT_MODEL", "test-model")
++	cmd := llmPreflightCmd()
++	cmd.SetArgs([]string{"--retries", "0"})
++	if err := cmd.Execute(); err != nil {
++		t.Fatalf("execute preflight: %v", err)
++	}
++}
++
++func TestLLMPreflightCommandFlagOverridesEnvironmentAPIKey(t *testing.T) {
++	const envKey = "sentinel-env-key"
++	const flagKey = "sentinel-flag-key"
++	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		if got := r.Header.Get("Authorization"); got != "Bearer "+flagKey {
++			t.Fatalf("Authorization header did not use the flag key")
++		}
++		w.WriteHeader(http.StatusOK)
++	}))
++	defer srv.Close()
++
++	t.Setenv("AGENTTEAMS_LLM_PROVIDER", "custom")
++	t.Setenv("AGENTTEAMS_LLM_API_KEY", envKey)
++	t.Setenv("AGENTTEAMS_OPENAI_BASE_URL", srv.URL+"/v1")
++	t.Setenv("AGENTTEAMS_DEFAULT_MODEL", "test-model")
++	cmd := llmPreflightCmd()
++	cmd.SetArgs([]string{"--api-key", flagKey, "--retries", "0"})
++	if err := cmd.Execute(); err != nil {
++		t.Fatalf("execute preflight: %v", err)
++	}
++}
++
+ func TestResolveLLMPreflightConfigDefaultsOpenAICompatible(t *testing.T) {
+ 	cfg, err := resolveLLMPreflightConfig(llmPreflightOptions{
+ 		Provider: "openai-compat",

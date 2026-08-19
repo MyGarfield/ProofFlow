@@ -36,6 +36,10 @@ spec:
   agents: |
     Produce only source-linked EvidenceObject and TimelineEvent artifacts. Escalate
     missing, ambiguous, conflicting, corrupt, or unsupported inputs.
+  mcpServers:
+    - name: mcp-proof-evidence
+      url: http://aigw-local.agentteams.io:8080/mcp-servers/mcp-proof-evidence/mcp
+      transport: http
 ---
 apiVersion: agentteams.io/v1beta1
 kind: Worker

@@ -1,0 +1,110 @@
+server:
+  name: proof-calc-mcp-server
+  config:
+    accessToken: ""
+  allowTools:
+    - deterministic_calculate
+
+tools:
+  - name: deterministic_calculate
+    description: >-
+      Execute the versioned deterministic compensation formula over PUBLIC_SYNTHETIC evidence and
+      rule citations. Decimal values remain strings. Pass the rule MCP value.rule_scope through
+      unchanged; never reconstruct or rewrite it. Read SkillResult.status before using value.
+    args:
+      - name: fixture_status
+        description: Must be SYNTHETIC; real or private cases are forbidden in this reference runtime.
+        type: string
+        required: false
+        default: SYNTHETIC
+      - name: context
+        description: ProofFlow invocation context; the PF-A4 identity is bound by this endpoint.
+        type: object
+        required: true
+        properties:
+          schema_version:
+            type: string
+            default: proofflow.dev/v1alpha1
+          tenant_id:
+            type: string
+            required: true
+            minLength: 1
+          case_id:
+            type: string
+            required: true
+            minLength: 1
+          trace_id:
+            type: string
+            required: true
+            minLength: 1
+          idempotency_key:
+            type: string
+            required: true
+            minLength: 1
+          expected_state_version:
+            type: integer
+            required: true
+            minimum: 0
+      - name: arguments
+        description: >-
+          Evidence, citations, and formula version from immutable upstream artifacts. The required
+          rule_scope value must be passed through exactly from rule MCP value.rule_scope; do not
+          reconstruct, summarize, normalize, or otherwise let the model rewrite it.
+        type: object
+        required: true
+        properties:
+          evidence:
+            type: array
+            required: true
+            items:
+              type: object
+          rule_citations:
+            type: array
+            required: true
+            items:
+              type: object
+          rule_scope:
+            type: object
+            required: true
+            description: >-
+              Exact rule MCP value.rule_scope JSON value. Pass it through unchanged; never derive or
+              rewrite any field in the model.
+            additionalProperties: false
+            properties:
+              issue_codes:
+                type: array
+                required: true
+                minItems: 1
+                maxItems: 32
+                uniqueItems: true
+                items:
+                  type: string
+                  minLength: 1
+              jurisdiction:
+                type: string
+                required: true
+                minLength: 1
+              as_of_date:
+                type: string
+                required: true
+                format: date
+              catalog_version:
+                type: string
+                required: true
+                minLength: 1
+              rule_query_input_hash:
+                type: string
+                required: true
+                pattern: "^sha256:[0-9a-f]{64}$"
+          formula_version:
+            type: string
+            default: cn-economic-compensation-v0.1
+    requestTemplate:
+      url: "http://proofflow-tool-service.local:8787/v1/tools/deterministic-calculate"
+      method: POST
+      headers:
+        - key: Authorization
+          value: "Bearer {{.config.accessToken}}"
+        - key: Content-Type
+          value: application/json
+      argsToJsonBody: true

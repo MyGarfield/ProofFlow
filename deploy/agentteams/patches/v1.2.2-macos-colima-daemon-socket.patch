@@ -1,0 +1,19 @@
+diff --git a/install/agentteams-install.sh b/install/agentteams-install.sh
+index 078cb44..64448d3 100755
+--- a/install/agentteams-install.sh
++++ b/install/agentteams-install.sh
+@@ -3555,6 +3555,14 @@ EOF
+             ensure_podman_socket
+         fi
+         CONTAINER_SOCK=$(detect_socket)
++        # On macOS with Colima, the Docker CLI endpoint is a host-side socket,
++        # but bind-mount sources are resolved by the daemon inside the Colima
++        # VM. Mount the daemon-local socket instead of the macOS client path.
++        if [ "$(uname -s)" = "Darwin" ] && \
++           docker context ls --format '{{if .Current}}{{.DockerEndpoint}}{{end}}' 2>/dev/null | \
++             grep -q '/\.colima/'; then
++            CONTAINER_SOCK="/var/run/docker.sock"
++        fi
+         if [ -n "${CONTAINER_SOCK}" ]; then
+             log "$(msg install.socket_detected "${CONTAINER_SOCK}")"
+             SOCKET_MOUNT_ARGS="-v ${CONTAINER_SOCK}:/var/run/docker.sock --security-opt label=disable"
