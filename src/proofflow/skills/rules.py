@@ -5,7 +5,13 @@ from __future__ import annotations
 from datetime import datetime
 
 from proofflow.canonical import sha256_digest
-from proofflow.contracts import RuleCatalog, RuleRetrieveOutput, RuleRetrieveRequest
+from proofflow.contracts import (
+    RuleCatalog,
+    RuleRecord,
+    RuleRetrieveOutput,
+    RuleRetrieveRequest,
+    RuleScopeReceipt,
+)
 from proofflow.factories import artifact_meta
 from proofflow.models import (
     Issue,
@@ -18,9 +24,25 @@ from proofflow.models import (
 from proofflow.skills.common import denied
 
 
-def _jurisdiction_applies(rule_jurisdiction: str, case_jurisdiction: str) -> bool:
+def jurisdiction_applies(rule_jurisdiction: str, case_jurisdiction: str) -> bool:
     return case_jurisdiction == rule_jurisdiction or case_jurisdiction.startswith(
         rule_jurisdiction + "-"
+    )
+
+
+def matching_rule_records(
+    request: RuleRetrieveRequest,
+    issue_code: str,
+    catalog: RuleCatalog,
+) -> tuple[RuleRecord, ...]:
+    """Return the catalog records active for one exact query scope."""
+    return tuple(
+        record
+        for record in catalog.rules
+        if record.issue_code == issue_code
+        and jurisdiction_applies(record.jurisdiction, request.jurisdiction)
+        and record.effective_from <= request.as_of_date
+        and (record.effective_to is None or request.as_of_date <= record.effective_to)
     )
 
 
@@ -42,14 +64,7 @@ def rule_retrieve(
     citations: list[RuleCitation] = []
     missing: list[str] = []
     for issue_code in request.issue_codes:
-        matches = [
-            record
-            for record in catalog.rules
-            if record.issue_code == issue_code
-            and _jurisdiction_applies(record.jurisdiction, request.jurisdiction)
-            and record.effective_from <= request.as_of_date
-            and (record.effective_to is None or request.as_of_date <= record.effective_to)
-        ]
+        matches = matching_rule_records(request, issue_code, catalog)
         if not matches:
             missing.append(issue_code)
             continue
@@ -86,6 +101,13 @@ def rule_retrieve(
         citations=tuple(citations),
         missing_issue_codes=tuple(missing),
         catalog_version=catalog.catalog_version,
+        rule_scope=RuleScopeReceipt(
+            issue_codes=request.issue_codes,
+            jurisdiction=request.jurisdiction,
+            as_of_date=request.as_of_date,
+            catalog_version=catalog.catalog_version,
+            rule_query_input_hash=sha256_digest(request),
+        ),
     )
     return SkillResult[RuleRetrieveOutput](
         status=SkillStatus.NEEDS_HUMAN if missing else SkillStatus.SUCCESS,

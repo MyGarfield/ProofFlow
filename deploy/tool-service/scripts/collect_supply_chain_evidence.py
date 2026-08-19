@@ -1,0 +1,565 @@
+#!/usr/bin/env python3
+"""Collect point-in-time SBOM and vulnerability evidence for the pinned tool image.
+
+The scanners never receive the Docker socket. The target is exported with
+``docker image save`` and then scanned as a read-only archive. Trivy's only
+networked phase downloads its vulnerability database without mounting the target.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import re
+import subprocess
+import tarfile
+import tempfile
+from collections import Counter
+from collections.abc import Iterator
+from contextlib import contextmanager
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
+
+ROOT = Path(__file__).resolve().parents[3]
+DEFAULT_OUTPUT = ROOT / "deploy/tool-service/evidence"
+
+TARGET_TAG = "proofflow-tool-service:0.1.0a0"
+TARGET_IMAGE_ID = "sha256:eb1ced4bfd38ee333c17bfac99716486a5850fbfb12bdfc4c11f178514868505"
+TARGET_REFERENCE = f"proofflow-tool-service@{TARGET_IMAGE_ID}"
+BASE_IMAGE_REFERENCE = (
+    "python:3.12-alpine@sha256:285a71327884a4d50efbea30104473b0fa43ecefa499458899670ca30dae76e5"
+)
+
+SYFT_VERSION = "1.51.0"
+SYFT_IMAGE_INDEX_DIGEST = "sha256:678bfa565b60f747aac0f8e964fe5588a24445b8d0a480e91f6efd70020dfbb0"
+SYFT_AMD64_MANIFEST_DIGEST = (
+    "sha256:41f8289664101d6ebab30a97ac8df6b6f86b92d8343285ca90f428e2bc353106"
+)
+SYFT_IMAGE = f"anchore/syft@{SYFT_IMAGE_INDEX_DIGEST}"
+
+TRIVY_VERSION = "0.74.0"
+TRIVY_IMAGE_INDEX_DIGEST = "sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969"
+TRIVY_AMD64_MANIFEST_DIGEST = (
+    "sha256:ee940acbf1f58ebadb42d01434ce4609530bf1b52536afbd1eee66cd7123c5c9"
+)
+TRIVY_IMAGE = f"aquasec/trivy@{TRIVY_IMAGE_INDEX_DIGEST}"
+
+SEVERITIES = ("UNKNOWN", "LOW", "MEDIUM", "HIGH", "CRITICAL")
+ARTIFACT_NAMES = {
+    "cyclonedx": "sbom.cyclonedx.json",
+    "spdx": "sbom.spdx.json",
+    "trivy": "vulnerabilities.trivy.json",
+}
+
+
+class CollectionError(RuntimeError):
+    """Raised when a collection precondition or scanner contract fails."""
+
+
+def run(arguments: list[str], *, timeout: int = 900) -> subprocess.CompletedProcess[bytes]:
+    try:
+        return subprocess.run(
+            arguments,
+            check=True,
+            capture_output=True,
+            timeout=timeout,
+        )
+    except subprocess.CalledProcessError as exc:
+        stderr = exc.stderr.decode("utf-8", errors="replace")[-4000:]
+        raise CollectionError(
+            f"command failed ({exc.returncode}): {arguments[0]}: {stderr}"
+        ) from exc
+    except subprocess.TimeoutExpired as exc:
+        raise CollectionError(f"command timed out after {timeout}s: {arguments[0]}") from exc
+
+
+def _reject_json_constant(value: str) -> None:
+    del value
+    raise CollectionError("non-finite JSON numbers are not allowed")
+
+
+def load_json_bytes(payload: bytes, label: str) -> dict[str, Any]:
+    try:
+        value = json.loads(payload, parse_constant=_reject_json_constant)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise CollectionError(f"{label} is not valid UTF-8 JSON") from exc
+    if not isinstance(value, dict):
+        raise CollectionError(f"{label} root must be an object")
+    return value
+
+
+def sha256_bytes(payload: bytes) -> str:
+    return f"sha256:{hashlib.sha256(payload).hexdigest()}"
+
+
+def docker_image_metadata() -> dict[str, Any]:
+    template = "{{.Id}}\t{{.Os}}\t{{.Architecture}}\t{{.Created}}\t{{json .RepoDigests}}"
+    output = run(["docker", "image", "inspect", "--format", template, TARGET_TAG]).stdout
+    fields = output.decode("utf-8").strip().split("\t", maxsplit=4)
+    if len(fields) != 5:
+        raise CollectionError("unexpected docker image inspect output")
+    image_id, operating_system, architecture, created_at, repo_digests_json = fields
+    repo_digests = json.loads(repo_digests_json)
+    if image_id != TARGET_IMAGE_ID:
+        raise CollectionError(
+            f"target tag moved: expected {TARGET_IMAGE_ID}, observed {image_id or '<empty>'}"
+        )
+    if TARGET_REFERENCE not in repo_digests:
+        raise CollectionError("target immutable reference is absent from local RepoDigests")
+    if (operating_system, architecture) != ("linux", "amd64"):
+        raise CollectionError(
+            "unsupported scan platform: expected linux/amd64, observed "
+            f"{operating_system}/{architecture}"
+        )
+    return {
+        "tag": TARGET_TAG,
+        "immutable_reference": TARGET_REFERENCE,
+        "image_id": image_id,
+        "platform": f"{operating_system}/{architecture}",
+        "created_at": created_at,
+    }
+
+
+def docker_archive_config_digest(path: Path) -> str:
+    with tarfile.open(path, mode="r") as archive:
+        try:
+            manifest_member = archive.getmember("manifest.json")
+        except KeyError as exc:
+            raise CollectionError("Docker archive omitted manifest.json") from exc
+        if manifest_member.size > 1024 * 1024:
+            raise CollectionError("Docker archive manifest is unexpectedly large")
+        manifest_stream = archive.extractfile(manifest_member)
+        if manifest_stream is None:
+            raise CollectionError("Docker archive manifest is not a regular file")
+        try:
+            manifest = json.loads(manifest_stream.read(), parse_constant=_reject_json_constant)
+        except json.JSONDecodeError as exc:
+            raise CollectionError("Docker archive manifest is invalid JSON") from exc
+        if not isinstance(manifest, list) or len(manifest) != 1:
+            raise CollectionError("Docker archive must contain exactly one image manifest")
+        config_path = manifest[0].get("Config") if isinstance(manifest[0], dict) else None
+        match = re.fullmatch(r"blobs/sha256/([0-9a-f]{64})", config_path or "")
+        if match is None:
+            raise CollectionError("Docker archive config path is not content-addressed")
+        config_member = archive.getmember(config_path)
+        config_stream = archive.extractfile(config_member)
+        if config_stream is None:
+            raise CollectionError("Docker archive image config is not a regular file")
+        config_payload = config_stream.read()
+        observed = hashlib.sha256(config_payload).hexdigest()
+        if observed != match.group(1):
+            raise CollectionError("Docker archive image config digest mismatch")
+        return f"sha256:{observed}"
+
+
+def scanner_run(
+    image: str,
+    arguments: list[str],
+    *,
+    workdir: Path | None = None,
+    cache_volume: str | None = None,
+    network: str = "none",
+) -> bytes:
+    command = ["docker", "run", "--rm", "--network", network]
+    if workdir is not None:
+        command.extend(
+            [
+                "--workdir",
+                "/work",
+                "--mount",
+                f"type=bind,src={workdir},dst=/work,readonly",
+            ]
+        )
+    if cache_volume is not None:
+        command.extend(
+            [
+                "--mount",
+                f"type=volume,src={cache_volume},dst=/root/.cache/trivy",
+            ]
+        )
+    command.extend([image, *arguments])
+    return run(command).stdout
+
+
+@contextmanager
+def temporary_docker_volume() -> Iterator[str]:
+    name = f"proofflow-trivy-evidence-{os.getpid()}"
+    created = run(["docker", "volume", "create", name]).stdout.decode("utf-8").strip()
+    if created != name:
+        raise CollectionError("Docker returned an unexpected temporary volume name")
+    try:
+        yield name
+    finally:
+        cleanup = subprocess.run(
+            ["docker", "volume", "rm", name],
+            check=False,
+            capture_output=True,
+            timeout=30,
+        )
+        if cleanup.returncode != 0:
+            raise CollectionError("failed to remove the temporary Trivy cache volume")
+
+
+def database_identity(cache_volume: str) -> tuple[str, int]:
+    command = [
+        "docker",
+        "run",
+        "--rm",
+        "--network",
+        "none",
+        "--mount",
+        f"type=volume,src={cache_volume},dst=/root/.cache/trivy",
+        "--entrypoint",
+        "/bin/sh",
+        TRIVY_IMAGE,
+        "-c",
+        (
+            "set -eu; "
+            "sha256sum /root/.cache/trivy/db/trivy.db; "
+            "wc -c < /root/.cache/trivy/db/trivy.db"
+        ),
+    ]
+    lines = run(command).stdout.decode("ascii").splitlines()
+    if len(lines) != 2:
+        raise CollectionError("unexpected Trivy database identity output")
+    digest = lines[0].split(maxsplit=1)[0]
+    if not re.fullmatch(r"[0-9a-f]{64}", digest):
+        raise CollectionError("invalid Trivy database digest output")
+    try:
+        size = int(lines[1].strip())
+    except ValueError as exc:
+        raise CollectionError("invalid Trivy database size output") from exc
+    if size < 1:
+        raise CollectionError("Trivy database must not be empty")
+    return f"sha256:{digest}", size
+
+
+def count_vulnerabilities(
+    report: dict[str, Any],
+) -> tuple[dict[str, int], list[dict[str, Any]], list[dict[str, Any]]]:
+    counts: Counter[str] = Counter()
+    targets: list[dict[str, Any]] = []
+    high_or_critical: list[dict[str, Any]] = []
+    results = report.get("Results")
+    if not isinstance(results, list):
+        raise CollectionError("Trivy report has no Results array")
+    for result in results:
+        if not isinstance(result, dict):
+            raise CollectionError("Trivy result must be an object")
+        target_counts: Counter[str] = Counter()
+        vulnerabilities = result.get("Vulnerabilities") or []
+        if not isinstance(vulnerabilities, list):
+            raise CollectionError("Trivy Vulnerabilities must be an array or null")
+        for vulnerability in vulnerabilities:
+            severity = vulnerability.get("Severity", "UNKNOWN")
+            if severity not in SEVERITIES:
+                raise CollectionError(f"unexpected Trivy severity: {severity}")
+            counts[severity] += 1
+            target_counts[severity] += 1
+            if severity in {"HIGH", "CRITICAL"}:
+                high_or_critical.append(
+                    {
+                        "target": result.get("Target", ""),
+                        "class": result.get("Class", ""),
+                        "type": result.get("Type", ""),
+                        "vulnerability_id": vulnerability.get("VulnerabilityID", ""),
+                        "package_name": vulnerability.get("PkgName", ""),
+                        "installed_version": vulnerability.get("InstalledVersion", ""),
+                        "fixed_version": vulnerability.get("FixedVersion"),
+                        "status": vulnerability.get("Status", ""),
+                        "severity": severity,
+                        "primary_url": vulnerability.get("PrimaryURL", ""),
+                    }
+                )
+        targets.append(
+            {
+                "target": result.get("Target", ""),
+                "class": result.get("Class", ""),
+                "type": result.get("Type", ""),
+                "records": {severity: target_counts[severity] for severity in SEVERITIES},
+                "total": sum(target_counts.values()),
+            }
+        )
+    return (
+        {severity: counts[severity] for severity in SEVERITIES},
+        targets,
+        sorted(
+            high_or_critical,
+            key=lambda item: (
+                item["severity"],
+                item["vulnerability_id"],
+                item["package_name"],
+            ),
+        ),
+    )
+
+
+def artifact_record(path: Path, *, media_type: str, record_count: int) -> dict[str, Any]:
+    payload = path.read_bytes()
+    return {
+        "path": path.name,
+        "media_type": media_type,
+        "sha256": sha256_bytes(payload),
+        "bytes": len(payload),
+        "record_count": record_count,
+    }
+
+
+def write_atomic(path: Path, payload: bytes) -> None:
+    temporary = path.with_suffix(f"{path.suffix}.tmp")
+    temporary.write_bytes(payload)
+    os.replace(temporary, path)
+
+
+def collect(output_dir: Path) -> dict[str, Any]:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    subject = docker_image_metadata()
+
+    # The AgentTeams Docker daemon runs in a VM that shares the repository's
+    # /Users path but not macOS's /var/folders default temporary directory.
+    with (
+        tempfile.TemporaryDirectory(prefix=".proofflow-supply-chain-", dir=ROOT) as directory,
+        temporary_docker_volume() as cache_volume,
+    ):
+        workdir = Path(directory)
+        os.chmod(workdir, 0o755)
+        archive = workdir / "target.tar"
+        run(["docker", "image", "save", "--output", str(archive), TARGET_REFERENCE])
+        archive.chmod(0o644)
+        subject["image_config_digest"] = docker_archive_config_digest(archive)
+
+        syft_version_raw = scanner_run(SYFT_IMAGE, ["version", "-o", "json"])
+        syft_version = load_json_bytes(syft_version_raw, "Syft version")
+        if syft_version.get("version") != SYFT_VERSION:
+            raise CollectionError("pinned Syft image returned an unexpected version")
+        if syft_version.get("platform") != "linux/amd64":
+            raise CollectionError("pinned Syft image returned an unexpected platform")
+
+        cyclonedx_raw = scanner_run(
+            SYFT_IMAGE,
+            [
+                "scan",
+                "docker-archive:target.tar",
+                "--scope",
+                "squashed",
+                "-o",
+                "cyclonedx-json",
+                "-q",
+            ],
+            workdir=workdir,
+        )
+        spdx_raw = scanner_run(
+            SYFT_IMAGE,
+            ["scan", "docker-archive:target.tar", "--scope", "squashed", "-o", "spdx-json", "-q"],
+            workdir=workdir,
+        )
+        cyclonedx = load_json_bytes(cyclonedx_raw, "CycloneDX SBOM")
+        spdx = load_json_bytes(spdx_raw, "SPDX SBOM")
+
+        scanner_run(
+            TRIVY_IMAGE,
+            ["image", "--download-db-only", "--cache-dir", "/root/.cache/trivy", "--quiet"],
+            cache_volume=cache_volume,
+            network="bridge",
+        )
+        trivy_version_raw = scanner_run(
+            TRIVY_IMAGE,
+            ["version", "--format", "json"],
+            cache_volume=cache_volume,
+        )
+        trivy_version = load_json_bytes(trivy_version_raw, "Trivy version")
+        if trivy_version.get("Version") != TRIVY_VERSION:
+            raise CollectionError("pinned Trivy image returned an unexpected version")
+
+        database_hash_before_scan, database_size = database_identity(cache_volume)
+
+        trivy_raw = scanner_run(
+            TRIVY_IMAGE,
+            [
+                "image",
+                "--input",
+                "target.tar",
+                "--scanners",
+                "vuln",
+                "--severity",
+                ",".join(SEVERITIES),
+                "--offline-scan",
+                "--skip-db-update",
+                "--cache-dir",
+                "/root/.cache/trivy",
+                "--timeout",
+                "10m",
+                "--format",
+                "json",
+                "--quiet",
+            ],
+            workdir=workdir,
+            cache_volume=cache_volume,
+        )
+        trivy = load_json_bytes(trivy_raw, "Trivy vulnerability report")
+
+        database_hash_after_scan, database_size_after_scan = database_identity(cache_volume)
+        if (database_hash_after_scan, database_size_after_scan) != (
+            database_hash_before_scan,
+            database_size,
+        ):
+            raise CollectionError("Trivy database changed during the network-disabled target scan")
+        database = trivy_version.get("VulnerabilityDB")
+        if not isinstance(database, dict):
+            raise CollectionError("Trivy version output omitted VulnerabilityDB metadata")
+
+        raw_by_name = {
+            ARTIFACT_NAMES["cyclonedx"]: cyclonedx_raw,
+            ARTIFACT_NAMES["spdx"]: spdx_raw,
+            ARTIFACT_NAMES["trivy"]: trivy_raw,
+        }
+        for filename, payload in raw_by_name.items():
+            write_atomic(output_dir / filename, payload)
+
+        vulnerability_counts, findings_by_target, high_or_critical_findings = count_vulnerabilities(
+            trivy
+        )
+        cyclonedx_components = cyclonedx.get("components") or []
+        spdx_packages = spdx.get("packages") or []
+        if not isinstance(cyclonedx_components, list) or not isinstance(spdx_packages, list):
+            raise CollectionError("SBOM package collections must be arrays")
+
+        artifacts = [
+            artifact_record(
+                output_dir / ARTIFACT_NAMES["cyclonedx"],
+                media_type="application/vnd.cyclonedx+json",
+                record_count=len(cyclonedx_components),
+            ),
+            artifact_record(
+                output_dir / ARTIFACT_NAMES["spdx"],
+                media_type="application/spdx+json",
+                record_count=len(spdx_packages),
+            ),
+            artifact_record(
+                output_dir / ARTIFACT_NAMES["trivy"],
+                media_type="application/vnd.aquasec.trivy.report+json",
+                record_count=sum(vulnerability_counts.values()),
+            ),
+        ]
+
+        high_or_critical = vulnerability_counts["HIGH"] + vulnerability_counts["CRITICAL"]
+        report: dict[str, Any] = {
+            "schema_version": "1.0.0",
+            "collected_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+            "claim_level": "POINT_IN_TIME_PACKAGE_VULNERABILITY_SCAN",
+            "subject": subject,
+            "scope": {
+                "acquisition": "DOCKER_IMAGE_SAVE",
+                "scanner_target": "READ_ONLY_IMAGE_ARCHIVE",
+                "target_archive_published": False,
+                "runtime_container_inspected": False,
+                "runtime_environment_inspected": False,
+                "scanner_network_during_target_analysis": "NONE",
+                "scanners": ["OS_PACKAGES", "LANGUAGE_PACKAGES", "KNOWN_VULNERABILITIES"],
+                "base_image": BASE_IMAGE_REFERENCE,
+            },
+            "tools": {
+                "syft": {
+                    "version": SYFT_VERSION,
+                    "release_url": "https://github.com/anchore/syft/releases/tag/v1.51.0",
+                    "image": SYFT_IMAGE,
+                    "image_index_digest": SYFT_IMAGE_INDEX_DIGEST,
+                    "platform_manifest_digest": SYFT_AMD64_MANIFEST_DIGEST,
+                    "platform": syft_version["platform"],
+                    "git_commit": syft_version["gitCommit"],
+                    "build_date": syft_version["buildDate"],
+                },
+                "trivy": {
+                    "version": TRIVY_VERSION,
+                    "release_url": "https://github.com/aquasecurity/trivy/releases/tag/v0.74.0",
+                    "image": TRIVY_IMAGE,
+                    "image_index_digest": TRIVY_IMAGE_INDEX_DIGEST,
+                    "platform_manifest_digest": TRIVY_AMD64_MANIFEST_DIGEST,
+                    "platform": "linux/amd64",
+                },
+            },
+            "vulnerability_database": {
+                "schema_version": database.get("Version"),
+                "updated_at": database.get("UpdatedAt"),
+                "next_update": database.get("NextUpdate"),
+                "downloaded_at": database.get("DownloadedAt"),
+                "sha256": database_hash_before_scan,
+                "bytes": database_size,
+            },
+            "artifacts": artifacts,
+            "summary": {
+                "cyclonedx_components": len(cyclonedx_components),
+                "spdx_packages": len(spdx_packages),
+                "vulnerability_records": vulnerability_counts,
+                "total_vulnerability_records": sum(vulnerability_counts.values()),
+                "findings_by_target": findings_by_target,
+                "high_or_critical_findings": high_or_critical_findings,
+                "verdict": (
+                    "HIGH_OR_CRITICAL_FOUND" if high_or_critical else "NO_HIGH_OR_CRITICAL_FOUND"
+                ),
+            },
+            "reproducibility": {
+                "collector": "deploy/tool-service/scripts/collect_supply_chain_evidence.py",
+                "validator": "deploy/tool-service/scripts/validate_supply_chain_evidence.py",
+                "schema": "deploy/tool-service/evidence/supply-chain-evidence.schema.json",
+                "tool_images_pinned_by_digest": True,
+                "subject_pinned_by_digest": True,
+                "database_bytes_pinned_by_hash": True,
+            },
+            "limitations": [
+                "This is a point-in-time scan against one mutable vulnerability database snapshot.",
+                (
+                    "Scanner and advisory database false positives, false negatives, and "
+                    "coverage gaps remain possible."
+                ),
+                (
+                    "The scan covers final-image OS and language packages, not dynamic "
+                    "application behavior."
+                ),
+                (
+                    "Runtime configuration, running-container environment, credentials, "
+                    "secrets, and network behavior were not inspected."
+                ),
+                (
+                    "This evidence does not verify registry signatures, build provenance, "
+                    "deployment configuration, or production security."
+                ),
+                (
+                    "No finding at a severity is evidence of scanner non-detection, not proof "
+                    "that no vulnerability exists."
+                ),
+            ],
+        }
+
+    report_path = output_dir / "supply-chain-evidence.json"
+    write_atomic(
+        report_path,
+        (json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode(),
+    )
+    return report
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    arguments = parser.parse_args()
+    report = collect(arguments.output.resolve())
+    print(
+        json.dumps(
+            {
+                "image_id": report["subject"]["image_id"],
+                "components": report["summary"]["cyclonedx_components"],
+                "vulnerabilities": report["summary"]["vulnerability_records"],
+                "verdict": report["summary"]["verdict"],
+            },
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

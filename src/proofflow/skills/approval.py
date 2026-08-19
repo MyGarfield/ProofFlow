@@ -38,6 +38,7 @@ def human_approval(
     if (
         approval_request.tenant_id != context.tenant_id
         or approval_request.case_id != context.case_id
+        or approval_request.trace_id != context.trace_id
     ):
         issues.append(
             Issue(
@@ -54,7 +55,33 @@ def human_approval(
                 message="human actor does not hold the required approval role",
             )
         )
-    if decision.decided_at > approval_request.expires_at or now > approval_request.expires_at:
+    if now.tzinfo is None or now.utcoffset() is None:
+        issues.append(
+            Issue(
+                code="INVALID_APPROVAL_TIME",
+                severity="BLOCKER",
+                message="approval execution time must be timezone-aware",
+            )
+        )
+    elif decision.decided_at != now:
+        issues.append(
+            Issue(
+                code="APPROVAL_TIME_MISMATCH",
+                severity="BLOCKER",
+                message="the recorded human decision time must match execution time",
+            )
+        )
+    elif now < approval_request.created_at:
+        issues.append(
+            Issue(
+                code="APPROVAL_NOT_YET_ACTIVE",
+                severity="BLOCKER",
+                message="approval cannot occur before the request was created",
+            )
+        )
+    if decision.decided_at > approval_request.expires_at or (
+        now.tzinfo is not None and now.utcoffset() is not None and now > approval_request.expires_at
+    ):
         issues.append(
             Issue(
                 code="APPROVAL_EXPIRED",

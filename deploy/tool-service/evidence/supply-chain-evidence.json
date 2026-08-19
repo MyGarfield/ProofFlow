@@ -1,0 +1,136 @@
+{
+  "artifacts": [
+    {
+      "bytes": 351255,
+      "media_type": "application/vnd.cyclonedx+json",
+      "path": "sbom.cyclonedx.json",
+      "record_count": 937,
+      "sha256": "sha256:0b310340555e5a88596d6d3a86e4afdfb0f52befbfd7469b5a0b81e611b785b5"
+    },
+    {
+      "bytes": 815897,
+      "media_type": "application/spdx+json",
+      "path": "sbom.spdx.json",
+      "record_count": 45,
+      "sha256": "sha256:847a80d25d54239c03d7096033d530036a22f5cf799a822c7ff88f20351e2990"
+    },
+    {
+      "bytes": 105659,
+      "media_type": "application/vnd.aquasec.trivy.report+json",
+      "path": "vulnerabilities.trivy.json",
+      "record_count": 0,
+      "sha256": "sha256:5bddff4d6c83c97cc0f4f56117d5c8d4bd24b8f4355630d34766d67733011e2b"
+    }
+  ],
+  "claim_level": "POINT_IN_TIME_PACKAGE_VULNERABILITY_SCAN",
+  "collected_at": "2026-08-19T20:06:34.444000Z",
+  "limitations": [
+    "This is a point-in-time scan against one mutable vulnerability database snapshot.",
+    "Scanner and advisory database false positives, false negatives, and coverage gaps remain possible.",
+    "The scan covers final-image OS and language packages, not dynamic application behavior.",
+    "Runtime configuration, running-container environment, credentials, secrets, and network behavior were not inspected.",
+    "This evidence does not verify registry signatures, build provenance, deployment configuration, or production security.",
+    "No finding at a severity is evidence of scanner non-detection, not proof that no vulnerability exists."
+  ],
+  "reproducibility": {
+    "collector": "deploy/tool-service/scripts/collect_supply_chain_evidence.py",
+    "database_bytes_pinned_by_hash": true,
+    "schema": "deploy/tool-service/evidence/supply-chain-evidence.schema.json",
+    "subject_pinned_by_digest": true,
+    "tool_images_pinned_by_digest": true,
+    "validator": "deploy/tool-service/scripts/validate_supply_chain_evidence.py"
+  },
+  "schema_version": "1.0.0",
+  "scope": {
+    "acquisition": "DOCKER_IMAGE_SAVE",
+    "base_image": "python:3.12-alpine@sha256:285a71327884a4d50efbea30104473b0fa43ecefa499458899670ca30dae76e5",
+    "runtime_container_inspected": false,
+    "runtime_environment_inspected": false,
+    "scanner_network_during_target_analysis": "NONE",
+    "scanner_target": "READ_ONLY_IMAGE_ARCHIVE",
+    "scanners": [
+      "OS_PACKAGES",
+      "LANGUAGE_PACKAGES",
+      "KNOWN_VULNERABILITIES"
+    ],
+    "target_archive_published": false
+  },
+  "subject": {
+    "created_at": "2026-08-20T03:58:52.31803114+08:00",
+    "image_config_digest": "sha256:85f41ed79962e5388643e29a2c6e28b12e2672e5eee1e1aead9d5cb70fab16a5",
+    "image_id": "sha256:eb1ced4bfd38ee333c17bfac99716486a5850fbfb12bdfc4c11f178514868505",
+    "immutable_reference": "proofflow-tool-service@sha256:eb1ced4bfd38ee333c17bfac99716486a5850fbfb12bdfc4c11f178514868505",
+    "platform": "linux/amd64",
+    "tag": "proofflow-tool-service:0.1.0a0"
+  },
+  "summary": {
+    "cyclonedx_components": 937,
+    "findings_by_target": [
+      {
+        "class": "os-pkgs",
+        "records": {
+          "CRITICAL": 0,
+          "HIGH": 0,
+          "LOW": 0,
+          "MEDIUM": 0,
+          "UNKNOWN": 0
+        },
+        "target": "target.tar (alpine 3.24.1)",
+        "total": 0,
+        "type": "alpine"
+      },
+      {
+        "class": "lang-pkgs",
+        "records": {
+          "CRITICAL": 0,
+          "HIGH": 0,
+          "LOW": 0,
+          "MEDIUM": 0,
+          "UNKNOWN": 0
+        },
+        "target": "Python",
+        "total": 0,
+        "type": "python-pkg"
+      }
+    ],
+    "high_or_critical_findings": [],
+    "spdx_packages": 45,
+    "total_vulnerability_records": 0,
+    "verdict": "NO_HIGH_OR_CRITICAL_FOUND",
+    "vulnerability_records": {
+      "CRITICAL": 0,
+      "HIGH": 0,
+      "LOW": 0,
+      "MEDIUM": 0,
+      "UNKNOWN": 0
+    }
+  },
+  "tools": {
+    "syft": {
+      "build_date": "2026-08-10T14:48:50Z",
+      "git_commit": "2293641e3bd628a01bb37639318d62c0ebe89b39",
+      "image": "anchore/syft@sha256:678bfa565b60f747aac0f8e964fe5588a24445b8d0a480e91f6efd70020dfbb0",
+      "image_index_digest": "sha256:678bfa565b60f747aac0f8e964fe5588a24445b8d0a480e91f6efd70020dfbb0",
+      "platform": "linux/amd64",
+      "platform_manifest_digest": "sha256:41f8289664101d6ebab30a97ac8df6b6f86b92d8343285ca90f428e2bc353106",
+      "release_url": "https://github.com/anchore/syft/releases/tag/v1.51.0",
+      "version": "1.51.0"
+    },
+    "trivy": {
+      "image": "aquasec/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969",
+      "image_index_digest": "sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969",
+      "platform": "linux/amd64",
+      "platform_manifest_digest": "sha256:ee940acbf1f58ebadb42d01434ce4609530bf1b52536afbd1eee66cd7123c5c9",
+      "release_url": "https://github.com/aquasecurity/trivy/releases/tag/v0.74.0",
+      "version": "0.74.0"
+    }
+  },
+  "vulnerability_database": {
+    "bytes": 1311363072,
+    "downloaded_at": "2026-08-19T20:05:17.835547655Z",
+    "next_update": "2026-08-20T19:01:58.382134067Z",
+    "schema_version": 2,
+    "sha256": "sha256:7d9211a2f0ca51ff7c6f3417e5856a95398ad56866fb4748692eb0ecf5dc4207",
+    "updated_at": "2026-08-19T19:01:58.382134595Z"
+  }
+}

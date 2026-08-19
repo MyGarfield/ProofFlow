@@ -97,18 +97,22 @@
   "properties": {
     "approval_method": {
       "default": "LOCAL_DEMO",
+      "minLength": 1,
       "title": "Approval Method",
       "type": "string"
     },
     "approved_artifact_hash": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
       "title": "Approved Artifact Hash",
       "type": "string"
     },
     "approver_id": {
+      "minLength": 1,
       "title": "Approver Id",
       "type": "string"
     },
     "approver_role": {
+      "minLength": 1,
       "title": "Approver Role",
       "type": "string"
     },
@@ -129,10 +133,12 @@
       "$ref": "#/$defs/ArtifactMeta"
     },
     "reason": {
+      "minLength": 1,
       "title": "Reason",
       "type": "string"
     },
     "request_id": {
+      "minLength": 1,
       "title": "Request Id",
       "type": "string"
     }

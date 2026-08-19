@@ -1,0 +1,345 @@
+{
+  "$defs": {
+    "ArtifactMeta": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "case_id": {
+          "minLength": 1,
+          "title": "Case Id",
+          "type": "string"
+        },
+        "classification": {
+          "$ref": "#/$defs/DataClassification",
+          "default": "PUBLIC_SYNTHETIC"
+        },
+        "content_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Content Hash"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "producer_identity": {
+          "minLength": 1,
+          "title": "Producer Identity",
+          "type": "string"
+        },
+        "schema_version": {
+          "default": "proofflow.dev/v1alpha1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_refs": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Refs",
+          "type": "array"
+        },
+        "tenant_id": {
+          "minLength": 1,
+          "title": "Tenant Id",
+          "type": "string"
+        },
+        "trace_id": {
+          "minLength": 1,
+          "title": "Trace Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "tenant_id",
+        "case_id",
+        "producer_identity",
+        "trace_id",
+        "created_at"
+      ],
+      "title": "ArtifactMeta",
+      "type": "object"
+    },
+    "CalculateOutput": {
+      "additionalProperties": false,
+      "properties": {
+        "sheet": {
+          "$ref": "#/$defs/CalculationSheet"
+        }
+      },
+      "required": [
+        "sheet"
+      ],
+      "title": "CalculateOutput",
+      "type": "object"
+    },
+    "CalculationLineItem": {
+      "additionalProperties": false,
+      "properties": {
+        "amount": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Amount"
+        },
+        "formula_id": {
+          "title": "Formula Id",
+          "type": "string"
+        },
+        "formula_version": {
+          "title": "Formula Version",
+          "type": "string"
+        },
+        "intermediate_values": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "title": "Intermediate Values",
+          "type": "object"
+        },
+        "item_code": {
+          "title": "Item Code",
+          "type": "string"
+        },
+        "parameters": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "title": "Parameters",
+          "type": "object"
+        }
+      },
+      "required": [
+        "item_code",
+        "formula_id",
+        "formula_version",
+        "parameters",
+        "intermediate_values",
+        "amount"
+      ],
+      "title": "CalculationLineItem",
+      "type": "object"
+    },
+    "CalculationSheet": {
+      "additionalProperties": false,
+      "properties": {
+        "line_items": {
+          "items": {
+            "$ref": "#/$defs/CalculationLineItem"
+          },
+          "title": "Line Items",
+          "type": "array"
+        },
+        "meta": {
+          "$ref": "#/$defs/ArtifactMeta"
+        },
+        "missing_parameters": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Parameters",
+          "type": "array"
+        },
+        "reproducibility_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reproducibility Hash"
+        },
+        "total": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Total"
+        }
+      },
+      "required": [
+        "meta",
+        "line_items",
+        "total"
+      ],
+      "title": "CalculationSheet",
+      "type": "object"
+    },
+    "DataClassification": {
+      "enum": [
+        "PUBLIC_SYNTHETIC",
+        "INTERNAL",
+        "RESTRICTED"
+      ],
+      "title": "DataClassification",
+      "type": "string"
+    },
+    "Issue": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "needs_human": {
+          "default": false,
+          "title": "Needs Human",
+          "type": "boolean"
+        },
+        "object_refs": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Object Refs",
+          "type": "array"
+        },
+        "retryable": {
+          "default": false,
+          "title": "Retryable",
+          "type": "boolean"
+        },
+        "severity": {
+          "title": "Severity",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "severity",
+        "message"
+      ],
+      "title": "Issue",
+      "type": "object"
+    },
+    "SkillStatus": {
+      "enum": [
+        "SUCCESS",
+        "BLOCKED",
+        "NEEDS_HUMAN",
+        "RETRYABLE_FAILURE"
+      ],
+      "title": "SkillStatus",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "emitted_refs": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Emitted Refs",
+      "type": "array"
+    },
+    "input_hash": {
+      "title": "Input Hash",
+      "type": "string"
+    },
+    "issues": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Issue"
+      },
+      "title": "Issues",
+      "type": "array"
+    },
+    "output_hash": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Output Hash"
+    },
+    "status": {
+      "$ref": "#/$defs/SkillStatus"
+    },
+    "value": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CalculateOutput"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "status",
+    "input_hash"
+  ],
+  "title": "SkillResult[CalculateOutput]",
+  "type": "object"
+}

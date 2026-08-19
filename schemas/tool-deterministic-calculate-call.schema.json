@@ -1,0 +1,388 @@
+{
+  "$defs": {
+    "ArtifactMeta": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "case_id": {
+          "minLength": 1,
+          "title": "Case Id",
+          "type": "string"
+        },
+        "classification": {
+          "$ref": "#/$defs/DataClassification",
+          "default": "PUBLIC_SYNTHETIC"
+        },
+        "content_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Content Hash"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "producer_identity": {
+          "minLength": 1,
+          "title": "Producer Identity",
+          "type": "string"
+        },
+        "schema_version": {
+          "default": "proofflow.dev/v1alpha1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_refs": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Refs",
+          "type": "array"
+        },
+        "tenant_id": {
+          "minLength": 1,
+          "title": "Tenant Id",
+          "type": "string"
+        },
+        "trace_id": {
+          "minLength": 1,
+          "title": "Trace Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "tenant_id",
+        "case_id",
+        "producer_identity",
+        "trace_id",
+        "created_at"
+      ],
+      "title": "ArtifactMeta",
+      "type": "object"
+    },
+    "CalculateRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/EvidenceObject"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "formula_version": {
+          "default": "cn-economic-compensation-v0.1",
+          "title": "Formula Version",
+          "type": "string"
+        },
+        "rule_citations": {
+          "items": {
+            "$ref": "#/$defs/RuleCitation"
+          },
+          "title": "Rule Citations",
+          "type": "array"
+        },
+        "rule_scope": {
+          "$ref": "#/$defs/RuleScopeReceipt"
+        }
+      },
+      "required": [
+        "evidence",
+        "rule_citations",
+        "rule_scope"
+      ],
+      "title": "CalculateRequest",
+      "type": "object"
+    },
+    "DataClassification": {
+      "enum": [
+        "PUBLIC_SYNTHETIC",
+        "INTERNAL",
+        "RESTRICTED"
+      ],
+      "title": "DataClassification",
+      "type": "string"
+    },
+    "DeterministicCalculateToolContext": {
+      "additionalProperties": false,
+      "properties": {
+        "actor_kind": {
+          "const": "AGENT",
+          "default": "AGENT",
+          "title": "Actor Kind",
+          "type": "string"
+        },
+        "caller_identity": {
+          "const": "PF-A4",
+          "default": "PF-A4",
+          "title": "Caller Identity",
+          "type": "string"
+        },
+        "case_id": {
+          "minLength": 1,
+          "title": "Case Id",
+          "type": "string"
+        },
+        "expected_state_version": {
+          "minimum": 0,
+          "title": "Expected State Version",
+          "type": "integer"
+        },
+        "idempotency_key": {
+          "minLength": 1,
+          "title": "Idempotency Key",
+          "type": "string"
+        },
+        "schema_version": {
+          "default": "proofflow.dev/v1alpha1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "tenant_id": {
+          "minLength": 1,
+          "title": "Tenant Id",
+          "type": "string"
+        },
+        "trace_id": {
+          "minLength": 1,
+          "title": "Trace Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tenant_id",
+        "case_id",
+        "trace_id",
+        "idempotency_key",
+        "expected_state_version"
+      ],
+      "title": "DeterministicCalculateToolContext",
+      "type": "object"
+    },
+    "EvidenceObject": {
+      "additionalProperties": false,
+      "properties": {
+        "confidence": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Confidence"
+        },
+        "evidence_type": {
+          "title": "Evidence Type",
+          "type": "string"
+        },
+        "fact_status": {
+          "$ref": "#/$defs/FactStatus",
+          "default": "PROPOSED"
+        },
+        "field_name": {
+          "title": "Field Name",
+          "type": "string"
+        },
+        "meta": {
+          "$ref": "#/$defs/ArtifactMeta"
+        },
+        "normalized_value": {
+          "title": "Normalized Value",
+          "type": "string"
+        },
+        "source_document_id": {
+          "title": "Source Document Id",
+          "type": "string"
+        },
+        "verbatim_excerpt": {
+          "title": "Verbatim Excerpt",
+          "type": "string"
+        }
+      },
+      "required": [
+        "meta",
+        "evidence_type",
+        "field_name",
+        "normalized_value",
+        "verbatim_excerpt",
+        "source_document_id",
+        "confidence"
+      ],
+      "title": "EvidenceObject",
+      "type": "object"
+    },
+    "FactStatus": {
+      "enum": [
+        "PROPOSED",
+        "VERIFIED",
+        "CONFLICTED",
+        "UNRESOLVED"
+      ],
+      "title": "FactStatus",
+      "type": "string"
+    },
+    "RuleCitation": {
+      "additionalProperties": false,
+      "properties": {
+        "authoritative_source": {
+          "title": "Authoritative Source",
+          "type": "string"
+        },
+        "effective_from": {
+          "format": "date",
+          "title": "Effective From",
+          "type": "string"
+        },
+        "effective_to": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Effective To"
+        },
+        "excerpt": {
+          "title": "Excerpt",
+          "type": "string"
+        },
+        "issue_code": {
+          "title": "Issue Code",
+          "type": "string"
+        },
+        "jurisdiction": {
+          "title": "Jurisdiction",
+          "type": "string"
+        },
+        "locator": {
+          "title": "Locator",
+          "type": "string"
+        },
+        "meta": {
+          "$ref": "#/$defs/ArtifactMeta"
+        },
+        "rule_id": {
+          "title": "Rule Id",
+          "type": "string"
+        },
+        "source_hash": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Source Hash",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "meta",
+        "rule_id",
+        "version",
+        "issue_code",
+        "title",
+        "jurisdiction",
+        "effective_from",
+        "authoritative_source",
+        "locator",
+        "excerpt",
+        "source_hash"
+      ],
+      "title": "RuleCitation",
+      "type": "object"
+    },
+    "RuleScopeReceipt": {
+      "additionalProperties": false,
+      "description": "Deterministic rule-query receipt; integrity metadata, not authentication.",
+      "properties": {
+        "as_of_date": {
+          "format": "date",
+          "title": "As Of Date",
+          "type": "string"
+        },
+        "catalog_version": {
+          "minLength": 1,
+          "title": "Catalog Version",
+          "type": "string"
+        },
+        "issue_codes": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32,
+          "minItems": 1,
+          "title": "Issue Codes",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "jurisdiction": {
+          "minLength": 1,
+          "title": "Jurisdiction",
+          "type": "string"
+        },
+        "rule_query_input_hash": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Rule Query Input Hash",
+          "type": "string"
+        }
+      },
+      "required": [
+        "issue_codes",
+        "jurisdiction",
+        "as_of_date",
+        "catalog_version",
+        "rule_query_input_hash"
+      ],
+      "title": "RuleScopeReceipt",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "arguments": {
+      "$ref": "#/$defs/CalculateRequest"
+    },
+    "context": {
+      "$ref": "#/$defs/DeterministicCalculateToolContext"
+    },
+    "fixture_status": {
+      "const": "SYNTHETIC",
+      "title": "Fixture Status",
+      "type": "string"
+    }
+  },
+  "required": [
+    "fixture_status",
+    "context",
+    "arguments"
+  ],
+  "title": "DeterministicCalculateToolCall",
+  "type": "object"
+}

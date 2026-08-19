@@ -1,0 +1,291 @@
+{
+  "$defs": {
+    "ArtifactMeta": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "case_id": {
+          "minLength": 1,
+          "title": "Case Id",
+          "type": "string"
+        },
+        "classification": {
+          "$ref": "#/$defs/DataClassification",
+          "default": "PUBLIC_SYNTHETIC"
+        },
+        "content_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Content Hash"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "producer_identity": {
+          "minLength": 1,
+          "title": "Producer Identity",
+          "type": "string"
+        },
+        "schema_version": {
+          "default": "proofflow.dev/v1alpha1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_refs": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Refs",
+          "type": "array"
+        },
+        "tenant_id": {
+          "minLength": 1,
+          "title": "Tenant Id",
+          "type": "string"
+        },
+        "trace_id": {
+          "minLength": 1,
+          "title": "Trace Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "tenant_id",
+        "case_id",
+        "producer_identity",
+        "trace_id",
+        "created_at"
+      ],
+      "title": "ArtifactMeta",
+      "type": "object"
+    },
+    "DataClassification": {
+      "enum": [
+        "PUBLIC_SYNTHETIC",
+        "INTERNAL",
+        "RESTRICTED"
+      ],
+      "title": "DataClassification",
+      "type": "string"
+    },
+    "EvidenceIngestOutput": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_objects": {
+          "items": {
+            "$ref": "#/$defs/EvidenceObject"
+          },
+          "title": "Evidence Objects",
+          "type": "array"
+        },
+        "ignored_fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Ignored Fields",
+          "type": "array"
+        },
+        "source_hash": {
+          "title": "Source Hash",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_objects",
+        "source_hash",
+        "ignored_fields"
+      ],
+      "title": "EvidenceIngestOutput",
+      "type": "object"
+    },
+    "EvidenceObject": {
+      "additionalProperties": false,
+      "properties": {
+        "confidence": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Confidence"
+        },
+        "evidence_type": {
+          "title": "Evidence Type",
+          "type": "string"
+        },
+        "fact_status": {
+          "$ref": "#/$defs/FactStatus",
+          "default": "PROPOSED"
+        },
+        "field_name": {
+          "title": "Field Name",
+          "type": "string"
+        },
+        "meta": {
+          "$ref": "#/$defs/ArtifactMeta"
+        },
+        "normalized_value": {
+          "title": "Normalized Value",
+          "type": "string"
+        },
+        "source_document_id": {
+          "title": "Source Document Id",
+          "type": "string"
+        },
+        "verbatim_excerpt": {
+          "title": "Verbatim Excerpt",
+          "type": "string"
+        }
+      },
+      "required": [
+        "meta",
+        "evidence_type",
+        "field_name",
+        "normalized_value",
+        "verbatim_excerpt",
+        "source_document_id",
+        "confidence"
+      ],
+      "title": "EvidenceObject",
+      "type": "object"
+    },
+    "FactStatus": {
+      "enum": [
+        "PROPOSED",
+        "VERIFIED",
+        "CONFLICTED",
+        "UNRESOLVED"
+      ],
+      "title": "FactStatus",
+      "type": "string"
+    },
+    "Issue": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "needs_human": {
+          "default": false,
+          "title": "Needs Human",
+          "type": "boolean"
+        },
+        "object_refs": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Object Refs",
+          "type": "array"
+        },
+        "retryable": {
+          "default": false,
+          "title": "Retryable",
+          "type": "boolean"
+        },
+        "severity": {
+          "title": "Severity",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "severity",
+        "message"
+      ],
+      "title": "Issue",
+      "type": "object"
+    },
+    "SkillStatus": {
+      "enum": [
+        "SUCCESS",
+        "BLOCKED",
+        "NEEDS_HUMAN",
+        "RETRYABLE_FAILURE"
+      ],
+      "title": "SkillStatus",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "emitted_refs": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Emitted Refs",
+      "type": "array"
+    },
+    "input_hash": {
+      "title": "Input Hash",
+      "type": "string"
+    },
+    "issues": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Issue"
+      },
+      "title": "Issues",
+      "type": "array"
+    },
+    "output_hash": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Output Hash"
+    },
+    "status": {
+      "$ref": "#/$defs/SkillStatus"
+    },
+    "value": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EvidenceIngestOutput"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "status",
+    "input_hash"
+  ],
+  "title": "SkillResult[EvidenceIngestOutput]",
+  "type": "object"
+}

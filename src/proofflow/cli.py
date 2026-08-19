@@ -15,6 +15,16 @@ from proofflow.reference_runtime import (
     prepare_reference_run,
     verify_reference_run,
 )
+from proofflow.tool_server import (
+    DEFAULT_MAX_BODY_BYTES,
+    DEFAULT_MAX_CONCURRENT_REQUESTS,
+    DEFAULT_MAX_RESPONSE_BYTES,
+    DEFAULT_READ_TIMEOUT_SECONDS,
+    ToolServerConfigurationError,
+    api_token_from_environment,
+    serve_tool_service,
+)
+from proofflow.trusted_store import DEFAULT_TRUSTED_ARTIFACT_CAPACITY
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -43,6 +53,32 @@ def _parser() -> argparse.ArgumentParser:
 
     verify = commands.add_parser("verify", help="verify artifact and package hashes")
     verify.add_argument("--run-dir", type=Path, required=True)
+
+    serve_tools = commands.add_parser(
+        "serve-tools",
+        help="serve authenticated synthetic evidence, rule, and calculation REST tools",
+    )
+    serve_tools.add_argument("--rules", type=Path, required=True)
+    serve_tools.add_argument(
+        "--rules-sha256",
+        required=True,
+        help="expected public sha256:<file-bytes> integrity pin for --rules",
+    )
+    serve_tools.add_argument("--host", default="127.0.0.1")
+    serve_tools.add_argument("--port", type=int, default=8787)
+    serve_tools.add_argument("--max-body-bytes", type=int, default=DEFAULT_MAX_BODY_BYTES)
+    serve_tools.add_argument("--max-response-bytes", type=int, default=DEFAULT_MAX_RESPONSE_BYTES)
+    serve_tools.add_argument(
+        "--max-concurrent-requests", type=int, default=DEFAULT_MAX_CONCURRENT_REQUESTS
+    )
+    serve_tools.add_argument(
+        "--trusted-artifact-capacity",
+        type=int,
+        default=DEFAULT_TRUSTED_ARTIFACT_CAPACITY,
+    )
+    serve_tools.add_argument(
+        "--read-timeout-seconds", type=float, default=DEFAULT_READ_TIMEOUT_SECONDS
+    )
     return parser
 
 
@@ -80,15 +116,34 @@ def main() -> int:
                 "package_id": manifest.meta.artifact_id,
                 "manifest_hash": manifest.manifest_hash,
             }
-        else:
+        elif args.command == "verify":
             report = verify_reference_run(args.run_dir)
             output = report.model_dump(mode="json")
             if not report.valid:
                 print(json.dumps(output, ensure_ascii=False, indent=2), file=sys.stderr)
                 return 1
+        else:
+            serve_tool_service(
+                host=args.host,
+                port=args.port,
+                catalog_path=args.rules,
+                catalog_sha256=args.rules_sha256,
+                api_token=api_token_from_environment(),
+                max_body_bytes=args.max_body_bytes,
+                max_response_bytes=args.max_response_bytes,
+                max_concurrent_requests=args.max_concurrent_requests,
+                trusted_artifact_capacity=args.trusted_artifact_capacity,
+                read_timeout_seconds=args.read_timeout_seconds,
+            )
+            return 0
     except ReferenceRunError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
+    except ToolServerConfigurationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    except KeyboardInterrupt:
+        return 130
     print(json.dumps(output, ensure_ascii=False, indent=2))
     return 0
 

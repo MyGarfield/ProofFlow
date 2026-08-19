@@ -17,10 +17,12 @@
       "default": "AGENT"
     },
     "caller_identity": {
+      "minLength": 1,
       "title": "Caller Identity",
       "type": "string"
     },
     "case_id": {
+      "minLength": 1,
       "title": "Case Id",
       "type": "string"
     },
@@ -30,6 +32,7 @@
       "type": "integer"
     },
     "idempotency_key": {
+      "minLength": 1,
       "title": "Idempotency Key",
       "type": "string"
     },
@@ -39,10 +42,12 @@
       "type": "string"
     },
     "tenant_id": {
+      "minLength": 1,
       "title": "Tenant Id",
       "type": "string"
     },
     "trace_id": {
+      "minLength": 1,
       "title": "Trace Id",
       "type": "string"
     }

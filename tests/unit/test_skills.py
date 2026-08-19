@@ -2,7 +2,7 @@ import json
 from datetime import UTC, date, datetime
 from pathlib import Path
 
-from proofflow.canonical import sha256_file
+from proofflow.canonical import sha256_digest, sha256_file
 from proofflow.contracts import (
     CalculateRequest,
     CaseManifest,
@@ -12,10 +12,13 @@ from proofflow.contracts import (
     ProposalGenerateRequest,
     RuleCatalog,
     RuleRetrieveRequest,
+    RuleScopeReceipt,
 )
 from proofflow.models import (
     AuditVerdict,
     EvidenceObject,
+    FactStatus,
+    RuleCitation,
     SkillContext,
     SkillStatus,
 )
@@ -27,6 +30,7 @@ from proofflow.skills import (
     rule_retrieve,
 )
 from proofflow.strategy import create_candidate_proposals
+from proofflow.trusted_store import TrustedArtifactStore
 
 ROOT = Path(__file__).parents[2]
 FIXTURE = ROOT / "examples/cases/happy_path"
@@ -53,7 +57,12 @@ def load_rules() -> RuleCatalog:
     return RuleCatalog.model_validate_json(RULES.read_text())
 
 
-def evidence_and_rules() -> tuple[tuple[EvidenceObject, ...], tuple]:
+def evidence_and_rules() -> tuple[
+    tuple[EvidenceObject, ...],
+    tuple[RuleCitation, ...],
+    RuleScopeReceipt,
+    TrustedArtifactStore,
+]:
     manifest = load_manifest()
     evidence: list[EvidenceObject] = []
     for document in manifest.documents:
@@ -81,7 +90,14 @@ def evidence_and_rules() -> tuple[tuple[EvidenceObject, ...], tuple]:
         now=NOW,
     )
     assert rules.value is not None
-    return tuple(evidence), rules.value.citations
+    trusted_artifacts = TrustedArtifactStore()
+    trusted_artifacts.register_all(evidence)
+    return (
+        tuple(evidence),
+        rules.value.citations,
+        rules.value.rule_scope,
+        trusted_artifacts,
+    )
 
 
 def test_prompt_injection_field_remains_ignored_data() -> None:
@@ -145,11 +161,27 @@ def test_rule_filter_rejects_wrong_jurisdiction_or_inactive_date() -> None:
 
 
 def test_calculation_is_repeatable_and_uses_decimal_formula() -> None:
-    evidence, rules = evidence_and_rules()
-    request = CalculateRequest(evidence=evidence, rule_citations=rules)
+    evidence, rules, rule_scope, trusted_artifacts = evidence_and_rules()
+    request = CalculateRequest(
+        evidence=evidence,
+        rule_citations=rules,
+        rule_scope=rule_scope,
+    )
 
-    first = deterministic_calculate(context("PF-A4", "calc-1"), request, now=NOW)
-    second = deterministic_calculate(context("PF-A4", "calc-2"), request, now=NOW)
+    first = deterministic_calculate(
+        context("PF-A4", "calc-1"),
+        request,
+        catalog=load_rules(),
+        trusted_artifacts=trusted_artifacts,
+        now=NOW,
+    )
+    second = deterministic_calculate(
+        context("PF-A4", "calc-2"),
+        request,
+        catalog=load_rules(),
+        trusted_artifacts=trusted_artifacts,
+        now=NOW,
+    )
 
     assert first.status == SkillStatus.SUCCESS
     assert second.status == SkillStatus.SUCCESS
@@ -159,12 +191,18 @@ def test_calculation_is_repeatable_and_uses_decimal_formula() -> None:
 
 
 def test_missing_wage_parameter_blocks_before_total() -> None:
-    evidence, rules = evidence_and_rules()
+    evidence, rules, rule_scope, trusted_artifacts = evidence_and_rules()
     filtered = tuple(item for item in evidence if item.field_name != "monthly_wage_average")
 
     result = deterministic_calculate(
         context("PF-A4"),
-        CalculateRequest(evidence=filtered, rule_citations=rules),
+        CalculateRequest(
+            evidence=filtered,
+            rule_citations=rules,
+            rule_scope=rule_scope,
+        ),
+        catalog=load_rules(),
+        trusted_artifacts=trusted_artifacts,
         now=NOW,
     )
 
@@ -173,8 +211,172 @@ def test_missing_wage_parameter_blocks_before_total() -> None:
     assert any(issue.code == "MISSING_PARAMETER" for issue in result.issues)
 
 
+def test_calculation_blocks_valid_but_unregistered_evidence() -> None:
+    evidence, rules, rule_scope, _trusted_artifacts = evidence_and_rules()
+    result = deterministic_calculate(
+        context("PF-A4"),
+        CalculateRequest(
+            evidence=evidence,
+            rule_citations=rules,
+            rule_scope=rule_scope,
+        ),
+        catalog=load_rules(),
+        trusted_artifacts=TrustedArtifactStore(),
+        now=NOW,
+    )
+
+    assert result.status == SkillStatus.BLOCKED
+    assert result.value is None
+    assert {issue.code for issue in result.issues} == {"UNTRUSTED_EVIDENCE"}
+
+
+def test_calculation_core_blocks_untrusted_artifacts_without_http() -> None:
+    evidence, rules, rule_scope, trusted_artifacts = evidence_and_rules()
+    tampered = evidence[0].model_copy(update={"normalized_value": "tampered"})
+    cross_case = (
+        evidence[0]
+        .model_copy(
+            update={
+                "meta": evidence[0].meta.model_copy(
+                    update={"case_id": "case-other", "content_hash": None}
+                )
+            }
+        )
+        .seal()
+    )
+    unresolved = (
+        evidence[0]
+        .model_copy(
+            update={
+                "meta": evidence[0].meta.model_copy(update={"content_hash": None}),
+                "fact_status": FactStatus.PROPOSED,
+            }
+        )
+        .seal()
+    )
+    forged_rule = (
+        rules[0]
+        .model_copy(
+            update={
+                "meta": rules[0].meta.model_copy(update={"content_hash": None}),
+                "excerpt": "forged summary",
+            }
+        )
+        .seal()
+    )
+    attacks = (
+        (
+            CalculateRequest(
+                evidence=(tampered, *evidence[1:]),
+                rule_citations=rules,
+                rule_scope=rule_scope,
+            ),
+            "UNVERIFIED_ARTIFACT",
+        ),
+        (
+            CalculateRequest(
+                evidence=(cross_case, *evidence[1:]),
+                rule_citations=rules,
+                rule_scope=rule_scope,
+            ),
+            "CROSS_TENANT_REFERENCE",
+        ),
+        (
+            CalculateRequest(
+                evidence=(unresolved, *evidence[1:]),
+                rule_citations=rules,
+                rule_scope=rule_scope,
+            ),
+            "UNRESOLVED_PARAMETER",
+        ),
+        (
+            CalculateRequest(
+                evidence=evidence,
+                rule_citations=(forged_rule, *rules[1:]),
+                rule_scope=rule_scope,
+            ),
+            "UNVERIFIED_ARTIFACT",
+        ),
+    )
+
+    for request, expected_code in attacks:
+        result = deterministic_calculate(
+            context("PF-A4"),
+            request,
+            catalog=load_rules(),
+            trusted_artifacts=trusted_artifacts,
+            now=NOW,
+        )
+        assert result.status == SkillStatus.BLOCKED
+        assert result.value is None
+        assert {issue.code for issue in result.issues} == {expected_code}
+
+
+def test_calculation_blocks_rule_scope_receipt_mismatches() -> None:
+    evidence, rules, rule_scope, trusted_artifacts = evidence_and_rules()
+    wrong_jurisdiction_query = RuleRetrieveRequest(
+        issue_codes=rule_scope.issue_codes,
+        jurisdiction="US-CA",
+        as_of_date=rule_scope.as_of_date,
+    )
+    wrong_date_query = RuleRetrieveRequest(
+        issue_codes=rule_scope.issue_codes,
+        jurisdiction=rule_scope.jurisdiction,
+        as_of_date=date(2010, 1, 1),
+    )
+    requests = (
+        CalculateRequest(
+            evidence=evidence,
+            rule_citations=rules,
+            rule_scope=rule_scope.model_copy(
+                update={"rule_query_input_hash": "sha256:" + "0" * 64}
+            ),
+        ),
+        CalculateRequest(
+            evidence=evidence,
+            rule_citations=rules,
+            rule_scope=rule_scope.model_copy(update={"catalog_version": "stale-catalog"}),
+        ),
+        CalculateRequest(
+            evidence=evidence,
+            rule_citations=rules,
+            rule_scope=RuleScopeReceipt(
+                **wrong_jurisdiction_query.model_dump(),
+                catalog_version=rule_scope.catalog_version,
+                rule_query_input_hash=sha256_digest(wrong_jurisdiction_query),
+            ),
+        ),
+        CalculateRequest(
+            evidence=evidence,
+            rule_citations=rules,
+            rule_scope=RuleScopeReceipt(
+                **wrong_date_query.model_dump(),
+                catalog_version=rule_scope.catalog_version,
+                rule_query_input_hash=sha256_digest(wrong_date_query),
+            ),
+        ),
+        CalculateRequest(
+            evidence=evidence,
+            rule_citations=rules[:-1],
+            rule_scope=rule_scope,
+        ),
+    )
+
+    for request in requests:
+        result = deterministic_calculate(
+            context("PF-A4"),
+            request,
+            catalog=load_rules(),
+            trusted_artifacts=trusted_artifacts,
+            now=NOW,
+        )
+        assert result.status == SkillStatus.BLOCKED
+        assert result.value is None
+        assert {issue.code for issue in result.issues} == {"RULE_SCOPE_MISMATCH"}
+
+
 def test_conflict_detection_marks_but_does_not_resolve_values() -> None:
-    evidence, rules = evidence_and_rules()
+    evidence, rules, rule_scope, trusted_artifacts = evidence_and_rules()
     wage = next(item for item in evidence if item.field_name == "monthly_wage_average")
     conflicting = wage.model_copy(
         update={
@@ -186,7 +388,13 @@ def test_conflict_detection_marks_but_does_not_resolve_values() -> None:
     ).seal()
     calculation = deterministic_calculate(
         context("PF-A4"),
-        CalculateRequest(evidence=evidence, rule_citations=rules),
+        CalculateRequest(
+            evidence=evidence,
+            rule_citations=rules,
+            rule_scope=rule_scope,
+        ),
+        catalog=load_rules(),
+        trusted_artifacts=trusted_artifacts,
         now=NOW,
     )
     assert calculation.value is not None
@@ -208,10 +416,16 @@ def test_conflict_detection_marks_but_does_not_resolve_values() -> None:
 
 
 def test_missing_trace_forces_audit_block() -> None:
-    evidence, rules = evidence_and_rules()
+    evidence, rules, rule_scope, trusted_artifacts = evidence_and_rules()
     calculation_result = deterministic_calculate(
         context("PF-A4"),
-        CalculateRequest(evidence=evidence, rule_citations=rules),
+        CalculateRequest(
+            evidence=evidence,
+            rule_citations=rules,
+            rule_scope=rule_scope,
+        ),
+        catalog=load_rules(),
+        trusted_artifacts=trusted_artifacts,
         now=NOW,
     )
     assert calculation_result.value is not None

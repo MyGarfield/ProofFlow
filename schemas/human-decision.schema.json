@@ -22,6 +22,7 @@
   "additionalProperties": false,
   "properties": {
     "actor_id": {
+      "minLength": 1,
       "title": "Actor Id",
       "type": "string"
     },
@@ -29,6 +30,7 @@
       "$ref": "#/$defs/ActorKind"
     },
     "actor_role": {
+      "minLength": 1,
       "title": "Actor Role",
       "type": "string"
     },
@@ -41,6 +43,7 @@
       "$ref": "#/$defs/ApprovalDecision"
     },
     "reason": {
+      "minLength": 1,
       "title": "Reason",
       "type": "string"
     }

@@ -21,6 +21,7 @@ proofflow = "proofflow.cli:main"
 
 [dependency-groups]
 dev = [
+  "jsonschema[format]>=4.25,<5",
   "mypy>=1.17,<2",
   "pytest>=8.4,<9",
   "pytest-cov>=6.2,<7",

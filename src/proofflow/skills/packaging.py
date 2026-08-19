@@ -103,6 +103,19 @@ def document_package(
                 message="a sealed APPROVE record is required",
             )
         )
+    if (
+        request.approval_record.request_id != request.approval_request.request_id
+        or request.approval_record.approver_role != request.approval_request.required_role
+        or request.approval_record.approved_artifact_hash != request.approval_request.artifact_hash
+        or request.approval_record.expires_at != request.approval_request.expires_at
+    ):
+        issues.append(
+            Issue(
+                code="APPROVAL_REQUEST_MISMATCH",
+                severity="BLOCKER",
+                message="approval record is not bound to the active approval request",
+            )
+        )
     if request.current_artifact_hash != request.approval_record.approved_artifact_hash:
         issues.append(
             Issue(
@@ -111,7 +124,23 @@ def document_package(
                 message="the approved subject hash no longer matches",
             )
         )
-    if now > request.approval_record.expires_at:
+    if now.tzinfo is None or now.utcoffset() is None:
+        issues.append(
+            Issue(
+                code="INVALID_PACKAGE_TIME",
+                severity="BLOCKER",
+                message="package generation time must be timezone-aware",
+            )
+        )
+    elif now < request.approval_record.decided_at:
+        issues.append(
+            Issue(
+                code="PACKAGE_PRECEDES_APPROVAL",
+                severity="BLOCKER",
+                message="package generation cannot precede the approval decision",
+            )
+        )
+    elif now > request.approval_record.expires_at:
         issues.append(
             Issue(
                 code="APPROVAL_EXPIRED",

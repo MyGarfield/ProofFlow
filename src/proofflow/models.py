@@ -7,7 +7,7 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, model_validator
 
 from proofflow.canonical import sha256_digest
 
@@ -236,28 +236,34 @@ class AuditReport(Artifact):
 
 
 class ApprovalRequest(StrictModel):
-    request_id: str
-    tenant_id: str
-    case_id: str
-    artifact_ref: str
+    request_id: str = Field(min_length=1)
+    tenant_id: str = Field(min_length=1)
+    case_id: str = Field(min_length=1)
+    trace_id: str = Field(min_length=1)
+    artifact_ref: str = Field(min_length=1)
     artifact_hash: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
-    audit_report_ref: str
-    required_role: str
+    audit_report_ref: str = Field(min_length=1)
+    required_role: str = Field(min_length=1)
+    created_at: datetime
     expires_at: datetime
 
     @model_validator(mode="after")
-    def require_aware_expiry(self) -> ApprovalRequest:
+    def require_ordered_aware_window(self) -> ApprovalRequest:
+        if self.created_at.tzinfo is None or self.created_at.utcoffset() is None:
+            raise ValueError("created_at must be timezone-aware")
         if self.expires_at.tzinfo is None or self.expires_at.utcoffset() is None:
             raise ValueError("expires_at must be timezone-aware")
+        if self.expires_at <= self.created_at:
+            raise ValueError("approval expiry must be after request creation")
         return self
 
 
 class HumanDecision(StrictModel):
-    actor_id: str
+    actor_id: str = Field(min_length=1)
     actor_kind: ActorKind
-    actor_role: str
+    actor_role: str = Field(min_length=1)
     decision: ApprovalDecision
-    reason: str
+    reason: str = Field(min_length=1)
     decided_at: datetime
 
     @model_validator(mode="after")
@@ -270,15 +276,27 @@ class HumanDecision(StrictModel):
 
 
 class ApprovalRecord(Artifact):
-    request_id: str
+    request_id: str = Field(min_length=1)
     decision: ApprovalDecision
-    approver_id: str
-    approver_role: str
-    reason: str
-    approved_artifact_hash: str
-    approval_method: str = "LOCAL_DEMO"
+    approver_id: str = Field(min_length=1)
+    approver_role: str = Field(min_length=1)
+    reason: str = Field(min_length=1)
+    approved_artifact_hash: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    approval_method: str = Field(default="LOCAL_DEMO", min_length=1)
     decided_at: datetime
     expires_at: datetime
+
+    @model_validator(mode="after")
+    def require_ordered_aware_decision(self) -> ApprovalRecord:
+        if self.decided_at.tzinfo is None or self.decided_at.utcoffset() is None:
+            raise ValueError("decided_at must be timezone-aware")
+        if self.expires_at.tzinfo is None or self.expires_at.utcoffset() is None:
+            raise ValueError("expires_at must be timezone-aware")
+        if self.meta.created_at != self.decided_at:
+            raise ValueError("approval metadata time must match the decision time")
+        if self.decided_at > self.expires_at:
+            raise ValueError("approval decision must not occur after expiry")
+        return self
 
 
 class PackageFile(StrictModel):
@@ -316,14 +334,14 @@ class TraceEvent(StrictModel):
 
 
 class SkillContext(StrictModel):
-    tenant_id: str
-    case_id: str
-    caller_identity: str
+    tenant_id: str = Field(min_length=1)
+    case_id: str = Field(min_length=1)
+    caller_identity: str = Field(min_length=1)
     actor_kind: ActorKind = ActorKind.AGENT
-    trace_id: str
-    idempotency_key: str
+    trace_id: str = Field(min_length=1)
+    idempotency_key: str = Field(min_length=1)
     schema_version: str = SCHEMA_VERSION
-    expected_state_version: int = Field(ge=0)
+    expected_state_version: StrictInt = Field(ge=0)
 
 
 class Issue(StrictModel):

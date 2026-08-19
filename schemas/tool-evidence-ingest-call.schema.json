@@ -1,0 +1,114 @@
+{
+  "$defs": {
+    "EvidenceIngestToolArguments": {
+      "additionalProperties": false,
+      "properties": {
+        "declared_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Declared Sha256",
+          "type": "string"
+        },
+        "document_id": {
+          "minLength": 1,
+          "title": "Document Id",
+          "type": "string"
+        },
+        "media_type": {
+          "minLength": 1,
+          "title": "Media Type",
+          "type": "string"
+        },
+        "raw_content_base64": {
+          "contentEncoding": "base64",
+          "title": "Raw Content Base64",
+          "type": "string"
+        }
+      },
+      "required": [
+        "document_id",
+        "media_type",
+        "declared_sha256",
+        "raw_content_base64"
+      ],
+      "title": "EvidenceIngestToolArguments",
+      "type": "object"
+    },
+    "EvidenceIngestToolContext": {
+      "additionalProperties": false,
+      "properties": {
+        "actor_kind": {
+          "const": "AGENT",
+          "default": "AGENT",
+          "title": "Actor Kind",
+          "type": "string"
+        },
+        "caller_identity": {
+          "const": "PF-A2",
+          "default": "PF-A2",
+          "title": "Caller Identity",
+          "type": "string"
+        },
+        "case_id": {
+          "minLength": 1,
+          "title": "Case Id",
+          "type": "string"
+        },
+        "expected_state_version": {
+          "minimum": 0,
+          "title": "Expected State Version",
+          "type": "integer"
+        },
+        "idempotency_key": {
+          "minLength": 1,
+          "title": "Idempotency Key",
+          "type": "string"
+        },
+        "schema_version": {
+          "default": "proofflow.dev/v1alpha1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "tenant_id": {
+          "minLength": 1,
+          "title": "Tenant Id",
+          "type": "string"
+        },
+        "trace_id": {
+          "minLength": 1,
+          "title": "Trace Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tenant_id",
+        "case_id",
+        "trace_id",
+        "idempotency_key",
+        "expected_state_version"
+      ],
+      "title": "EvidenceIngestToolContext",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "arguments": {
+      "$ref": "#/$defs/EvidenceIngestToolArguments"
+    },
+    "context": {
+      "$ref": "#/$defs/EvidenceIngestToolContext"
+    },
+    "fixture_status": {
+      "const": "SYNTHETIC",
+      "title": "Fixture Status",
+      "type": "string"
+    }
+  },
+  "required": [
+    "fixture_status",
+    "context",
+    "arguments"
+  ],
+  "title": "EvidenceIngestToolCall",
+  "type": "object"
+}

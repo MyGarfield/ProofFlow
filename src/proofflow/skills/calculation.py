@@ -7,18 +7,31 @@ from datetime import date, datetime
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 from proofflow.canonical import sha256_digest
-from proofflow.contracts import CalculateOutput, CalculateRequest, CompensationParameters
+from proofflow.contracts import (
+    CalculateOutput,
+    CalculateRequest,
+    CompensationParameters,
+    RuleCatalog,
+    RuleRecord,
+    RuleRetrieveRequest,
+)
 from proofflow.factories import artifact_meta
 from proofflow.models import (
     CalculationLineItem,
     CalculationSheet,
+    DataClassification,
+    EvidenceObject,
+    FactStatus,
     Issue,
+    RuleCitation,
     SkillContext,
     SkillResult,
     SkillStatus,
     artifact_ref,
 )
 from proofflow.skills.common import denied, success
+from proofflow.skills.rules import matching_rule_records
+from proofflow.trusted_store import TrustedArtifactStore
 
 SUPPORTED_FORMULA = "cn-economic-compensation-v0.1"
 REQUIRED_FIELDS = frozenset(
@@ -71,10 +84,174 @@ def _field_values(request: CalculateRequest) -> tuple[dict[str, str], tuple[str,
     return values, conflicts
 
 
+def _seal_is_valid(artifact: EvidenceObject | RuleCitation) -> bool:
+    try:
+        return artifact.verify_hash()
+    except (TypeError, ValueError):
+        return False
+
+
+def _rule_matches_catalog(citation: RuleCitation, catalog: RuleCatalog) -> bool:
+    matches = tuple(
+        record
+        for record in catalog.rules
+        if record.rule_id == citation.rule_id and record.version == citation.version
+    )
+    if len(matches) != 1:
+        return False
+    record: RuleRecord = matches[0]
+    return (
+        citation.issue_code == record.issue_code
+        and citation.title == record.title
+        and citation.jurisdiction == record.jurisdiction
+        and citation.effective_from == record.effective_from
+        and citation.effective_to == record.effective_to
+        and citation.authoritative_source == record.authoritative_source
+        and citation.locator == record.locator
+        and citation.excerpt == record.statement
+        and citation.source_hash == sha256_digest(record)
+        and citation.meta.source_refs == (record.authoritative_source,)
+    )
+
+
+def _artifact_boundary_issues(
+    context: SkillContext,
+    request: CalculateRequest,
+    catalog: RuleCatalog,
+    trusted_artifacts: TrustedArtifactStore,
+) -> tuple[Issue, ...]:
+    unverified = False
+    untrusted_evidence = False
+    cross_context = False
+    unresolved = False
+    expected_scope = (context.tenant_id, context.case_id, context.trace_id)
+
+    for evidence in request.evidence:
+        evidence_unverified = (
+            not _seal_is_valid(evidence)
+            or evidence.meta.classification != DataClassification.PUBLIC_SYNTHETIC
+            or evidence.meta.producer_identity != "PF-A2"
+        )
+        evidence_cross_context = (
+            evidence.meta.tenant_id,
+            evidence.meta.case_id,
+            evidence.meta.trace_id,
+        ) != expected_scope
+        evidence_unresolved = evidence.fact_status != FactStatus.VERIFIED
+        evidence_registered = trusted_artifacts.contains(context, evidence)
+        unverified = unverified or evidence_unverified
+        cross_context = cross_context or evidence_cross_context
+        unresolved = unresolved or evidence_unresolved
+        untrusted_evidence = untrusted_evidence or (
+            not evidence_registered
+            and not evidence_unverified
+            and not evidence_cross_context
+            and not evidence_unresolved
+        )
+
+    for rule in request.rule_citations:
+        unverified = unverified or (
+            not _seal_is_valid(rule)
+            or rule.meta.classification != DataClassification.PUBLIC_SYNTHETIC
+            or rule.meta.producer_identity != "PF-A3"
+            or not _rule_matches_catalog(rule, catalog)
+        )
+        cross_context = (
+            cross_context
+            or (
+                rule.meta.tenant_id,
+                rule.meta.case_id,
+                rule.meta.trace_id,
+            )
+            != expected_scope
+        )
+
+    issues: list[Issue] = []
+    if unverified:
+        issues.append(
+            Issue(
+                code="UNVERIFIED_ARTIFACT",
+                severity="BLOCKER",
+                message="calculation input contains an unverified or untrusted artifact",
+                needs_human=True,
+            )
+        )
+    if cross_context:
+        issues.append(
+            Issue(
+                code="CROSS_TENANT_REFERENCE",
+                severity="BLOCKER",
+                message="calculation artifacts do not belong to the request context",
+            )
+        )
+    if untrusted_evidence:
+        issues.append(
+            Issue(
+                code="UNTRUSTED_EVIDENCE",
+                severity="BLOCKER",
+                message="calculation evidence is not registered by this trusted runtime",
+                needs_human=True,
+            )
+        )
+    if unresolved:
+        issues.append(
+            Issue(
+                code="UNRESOLVED_PARAMETER",
+                severity="BLOCKER",
+                message="calculation evidence must be VERIFIED before use",
+                needs_human=True,
+            )
+        )
+    return tuple(issues)
+
+
+def _rule_scope_issue(request: CalculateRequest, catalog: RuleCatalog) -> Issue | None:
+    scope = request.rule_scope
+    rule_query = RuleRetrieveRequest(
+        issue_codes=scope.issue_codes,
+        jurisdiction=scope.jurisdiction,
+        as_of_date=scope.as_of_date,
+    )
+    expected_records = tuple(
+        record
+        for issue_code in rule_query.issue_codes
+        for record in matching_rule_records(rule_query, issue_code, catalog)
+    )
+    has_missing_scope_issue = any(
+        not matching_rule_records(rule_query, issue_code, catalog)
+        for issue_code in rule_query.issue_codes
+    )
+    expected_rule_keys = sorted(
+        (record.rule_id, record.version, record.issue_code) for record in expected_records
+    )
+    actual_rule_keys = sorted(
+        (citation.rule_id, citation.version, citation.issue_code)
+        for citation in request.rule_citations
+    )
+    if (
+        scope.rule_query_input_hash != sha256_digest(rule_query)
+        or scope.catalog_version != catalog.catalog_version
+        or has_missing_scope_issue
+        or actual_rule_keys != expected_rule_keys
+    ):
+        return Issue(
+            code="RULE_SCOPE_MISMATCH",
+            severity="BLOCKER",
+            message=(
+                "rule citations are not a complete result for the declared "
+                "jurisdiction, date, issue, and catalog scope"
+            ),
+            needs_human=True,
+        )
+    return None
+
+
 def deterministic_calculate(
     context: SkillContext,
     request: CalculateRequest,
     *,
+    catalog: RuleCatalog,
+    trusted_artifacts: TrustedArtifactStore,
     now: datetime,
 ) -> SkillResult[CalculateOutput]:
     if result := denied(
@@ -84,6 +261,18 @@ def deterministic_calculate(
         result_type=CalculateOutput,
     ):
         return result
+    if boundary_issues := _artifact_boundary_issues(context, request, catalog, trusted_artifacts):
+        return SkillResult[CalculateOutput](
+            status=SkillStatus.BLOCKED,
+            issues=boundary_issues,
+            input_hash=sha256_digest(request),
+        )
+    if scope_issue := _rule_scope_issue(request, catalog):
+        return SkillResult[CalculateOutput](
+            status=SkillStatus.BLOCKED,
+            issues=(scope_issue,),
+            input_hash=sha256_digest(request),
+        )
     if request.formula_version != SUPPORTED_FORMULA:
         return SkillResult[CalculateOutput](
             status=SkillStatus.BLOCKED,

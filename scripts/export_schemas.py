@@ -10,6 +10,14 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from proofflow.contracts import (
+    CalculateOutput,
+    DeterministicCalculateToolCall,
+    EvidenceIngestOutput,
+    EvidenceIngestToolCall,
+    RuleRetrieveOutput,
+    RuleRetrieveToolCall,
+)
 from proofflow.models import (
     ApprovalRecord,
     ApprovalRequest,
@@ -46,6 +54,12 @@ MODELS: dict[str, type[BaseModel]] = {
     "skill-result": SkillResult[dict[str, Any]],
     "timeline-event": TimelineEvent,
     "trace-event": TraceEvent,
+    "tool-deterministic-calculate-call": DeterministicCalculateToolCall,
+    "tool-deterministic-calculate-result": SkillResult[CalculateOutput],
+    "tool-evidence-ingest-call": EvidenceIngestToolCall,
+    "tool-evidence-ingest-result": SkillResult[EvidenceIngestOutput],
+    "tool-rule-retrieve-call": RuleRetrieveToolCall,
+    "tool-rule-retrieve-result": SkillResult[RuleRetrieveOutput],
 }
 
 
