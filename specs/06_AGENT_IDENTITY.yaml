@@ -2,21 +2,21 @@ apiVersion: proofflow.dev/v1alpha1
 kind: AgentIdentityList
 metadata:
   name: proofflow-business-agents
-  version: 0.1.0-design
-  status: DESIGN_ONLY
+  version: 0.2.0-reference-alpha
+  status: PARTIAL_REFERENCE_IMPLEMENTATION
 spec:
   disclaimer: >-
-    本清单为初赛方案设计。六个业务 Agent 尚未完成 AgentTeams 部署、
-    联调或运行验证；所有权限、输入输出、协同关系与完成条件均为计划。
-  implementationStatus: NOT_IMPLEMENTED
-  runtimeEvidence: NONE
+    六个 Identity 的本地 Skill 调用边界已在确定性参考核心中实现并测试；
+    六个业务 Agent 尚未完成 AgentTeams 部署、联调或运行验证。
+  implementationStatus: LOCAL_REFERENCE_BOUNDARIES_ONLY_AGENTTEAMS_NOT_DEPLOYED
+  runtimeEvidence: LOCAL_TESTS_ONLY
   plannedAgentTeamsTopology:
     platformManager:
       description: "计划由 AgentTeams Manager 承担平台级团队生命周期与路由，不参与案件专业判断。"
       countedAsBusinessAgent: false
     team:
       plannedName: proof-flow-case-review
-      status: DESIGN_ONLY
+      status: PINNED_NOT_DEPLOYED
     humanActor:
       description: "计划使用 AgentTeams Human 或等价审批身份承接补件、澄清和审批。"
       countedAsAgent: false
@@ -25,8 +25,8 @@ spec:
     - identityId: PF-A1
       name: case-manager
       displayName: Case Manager
-      status: DESIGN_ONLY
-      implementationStatus: NOT_IMPLEMENTED
+      status: REFERENCE_BOUNDARY_IMPLEMENTED
+      implementationStatus: LOCAL_REFERENCE_ONLY_AGENTTEAMS_NOT_DEPLOYED
       mission: "计划负责案件受理、任务拆解、任务路由和领域状态迁移，不替代专业 Agent 判断。"
       plannedAgentTeamsMapping:
         resourceKind: Worker
@@ -105,8 +105,8 @@ spec:
     - identityId: PF-A2
       name: evidence-agent
       displayName: Evidence Agent
-      status: DESIGN_ONLY
-      implementationStatus: NOT_IMPLEMENTED
+      status: REFERENCE_BOUNDARY_IMPLEMENTED
+      implementationStatus: LOCAL_REFERENCE_ONLY_AGENTTEAMS_NOT_DEPLOYED
       mission: "计划将原始材料转换为保留来源的证据对象、事实事件、缺件和未决事项。"
       plannedAgentTeamsMapping:
         resourceKind: Worker
@@ -174,8 +174,8 @@ spec:
     - identityId: PF-A3
       name: rule-agent
       displayName: Rule Agent
-      status: DESIGN_ONLY
-      implementationStatus: NOT_IMPLEMENTED
+      status: REFERENCE_BOUNDARY_IMPLEMENTED
+      implementationStatus: LOCAL_REFERENCE_ONLY_AGENTTEAMS_NOT_DEPLOYED
       mission: "计划根据争议焦点、地区和时间检索受控规则，并生成可验证的 RuleCitation。"
       plannedAgentTeamsMapping:
         resourceKind: Worker
@@ -240,8 +240,8 @@ spec:
     - identityId: PF-A4
       name: calculation-agent
       displayName: Calculation Agent
-      status: DESIGN_ONLY
-      implementationStatus: NOT_IMPLEMENTED
+      status: REFERENCE_BOUNDARY_IMPLEMENTED
+      implementationStatus: LOCAL_REFERENCE_ONLY_AGENTTEAMS_NOT_DEPLOYED
       mission: "计划基于已确认事实、规则和显式参数调用确定性公式引擎生成分项计算。"
       plannedAgentTeamsMapping:
         resourceKind: Worker
@@ -303,8 +303,8 @@ spec:
     - identityId: PF-A5
       name: strategy-agent
       displayName: Strategy Agent
-      status: DESIGN_ONLY
-      implementationStatus: NOT_IMPLEMENTED
+      status: REFERENCE_BOUNDARY_IMPLEMENTED
+      implementationStatus: LOCAL_REFERENCE_ONLY_AGENTTEAMS_NOT_DEPLOYED
       mission: "计划基于证据、规则和计算引用形成多个候选方案，并显式标注风险、不确定性和待确认事项。"
       plannedAgentTeamsMapping:
         resourceKind: Worker
@@ -368,8 +368,8 @@ spec:
     - identityId: PF-A6
       name: audit-agent
       displayName: Audit Agent
-      status: DESIGN_ONLY
-      implementationStatus: NOT_IMPLEMENTED
+      status: REFERENCE_BOUNDARY_IMPLEMENTED
+      implementationStatus: LOCAL_REFERENCE_ONLY_AGENTTEAMS_NOT_DEPLOYED
       mission: "计划检查证据冲突、规则覆盖、计算完整性、方案依据、权限和 Trace，并输出 PASS、REVISE 或 BLOCK。"
       plannedAgentTeamsMapping:
         resourceKind: Worker

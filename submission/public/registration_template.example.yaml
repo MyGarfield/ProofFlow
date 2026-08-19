@@ -23,5 +23,5 @@ members:
     role: "[成员 3，如无则留空]"
     tshirt_size: "[成员 3，如无则留空]"
 
-code_repository: ""
+code_repository: "https://github.com/MyGarfield/ProofFlow"
 demo_url: ""

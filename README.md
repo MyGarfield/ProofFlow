@@ -1,76 +1,136 @@
 # ProofFlow
 
-证据驱动的高风险决策多 Agent 协同基座——本仓库用于逐步沉淀设计规格、验证计划与后续实现。
+证据驱动的高风险决策多 Agent 协同基座。
 
-## 当前状态
+ProofFlow 的目标不是再造一个 Agent Runtime，也不是提供“自动法律裁判”。它计划位于
+AgentTeams 等协作运行时之上，将 Agent、Skill、证据、规则、确定性计算、审计、人工批准和
+交付物绑定为可复核的证明链。
 
-- 项目状态：`DESIGN_ONLY`
-- 实现状态：`NOT_IMPLEMENTED`
-- 可执行代码：无
-- 可运行 Demo：无
-- 运行日志与 Trace：无
-- 实测指标与效果数据：无
-- 生产部署：无
-- 远程仓库：https://github.com/MyGarfield/ProofFlow
+## 当前真实状态
 
-截至 2026 年 8 月 17 日，ProofFlow 处于方案设计与原型整合阶段。本目录中的架构、Agent Identity、Skill、接口、安全边界、评测指标和开放计划均为设计或后续计划，不代表已完成实现或运行验证。
+状态：`REFERENCE_CORE_ALPHA`
 
-## 设计目标
+截至 2026 年 8 月 20 日，仓库已经包含一个仅使用合成数据的确定性参考核心：
 
-ProofFlow 计划以员工解除／裁员争议预审与处置为首个验证场景，设计六个不同职能 Agent、八个可复用 Skill、引用式上下文、Human Gate 与审计机制，使高风险决策能够回到证据、规则、计算和审批记录。
+- 12 类严格、不可变业务对象及规范化 SHA-256；
+- 带乐观并发版本和 Guard 的显式 Case 状态机；
+- 六个 Agent Identity 的调用边界；
+- 八个 Skill 的最小实现；
+- 受控本地规则目录和带版本的 `Decimal` 公式；
+- `prepare → 人工 approve → package → verify` 三步流程；
+- 与待批对象哈希绑定、对象变化即失效的 Human Gate；
+- Trace、受控 Markdown/JSON 草案、Package Manifest 和篡改检测；
+- Ruff、mypy、pytest 和 GitHub Actions。
 
-本项目计划提供决策支持，不替代律师、仲裁机构、司法机构或企业责任人。对外发送、签署、提交和企业系统写入不属于当前自动执行范围。
+当前仍然**没有**：
 
-## 目录
+- AgentTeams 实际部署、Worker 协作或 Matrix 运行证据；
+- LLM、MCP、RAG、OCR、PDF/DOCX 摄取或长期记忆；
+- 真实案件、真实个人信息、客户数据或领域专家准确率评测；
+- 生产身份认证、多租户隔离、外部发送、签署、解雇、付款或 HR 系统写入；
+- 生产可用性、安全认证或法律意见能力。
 
-```text
-ProofFlow/
-├── README.md
-├── docs/
-│   ├── 00_STATUS_AND_SCOPE.md
-│   ├── 01_TECHNICAL_DESIGN.md
-│   ├── 02_SECURITY_AND_HUMAN_GATE.md
-│   └── 03_SEMIFINAL_VALIDATION_PLAN.md
-├── specs/
-│   ├── README.md
-│   ├── 06_AGENT_IDENTITY.yaml
-│   └── 07_SKILL_SPEC.yaml
-└── submission/
-    └── public/
-        ├── README.md
-        ├── DISCLOSURE_BOUNDARY.md
-        └── registration_template.example.yaml
+因此，当前运行结果只能证明这个合成参考切片的结构合同与确定性属性，不能外推为法律准确性、
+生产安全性或比赛最终成绩。
+
+## 5 分钟本地复现
+
+需要 Python 3.12 和 [uv](https://docs.astral.sh/uv/)。
+
+```bash
+uv sync --dev
+
+uv run proofflow prepare \
+  --manifest examples/cases/happy_path/manifest.json \
+  --rules data/rules/cn_labor_contract_law.catalog.json \
+  --run-dir .proofflow/runs/demo-001
 ```
 
-## 设计规格
+`prepare` 必须停在 `AWAITING_APPROVAL`。不会默认批准，也不会由 Agent 模拟人工批准。
 
-- [`specs/06_AGENT_IDENTITY.yaml`](specs/06_AGENT_IDENTITY.yaml)：六个业务 Agent 的身份、输入输出、权限、禁止动作、升级条件和 AgentTeams 计划映射。
-- [`specs/07_SKILL_SPEC.yaml`](specs/07_SKILL_SPEC.yaml)：八个 Skill 的用途、输入输出、调用条件、依赖工具、失败处理、安全边界、复用关系和验证计划。
+人工查看 `.proofflow/runs/demo-001/` 内的证据、规则、计算、风险、审计和待批哈希后，显式记录
+本地 Demo 决定：
 
-两个 YAML 的元数据和条目状态均明确标注为 `DESIGN_ONLY`，实现状态均为 `NOT_IMPLEMENTED`。
+```bash
+uv run proofflow approve \
+  --run-dir .proofflow/runs/demo-001 \
+  --approver-id synthetic-reviewer \
+  --role legal-reviewer \
+  --decision APPROVE \
+  --reason "Reviewed the synthetic evidence, rules, calculation, risks, and uncertainties."
+```
 
-## 事实边界
+生成受控草案并独立验真：
 
-当前可以确认的只有：
+```bash
+uv run proofflow package --run-dir .proofflow/runs/demo-001
+uv run proofflow verify --run-dir .proofflow/runs/demo-001
+```
 
-1. 已形成项目方向和技术方案文本；
-2. 已形成六 Agent Identity 设计规格；
-3. 已形成八 Skill 设计规格；
-4. 已定义后续验证路径和公开边界。
+成功验真应返回 `"valid": true`。在批准前修改任何 Evidence、Rule、Calculation、Proposal 或
+Audit 对象，批准必须失败；在打包后修改文件，`verify` 必须报告哈希不一致。
 
-当前不能声称：
+## 为什么第一版不使用 LLM
 
-1. 已完成 AgentTeams 部署或适配；
-2. 已实现六 Agent 或八 Skill；
-3. 已实现 RAG、共享状态、Trace、审批或回滚；
-4. 已获得准确率、效率、成本、风险改善等指标；
-5. 已上线、已服务真实客户或已通过生产验证；
-6. 已完成跨行业迁移或形成开源社区影响力。
+第一版先建立可验证基线：同一输入、规则和公式版本必须得到相同结果；缺参、过期/异地规则、
+Trace 缺失、越权审批和对象篡改必须确定性失败。后续接入 LLM 与 AgentTeams 后，将与该基线进行
+单 Agent／多 Agent 消融和失败率、成本、延迟对比，而不是预设“Agent 越多越好”。
 
-## 隐私与公开原则
+## 首个合成场景
 
-版本控制内容不包含个人信息、客户材料、密钥、租户配置、真实案件内容或受限资料。本地 `submission/private/` 已被 `.gitignore` 排除，用于保存不应发布的组委会登记信息。未来若加入样例数据，计划仅使用合法授权、脱敏或合成材料，并记录来源和使用边界。
+员工解除／裁员争议预审与处置。参考数据完全虚构，且故意包含一条文档提示注入文本。系统只把
+它当作数据，不将其升级为指令。规则目录指向国家法律法规数据库等权威来源，但本地 `statement`
+只是便于验证的摘要，不能替代官方原文和合格专业人员复核。
 
-## 后续计划
+当前计算只实现 `cn-economic-compensation-v0.1` 参考公式。示例中的地区平均工资数值是合成参数，
+不是杭州统计数据。
 
-若进入复赛，计划优先验证一个窄场景的完整链路，包括 AgentTeams 协作、八个 Skill、共享状态、知识库 RAG、Trace + Log、异常分支、Human Gate、审计和可复现运行证据。所有后续结果需以实际代码、日志和测试为准。
+## 架构边界
+
+```text
+AgentTeams（计划中的协作控制面；尚未集成）
+  └─ 六个专业 Identity
+      └─ 八个有版本、I/O、权限、错误和证据合同的 Skill
+          └─ ProofFlow evidence plane
+              ├─ immutable artifact + canonical hash
+              ├─ explicit state machine + shared state
+              ├─ Decision Trace + structural verifier
+              ├─ Human Gate bound to artifact digest
+              └─ controlled draft + Package Manifest
+```
+
+AgentTeams 计划负责团队生命周期、Worker、Matrix 和任务委派；ProofFlow 负责领域状态机、证据
+对象、ApprovalRecord、审批对象哈希、Audit 规则和交付包作废。这些后者不表述为 AgentTeams
+原生能力。
+
+## 测试
+
+```bash
+uv run ruff format --check .
+uv run ruff check .
+uv run mypy
+uv run pytest
+```
+
+当前测试覆盖正常链、文件哈希、提示注入字段、地区/时态规则过滤、缺参阻断、确定性重放、冲突
+检测、Trace 缺失、越权审批、批准后篡改和包文件篡改。
+
+## 路线图与证据边界
+
+- [状态与范围](docs/00_STATUS_AND_SCOPE.md)
+- [技术设计](docs/01_TECHNICAL_DESIGN.md)
+- [安全与 Human Gate](docs/02_SECURITY_AND_HUMAN_GATE.md)
+- [复赛验证计划](docs/03_SEMIFINAL_VALIDATION_PLAN.md)
+- [冠军执行计划](docs/04_CHAMPIONSHIP_EXECUTION_PLAN.md)
+- [国际前沿研究雷达](docs/05_FRONTIER_RESEARCH.md)
+- [Agent Identity](specs/06_AGENT_IDENTITY.yaml)
+- [Skill 规格](specs/07_SKILL_SPEC.yaml)
+
+## 安全与隐私
+
+不要提交 API Key、Token、Cookie、私钥、连接串、真实个人信息、客户材料或受限规则库。公开样例
+只能使用合成、合法授权或合规脱敏数据。当前程序不应处理真实案件。
+
+## License
+
+Apache License 2.0。规则来源、第三方数据和依赖仍受各自条款约束；本许可证不重新许可它们。
