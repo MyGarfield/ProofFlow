@@ -1,0 +1,21 @@
+apiVersion: agentteams.io/v1beta1
+kind: Team
+metadata:
+  name: proof-flow-case-review
+spec:
+  description: ProofFlow synthetic employment-dispute evidence review
+  heartbeatEvery: 30m
+  peerMentions: true
+  workerMembers:
+    - name: case-manager
+      role: team_leader
+    - name: evidence-agent
+      role: worker
+    - name: rule-agent
+      role: worker
+    - name: calculation-agent
+      role: worker
+    - name: strategy-agent
+      role: worker
+    - name: audit-agent
+      role: worker

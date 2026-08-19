@@ -1,0 +1,11 @@
+{
+  "status": "PINNED_NOT_DEPLOYED",
+  "agentteams_version": "v1.2.2",
+  "agentteams_commit": "849182af8e017168a5a200a87b1062142caf462d",
+  "release_url": "https://github.com/agentscope-ai/AgentTeams/releases/tag/v1.2.2",
+  "deployment_mode": "docker-embedded-local-synthetic-only",
+  "manager_runtime": "openclaw",
+  "worker_runtime": "openclaw",
+  "verified_at": "2026-08-20",
+  "runtime_evidence": "NONE"
+}

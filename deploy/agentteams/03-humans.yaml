@@ -1,0 +1,21 @@
+apiVersion: agentteams.io/v1beta1
+kind: Human
+metadata:
+  name: proof-reviewer
+spec:
+  displayName: ProofFlow Reviewer
+  permissionLevel: 2
+  accessibleTeams:
+    - proof-flow-case-review
+  note: Synthetic P0 reviewer; not a production identity
+---
+apiVersion: agentteams.io/v1beta1
+kind: Human
+metadata:
+  name: proof-approver
+spec:
+  displayName: ProofFlow Approver
+  permissionLevel: 2
+  accessibleTeams:
+    - proof-flow-case-review
+  note: Synthetic P0 approver; approval still requires application-layer artifact binding
