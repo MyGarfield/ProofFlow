@@ -13,20 +13,36 @@
 - [x] 共享状态、Trace、Human Gate 和 Package 验真；
 - [x] 缺参、提示注入、规则过滤、Trace 缺失、越权审批和篡改测试；
 - [x] AgentTeams v1.2.2 版本与声明式资产固定；
-- [ ] AgentTeams 实际部署与运行验证。
+- [x] 本地 AgentTeams Controller/Manager/Matrix/MinIO/Higress 点时基础设施 smoke；
+- [x] 六个 Worker CR 和八个 Skill 分发结果存在且核对；六 Worker 均为 `Stopped`、容器为 0；
+- [x] evidence/rules/calc 三个 MCP 均为 `ok`、各一个工具并配置精确 consumer ACL；
+- [x] Manager 操作员合成工具链：3 次 Evidence ingest → 4 条规则引用 → `60000` 计算结果；
+- [x] 同 scope 改值重封以 `UNTRUSTED_EVIDENCE` 阻断；Evidence Worker 200、Calculation Worker
+  跨角色 403 的 `tools/list` smoke；
+- [x] Team CR 为 `Active`、两个合成 Human CR 为 `Active`；同时验证
+  `readyWorkers=0`、Leader `Stopped`、`operational_ready=false`，无 Human 参与；
+- [ ] 六 Worker/LLM 真实运行、Team/Matrix 协作与 Human Gate 验证（等待模型 API Key 安全轮换）。
+
+上述 AgentTeams 结论以
+[`mcp-manager-operator-smoke-2026-08-20.json`](../deploy/agentteams/evidence/mcp-manager-operator-smoke-2026-08-20.json)
+和 [`LOCAL_INFRA_EVIDENCE.md`](../deploy/agentteams/LOCAL_INFRA_EVIDENCE.md) 为边界；两者都是点时、
+无签名的公开摘要。
 
 ## 复赛 P0
 
-1. 在足够磁盘的 Docker 环境部署 AgentTeams v1.2.2；
-2. 保存 tag、commit、安装器哈希、镜像 digest 和模型 ID；
-3. 创建停止态六 Worker，分发八 Skill 并核对 Manager/CR/MinIO 哈希；
-4. 建立 rules/calc 两个窄 MCP 或等价服务，精确 consumer 授权和跨角色 403；
-5. 创建 Team 与 Human，保存 Active 状态、Room ID、Matrix ID；
-6. 使用 TeamHarness 任务 DAG 跑通一个正常案例；
-7. 将 Matrix event、task event ID、共享文件与 ProofFlow trace_id 关联；
-8. 跑通缺件、冲突、缺参、规则不足、越权和审批 TOCTOU；
-9. 导出原始日志、Trace、状态、指标和证据包；
-10. 提供一键部署、现场 Demo、录屏和离线回放。
+1. [x] 在本地 Docker 环境部署并点时核验 AgentTeams v1.2.2 基础设施；
+2. [x] 保存 tag、commit、安装器哈希及本地观察到的镜像 ID/RepoDigest；这些观察不等于远端 registry
+   签名或生产 provenance；
+3. [x] 创建停止态六 Worker，分发八 Skill 并核对 Manager/CR/MinIO；当前没有 Worker 容器；
+4. [x] 建立 evidence/rules/calc 三个窄 MCP，精确 consumer 授权并完成一个跨角色 403 探针；
+5. [x] 创建 Team 与两个合成 Human CR；`Active` 仅为控制面配置状态，Team 业务不可运行、Human
+   未参与；
+6. [ ] 完成模型 API Key 安全轮换后，逐个启动六 Worker 并以实际容器资源观测验收；
+7. [ ] 使用 TeamHarness 任务 DAG 跑通一个正常案例，而非由 Manager 操作员代跑；
+8. [ ] 将 Matrix event、task event ID、共享文件与 ProofFlow trace_id 关联；
+9. [ ] 在运行中 Worker 链跑通缺件、冲突、缺参、规则不足、越权和审批 TOCTOU；
+10. [ ] 导出原始日志、Trace、状态、指标和证据包；
+11. [ ] 提供一键部署、现场 Demo、录屏和离线回放。
 
 ## 测试矩阵
 
@@ -39,7 +55,7 @@
 | 5 | 未知公式版本 | 计算阻断 |
 | 6 | 工具超时 | 有界重试；结果不确定时转人工，不声称完成 |
 | 7 | 文档提示注入 | 不改变权限、工具、规则或批准策略 |
-| 8 | 未授权 Worker 调用 MCP | 返回 403 并留拒绝 Trace |
+| 8 | 未授权 Worker 调用 MCP | 当前已验证 Calculation Worker 对 evidence `tools/list` 返回 403；仍需运行中业务调用返回 403 并留拒绝 Trace |
 | 9 | 错误 Human 角色 | 不生成有效 ApprovalRecord |
 | 10 | 审批后修改方案 | 旧批准因对象摘要不匹配失效 |
 | 11 | 重复委派/调用 | 同 idempotency key 不产生第二个动作/任务事件 |
@@ -65,6 +81,22 @@
 
 不预设改善百分比。每个指标必须关联冻结数据、配置、Git SHA、模型、原始运行和评分器版本。
 
+当前本机同进程 HTTP 报告对 `/health`、rule 和 calculation 三个路径各测 100 个请求，合计
+300/300 functional success。该结果不经过 MCP、不包含 AgentTeams 编排或 LLM，也不包含服务端容器
+资源，不能作为 SLA、生产容量或多 Agent 性能结论。正式复赛评测必须另跑 direct container、Higress/
+MCP、Worker/LLM 与端到端任务层，并记录成本和故障分布。
+
+供应链发布门尚未对当前源码闭合。公开机器证据仅绑定历史 Alpine 镜像
+`sha256:eb1ced4bfd38ee333c17bfac99716486a5850fbfb12bdfc4c11f178514868505`；其固定数据库点时结果为
+全 severity 0、CycloneDX 937 components、verdict `NO_HIGH_OR_CRITICAL_FOUND`，但不含 build
+provenance，也不绑定当前工作树。当前源码候选仅有未发布、未做 Schema 绑定的隔离合成 HTTP
+操作员 smoke，仍须重新生成 SBOM、
+漏洞扫描和 AgentTeams 交叉证据后才能作为复赛镜像。当前源码全仓测试为 306 passed；任何历史零
+finding 都不得写成“clean”、无漏洞或生产安全证明。性能方法
+与边界见
+[`08_PERFORMANCE_BENCHMARK.md`](08_PERFORMANCE_BENCHMARK.md)；机器可读扫描证据见
+[`supply-chain-evidence.json`](../deploy/tool-service/evidence/supply-chain-evidence.json)。
+
 ## 运行证据包
 
 ```text
@@ -72,6 +104,8 @@ input-manifest.json
 input-hashes.txt
 config-and-version.json
 agentteams-resources/
+agentteams-local-infra-smoke.json
+mcp-manager-operator-smoke.json
 matrix-messages.jsonl
 teamharness-tasks.json
 trace.jsonl
@@ -87,6 +121,10 @@ run-summary.md
 
 公开包只允许合成数据和脱敏基础设施信息。密钥、Cookie、私钥、个人信息、真实案件和内部地址不得
 进入仓库。
+
+现有 MCP 摘要只保存 allowlist 字段，不含原始响应或签名。它能被 JSON Schema 与跨字段语义规则
+离线检查，但不能证明底层观察真实、持续有效或没有被操作者替换；最终证据包仍需签名 provenance
+与可复现的采集流程。
 
 ## 延后事项
 

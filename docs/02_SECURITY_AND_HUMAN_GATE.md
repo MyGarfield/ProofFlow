@@ -1,6 +1,6 @@
 # 安全、Human Gate 与审计
 
-文档状态：`REFERENCE_CORE_ALPHA`
+文档状态：`REFERENCE_CORE_VERIFIED / POINT_IN_TIME_SECURITY_SMOKES`
 
 本文件区分“本地合成参考实现”和“生产安全”。前者已有代码和自动测试，后者尚未完成。
 
@@ -11,8 +11,8 @@
 - Hard Gate：生成任何受控交付包；
 - 禁止区：删除/篡改证据、跨租户引用、Agent 模拟 Human 批准及任何外部现实副作用。
 
-当前程序只产生本地受控 Markdown/JSON 草案。发送、签署、提交、解雇、付款和企业系统写入完全
-没有实现。
+当前程序只产生本地受控 Markdown/JSON 草案；工具服务只写有容量上限、重启即丢失的进程内合成
+Evidence 登记表。发送、签署、提交、解雇、付款和企业系统写入完全没有实现。
 
 ## Human Gate 已实现合同
 
@@ -31,23 +31,37 @@ HumanDecision 必须显式声明 Human actor、角色、决定、理由和时间
 7. Package 文件和 Manifest 可独立重算哈希。
 
 当前 `approval_method=LOCAL_DEMO` 只证明本地流程记录，不代表 MFA、数字签名、组织身份或不可抵赖。
-AgentTeams Human/Matrix 的真实身份映射尚未验证。
+AgentTeams 中两个 `Active` Human CR 只是合成配置资源，不对应比赛成员或真实个人，且没有参与本次
+Manager 操作员工具链；Human/Matrix 的真实身份映射仍未验证。
 
 ## 控制状态
 
 | 风险 | 本地参考实现 | 生产差距 |
 |---|---|---|
 | 文档提示注入 | 只提取 allowlist 字段；攻击文本保留为忽略数据；有测试 | PDF/OCR、间接工具投毒和模型层红队未做 |
-| 来源篡改 | 输入声明 SHA-256、Artifact 自验、Package 文件验真 | 对象存储 WORM、签名和密钥托管未做 |
+| 来源篡改 | 输入声明 SHA-256、Artifact 自验、Package 文件验真；tool-service 计算只接受本进程已登记且 canonical 内容一致的 Evidence；同 scope 改值重封在 operator smoke 中以 `UNTRUSTED_EVIDENCE` 阻断 | 登记表仅适用于公开合成输入且重启丢失；来源真实性、持久化 WORM、签名和密钥托管未做 |
 | 规则过期/异地 | issue + jurisdiction + as-of 确定性过滤；不足时弃答 | 完整法规快照、替代关系、许可和专家核验未做 |
 | LLM 虚构计算 | 参考核心不使用 LLM；`Decimal` 版本公式 | 公式全域、地区参数来源和专家测试未做 |
-| 越权 Skill | PF-A1–PF-A6 调用 Identity 精确检查 | AgentTeams/Higress/MCP consumer 实测 403 未做 |
+| 越权 Skill | PF-A1–PF-A6 调用 Identity 精确检查；三个 MCP consumer 清单精确；Evidence Worker 对 evidence `tools/list` 实测 200，Calculation Worker 跨角色实测 403 | 尚无运行中 Worker 的完整业务调用、权限变更/撤销、并发与生产身份测试 |
 | 跨租户审批 | tenant/case 精确检查 | 数据库 RLS、网络隔离和生产 RBAC 未做 |
-| 密钥泄漏 | 当前无模型/外部服务密钥；私密目录被忽略 | Secret manager、日志扫描和轮换未做 |
+| 密钥泄漏 | ProofFlow API Token 只从私密环境注入且公开证据不读取其值；公开仓库含 AgentTeams v1.2.2 help 默认值泄漏风险的候选补丁 | 运行中的 v1.2.2 镜像尚未由该候选补丁重建验证；模型 API Key 轮换完成前 Worker/LLM 保持禁用；Secret manager、轮换审计和生产日志扫描未做 |
 | 审批绕过 | 状态机、Human actor、角色、对象摘要和过期校验 | 生产身份、MFA、撤销与签名未做 |
 | 审批后篡改 | 待批对象摘要变化后批准失败；有 E2E 测试 | 并发数据库事务和跨服务 TOCTOU 未做 |
 | Trace 缺失 | Audit 强制 BLOCK | OTel、append-only ledger、保留策略未做 |
 | 包文件篡改 | 独立 verify 发现文件哈希变化；有 E2E 测试 | 签名发布、SBOM/provenance 和托管验证器未做 |
+| 镜像供应链 | 历史最小化 Alpine 镜像 `sha256:eb1ced4bfd38ee333c17bfac99716486a5850fbfb12bdfc4c11f178514868505` 的 Schema-bound 点时扫描为全 severity 0、CycloneDX 937 components、verdict `NO_HIGH_OR_CRITICAL_FOUND`；当前源码候选仅有未发布、未做 Schema 绑定的隔离合成 HTTP 操作员 smoke | 历史证据不含 build provenance且不绑定当前工作树；当前候选的新 SBOM/漏洞扫描与 AgentTeams 交叉绑定待完成。当前源码 306 tests passed；历史零 finding 不等于 clean、无漏洞或运行时安全。Debian 4 Critical/22 High 仅是未附原始报告的操作员历史观察 |
+
+## AgentTeams 点时安全证据边界
+
+截至 2026 年 8 月 20 日，三个 MCP 都为 `ok` 且各暴露一个工具；Manager 操作员使用公开合成数据
+完成三次 Evidence ingest、返回四条规则引用，并得到确定性十进制结果 `60000`。同 scope 改值后
+重新封装 Evidence 哈希的负向探针返回 `BLOCKED / UNTRUSTED_EVIDENCE`。这些事实证明当前工具合同
+能阻断该特定攻击，不证明来源身份、任意篡改、持久化恢复或生产授权均安全。
+
+六个 Worker CR 全部为 `Stopped`，Worker 容器数和 ready Worker 数均为 0。Team CR 的 `Active`
+只是控制面配置状态；因此不存在可被描述为“AgentTeams 多 Agent 安全闭环”的运行证据。MCP smoke
+由 Manager 操作员发起、未调用 LLM。公开摘要、Schema 和局限见
+[`mcp-manager-operator-smoke-2026-08-20.json`](../deploy/agentteams/evidence/mcp-manager-operator-smoke-2026-08-20.json)。
 
 ## 回滚与恢复边界
 
@@ -58,10 +72,11 @@ ProofFlow 不承诺撤销已经发送、签署、提交或执行的现实动作�
 
 ## 上线前硬门禁
 
-- 真实 AgentTeams Skill/MCP 最小权限和跨角色 403；
+- 运行中 AgentTeams Worker 的 Skill/MCP 调用、最小权限持续性、撤权和跨角色业务请求；
 - 生产 Human 身份、角色、MFA/签名和撤销；
 - PostgreSQL 租户过滤/RLS、并发与审计日志；
-- 秘密隔离、egress、依赖/容器/SBOM 扫描；
+- 模型 API Key 安全轮换、help 泄漏修复镜像验证、秘密隔离和 egress；
+- 在依赖、基础镜像或扫描数据库变化后重新执行供应链证据采集、严格校验和全仓门禁；
 - 文档解析隔离、恶意文件测试和隐私保留策略；
 - crash/retry、replay、幂等与恢复验证；
 - 经授权的领域专家和安全人员复核。

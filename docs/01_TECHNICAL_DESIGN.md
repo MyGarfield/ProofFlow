@@ -1,14 +1,14 @@
 # 技术设计与实现状态
 
-文档状态：`REFERENCE_CORE_ALPHA`
+文档状态：`REFERENCE_CORE_VERIFIED / AGENTTEAMS_MANAGER_SMOKE`
 
 ## 分层
 
 1. 输入层：当前只接受合成、预结构化 JSON/TXT，并校验声明 SHA-256。
-2. AgentTeams 协同层：版本与声明式资产已固定，尚未部署和验证。
+2. AgentTeams 协同层：版本、Controller/Manager 及基础设施已完成本地点时验证；Worker/LLM 任务链未运行。
 3. 业务 Identity 层：PF-A1 至 PF-A6 的调用边界已在本地核心执行；真实 Worker 尚未运行。
-4. Skill 层：八个参考函数已实现；AgentTeams `SKILL.md` 已生成但未分发验证。
-5. 工具与数据层：本地文件、规则目录和公式实现；MCP、对象存储和数据库尚未接入。
+4. Skill 层：八个参考函数已实现；六个 Worker 的八条分配及仓库/Manager/MinIO 三方哈希 8/8 一致，但未观察 Worker 运行时消费。
+5. 工具与数据层：本地文件、规则目录和公式已实现；三个 MCP 已完成 Manager 操作员冒烟，MinIO 仅验证 Skill 分发副本，业务数据库未接入。
 6. 证据与治理层：对象哈希、状态机、Trace、Audit、Human Gate 和 Package 验真已实现。
 
 ## AgentTeams 映射
@@ -18,11 +18,14 @@
 - Case Manager：`proof-flow-case-review` 的 `team_leader`；
 - Evidence、Rule、Calculation、Strategy、Audit：五个 Worker；
 - Human Reviewer/Approver：独立 Human 资源；
-- Matrix、TeamHarness、MinIO：计划承载可见协作、任务和引用式文件；
-- Higress：计划隔离真实凭据并实施 MCP consumer 最小权限。
+- Matrix、MinIO、Higress：基础设施健康与最小 consumer ACL 已完成点时核验；
+- TeamHarness：Team CR 已存在，但尚未形成 Worker/LLM 驱动的 Matrix 任务链；
+- 三个 MCP：Manager 已完成 Evidence→Rule→Calculation 合成正向链和受控负向检查；这不是 Worker 或多 Agent 执行证据。
 
-`deploy/agentteams/` 中所有 Worker 默认 `Stopped`。必须先完成 Skill 分发和精确 MCP consumer 授权，
-再启动 Worker、创建 Team 和 Human。当前没有实际运行证据。
+`deploy/agentteams/` 中六个 Worker 均为 `Stopped`，运行容器为 0。Team 与两个合成 Human CR 已创建，
+但 Team `readyWorkers=0`，Human 未参与流程。Skill 分发和三个 MCP 精确 consumer 已点时核验；仍须先完成
+凭据轮换与启动门禁，才能逐一启动 Worker。当前不主张存在 Worker/LLM、Team 任务或 Human Gate 的
+AgentTeams 运行证据。
 
 ## ProofFlow 应用层责任
 

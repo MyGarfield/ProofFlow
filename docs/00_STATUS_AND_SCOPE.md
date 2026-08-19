@@ -2,18 +2,56 @@
 
 ## 状态声明
 
-- 项目状态：`REFERENCE_CORE_ALPHA`
+- 项目状态：`REFERENCE_CORE_VERIFIED`
 - 本地确定性参考核心：`IMPLEMENTED_AND_TESTED`
-- AgentTeams 集成：`PINNED_NOT_DEPLOYED`
-- LLM/MCP/RAG/OCR：`NOT_IMPLEMENTED`
+- AgentTeams 基础设施：`LOCAL_POINT_IN_TIME_SMOKE_VERIFIED`
+- 六 Worker / 八 Skill：`CONFIGURED_STOPPED / ZERO_WORKER_CONTAINERS`
+- 三个 MCP：`MANAGER_OPERATOR_SMOKE_VERIFIED`
+- Team：`CONTROLLER_ACTIVE / OPERATIONALLY_NOT_READY`
+- AgentTeams Human：`TWO_SYNTHETIC_RESOURCES_ACTIVE / NO_PARTICIPATION`
+- Worker / LLM 协作：`NOT_VALIDATED_PENDING_KEY_ROTATION`
+- RAG / OCR：`NOT_IMPLEMENTED`
+- tool-service 镜像发布门：`HISTORICAL_SNAPSHOT_VALIDATED / CURRENT_SOURCE_SCAN_PENDING`
 - 生产运行与真实法律准确率：`NOT_VALIDATED`
 
 截至 2026 年 8 月 20 日，仓库已从纯方案阶段进入合成数据参考实现阶段。Python 3.12 核心实现
 不可变对象、状态机、八个 Skill、本地 Human Gate、Trace、受控交付包与验真；自动化测试覆盖正常
 链和多种失败合同。
 
-这不等于六 Agent 已在 AgentTeams 运行。`deploy/agentteams/` 仅固定 v1.2.2 和声明式资产，状态为
-`PINNED_NOT_DEPLOYED`，尚无 Matrix、TeamHarness、MinIO、MCP、Worker 或 Human 运行证据。
+这不等于六 Agent 已在 AgentTeams 运行。已验证事实是：本地 AgentTeams v1.2.2 基础设施可达；六个
+Worker CR 和八个 Skill 分发结果存在；三个 MCP 均为 `ok`、各一个工具且 consumer 清单精确；但六个
+Worker 全部为 `Stopped`，Worker 容器数和 ready Worker 数都为 0。Team CR 的 `Active` 只证明
+Controller 已协调配置，不证明业务可运行。两个 Human CR 是合成配置资源，不对应比赛成员或真实
+个人，也没有 Human 参与记录。
+
+Manager 操作员已用公开合成数据完成三次 Evidence ingest、四条规则引用和结果为十进制字符串
+`60000` 的确定性计算；同 scope 修改 Evidence 值并重新封装哈希后，以
+`BLOCKED / UNTRUSTED_EVIDENCE` 失败。Evidence Worker 对 evidence MCP 的 `tools/list` 返回 200，
+Calculation Worker 的跨角色访问返回 403。这些都是脱敏的点时 operator smoke，未使用 Worker 或
+LLM，不能证明 Team/Matrix 协作、运行中 Skill 消费、模型质量或 AgentTeams Human Gate。
+
+事实证据分别位于
+[`deploy/agentteams/evidence/mcp-manager-operator-smoke-2026-08-20.json`](../deploy/agentteams/evidence/mcp-manager-operator-smoke-2026-08-20.json)
+和 [`deploy/agentteams/LOCAL_INFRA_EVIDENCE.md`](../deploy/agentteams/LOCAL_INFRA_EVIDENCE.md)。证据文件
+是 schema 与跨字段语义可验证的公开摘要，不是签名证明，也不证明观察的真实性、持续可用性或
+生产安全性。
+
+## 事实、推断与未验证事项
+
+- **已验证事实**：本地参考核心合同；上述 Manager 操作员 MCP 正负向 smoke；六个停止态 Worker
+  CR、八个 Skill、一个非 operational Team 和两个未参与的合成 Human 资源；本机同进程 HTTP
+  基准 300/300 functional success。
+- **合理推断**：最小 ACL、后端身份边界和 trusted-artifact registry 能降低跨角色调用与重新封装
+  Evidence 被接受的风险；单次 smoke 不能量化风险降低幅度。
+- **未验证事项**：LLM Worker 协作、Matrix/TeamHarness 任务链、真实 Human 身份映射、MCP 长稳与
+  故障恢复、法律准确率、生产容量和 SLA。模型 API Key 轮换完成前不启动 Worker 或触发 LLM。
+- **供应链门状态**：公开机器证据绑定历史最小化 Alpine 镜像
+  `sha256:eb1ced4bfd38ee333c17bfac99716486a5850fbfb12bdfc4c11f178514868505`；其固定数据库点时扫描的
+  Unknown/Low/Medium/High/Critical 均为 0，CycloneDX 为 937 components，verdict 仅为
+  `NO_HIGH_OR_CRITICAL_FOUND`。该证据不提供 build provenance，也不绑定当前工作树。当前源码候选
+  只有一次未发布、未做 Schema 绑定的隔离 non-root/read-only 合成 HTTP 操作员 smoke；新 SBOM、漏洞扫描和 AgentTeams 交叉证据尚未
+  刷新，因此发布门为 pending。当前源码全仓测试为 306 passed；历史零 finding 不能外推为当前镜像
+  “clean”、无漏洞或安全证明。此前 Debian 4 Critical/22 High 仅是未附原始报告的操作员历史观察。
 
 ## 首个验证场景
 
@@ -29,6 +67,8 @@
 
 - 六 Identity 的调用者权限检查；
 - 八个 Skill 的本地参考函数；
+- 三个带 Bearer 鉴权的严格 REST 工具接口及有界进程内 trusted-artifact registry；
+- 三个 AgentTeams/Higress MCP 点时配置、各一个工具、精确 consumer ACL 和正负向 smoke；
 - 严格 Pydantic 对象、规范化 JSON、`Decimal` 与 SHA-256；
 - 明确状态迁移和乐观并发版本；
 - 本地地域/时态规则过滤；
@@ -45,7 +85,7 @@
 - 不处理真实案件或个人信息；
 - 不自动作出最终法律决定；
 - 不自动对外发送、签署、提交、解雇、付款或写入企业系统；
-- 不声称已完成 AgentTeams、MCP、RAG、OCR、长期记忆或复杂 WebUI；
+- 不声称已完成运行中 AgentTeams 多 Agent 协作、LLM、RAG、OCR、长期记忆或复杂 WebUI；
 - 不声称生产级身份、租户隔离、高可用、安全认证或领域准确率；
 - 不同时验证多个行业；
 - 不把合成测试结果外推为生产表现。
@@ -63,5 +103,11 @@
 7. Human 角色正确，批准未过期且与当前待批对象哈希一致；
 8. Package Manifest 和文件哈希一致。
 
-复赛级“完整闭环”还必须增加真实 AgentTeams 六 Worker 协作、Skill 分发、MCP 最小权限、Matrix/
-TeamHarness/MinIO 证据、异常恢复、评测、Demo 和全新环境复现。当前尚未达到该级别。
+复赛级“完整闭环”还必须增加真实 AgentTeams 六 Worker 运行与协作、Matrix/TeamHarness 任务事件、
+运行中 Skill 消费、真实 Human Gate、异常恢复、评测、Demo 和全新环境复现。现有 Skill 分发、MCP
+最小权限与 Manager 操作员 smoke 只是这些门槛中的配置/边界证据，当前尚未达到完整闭环。
+
+本机同进程性能报告的 300/300 functional success 只覆盖三个 REST 路径各 100 次请求；它不覆盖
+MCP、AgentTeams、LLM、服务端容器资源或生产网络，因此不构成 SLA 或容量承诺。详见
+[`docs/08_PERFORMANCE_BENCHMARK.md`](08_PERFORMANCE_BENCHMARK.md)。供应链发布门详见
+[`deploy/tool-service/evidence/supply-chain-evidence.json`](../deploy/tool-service/evidence/supply-chain-evidence.json)。
