@@ -1,0 +1,56 @@
+{
+  "catalog_version": "2026-08-20",
+  "status": "CURATED_REFERENCE_ONLY",
+  "legal_advice": false,
+  "source_policy": "Each record points to an official source. The local statement is a curated summary and must not replace the official text or human legal review.",
+  "rules": [
+    {
+      "rule_id": "PRC-LCL-40",
+      "version": "2012-amended",
+      "issue_code": "termination_notice_or_pay_in_lieu",
+      "title": "中华人民共和国劳动合同法第四十条",
+      "jurisdiction": "CN",
+      "effective_from": "2013-07-01",
+      "effective_to": null,
+      "authoritative_source": "https://flk.npc.gov.cn/detail?fileId=&id=2c909fdd678bf17901678bf74d7106b3&title=%E4%B8%AD%E5%8D%8E%E4%BA%BA%E6%B0%91%E5%85%B1%E5%92%8C%E5%9B%BD%E5%8A%B3%E5%8A%A8%E5%90%88%E5%90%8C%E6%B3%95&type=",
+      "locator": "第四十条",
+      "statement": "在第四十条列明的条件成立时，用人单位可选择提前三十日书面通知，或额外支付一个月工资后解除；条件是否成立必须另行核验。"
+    },
+    {
+      "rule_id": "PRC-LCL-46",
+      "version": "2012-amended",
+      "issue_code": "economic_compensation_eligibility",
+      "title": "中华人民共和国劳动合同法第四十六条",
+      "jurisdiction": "CN",
+      "effective_from": "2013-07-01",
+      "effective_to": null,
+      "authoritative_source": "https://flk.npc.gov.cn/detail?fileId=&id=2c909fdd678bf17901678bf74d7106b3&title=%E4%B8%AD%E5%8D%8E%E4%BA%BA%E6%B0%91%E5%85%B1%E5%92%8C%E5%9B%BD%E5%8A%B3%E5%8A%A8%E5%90%88%E5%90%8C%E6%B3%95&type=",
+      "locator": "第四十六条",
+      "statement": "第四十六条列举应支付经济补偿的法定情形；具体案件是否落入其中必须基于已核验事实和适用规则判断。"
+    },
+    {
+      "rule_id": "PRC-LCL-47",
+      "version": "2012-amended",
+      "issue_code": "economic_compensation_amount",
+      "title": "中华人民共和国劳动合同法第四十七条",
+      "jurisdiction": "CN",
+      "effective_from": "2013-07-01",
+      "effective_to": null,
+      "authoritative_source": "https://flk.npc.gov.cn/detail?fileId=&id=2c909fdd678bf17901678bf74d7106b3&title=%E4%B8%AD%E5%8D%8E%E4%BA%BA%E6%B0%91%E5%85%B1%E5%92%8C%E5%9B%BD%E5%8A%B3%E5%8A%A8%E5%90%88%E5%90%8C%E6%B3%95&type=",
+      "locator": "第四十七条",
+      "statement": "经济补偿通常按本单位工作年限折算月数；满六个月不足一年按一年、不足六个月按半月，高工资情形另有三倍基数及十二年限制。"
+    },
+    {
+      "rule_id": "PRC-LCL-REG-27",
+      "version": "2008",
+      "issue_code": "economic_compensation_wage_basis",
+      "title": "中华人民共和国劳动合同法实施条例第二十七条",
+      "jurisdiction": "CN",
+      "effective_from": "2008-09-18",
+      "effective_to": null,
+      "authoritative_source": "https://www.gov.cn/zwgk/2008-09/19/content_1099470.htm",
+      "locator": "第二十七条",
+      "statement": "经济补偿月工资按应得工资口径计算；低于当地最低工资标准或工作不足十二个月时，条例另有计算要求。"
+    }
+  ]
+}

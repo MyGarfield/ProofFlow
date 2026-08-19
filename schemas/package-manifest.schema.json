@@ -1,0 +1,156 @@
+{
+  "$defs": {
+    "ArtifactMeta": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "case_id": {
+          "minLength": 1,
+          "title": "Case Id",
+          "type": "string"
+        },
+        "classification": {
+          "$ref": "#/$defs/DataClassification",
+          "default": "PUBLIC_SYNTHETIC"
+        },
+        "content_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Content Hash"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "producer_identity": {
+          "minLength": 1,
+          "title": "Producer Identity",
+          "type": "string"
+        },
+        "schema_version": {
+          "default": "proofflow.dev/v1alpha1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_refs": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Refs",
+          "type": "array"
+        },
+        "tenant_id": {
+          "minLength": 1,
+          "title": "Tenant Id",
+          "type": "string"
+        },
+        "trace_id": {
+          "minLength": 1,
+          "title": "Trace Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "tenant_id",
+        "case_id",
+        "producer_identity",
+        "trace_id",
+        "created_at"
+      ],
+      "title": "ArtifactMeta",
+      "type": "object"
+    },
+    "DataClassification": {
+      "enum": [
+        "PUBLIC_SYNTHETIC",
+        "INTERNAL",
+        "RESTRICTED"
+      ],
+      "title": "DataClassification",
+      "type": "string"
+    },
+    "PackageFile": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "title": "PackageFile",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "approval_record_ref": {
+      "title": "Approval Record Ref",
+      "type": "string"
+    },
+    "audit_report_ref": {
+      "title": "Audit Report Ref",
+      "type": "string"
+    },
+    "files": {
+      "items": {
+        "$ref": "#/$defs/PackageFile"
+      },
+      "title": "Files",
+      "type": "array"
+    },
+    "included_artifact_refs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Included Artifact Refs",
+      "type": "array"
+    },
+    "manifest_hash": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Manifest Hash"
+    },
+    "meta": {
+      "$ref": "#/$defs/ArtifactMeta"
+    }
+  },
+  "required": [
+    "meta",
+    "approval_record_ref",
+    "audit_report_ref",
+    "files",
+    "included_artifact_refs"
+  ],
+  "title": "PackageManifest",
+  "type": "object"
+}

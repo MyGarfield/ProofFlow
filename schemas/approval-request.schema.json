@@ -1,0 +1,51 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "artifact_hash": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Artifact Hash",
+      "type": "string"
+    },
+    "artifact_ref": {
+      "title": "Artifact Ref",
+      "type": "string"
+    },
+    "audit_report_ref": {
+      "title": "Audit Report Ref",
+      "type": "string"
+    },
+    "case_id": {
+      "title": "Case Id",
+      "type": "string"
+    },
+    "expires_at": {
+      "format": "date-time",
+      "title": "Expires At",
+      "type": "string"
+    },
+    "request_id": {
+      "title": "Request Id",
+      "type": "string"
+    },
+    "required_role": {
+      "title": "Required Role",
+      "type": "string"
+    },
+    "tenant_id": {
+      "title": "Tenant Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "request_id",
+    "tenant_id",
+    "case_id",
+    "artifact_ref",
+    "artifact_hash",
+    "audit_report_ref",
+    "required_role",
+    "expires_at"
+  ],
+  "title": "ApprovalRequest",
+  "type": "object"
+}

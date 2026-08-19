@@ -1,0 +1,102 @@
+{
+  "$defs": {
+    "ActorKind": {
+      "enum": [
+        "AGENT",
+        "HUMAN",
+        "SYSTEM"
+      ],
+      "title": "ActorKind",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "actor_identity": {
+      "title": "Actor Identity",
+      "type": "string"
+    },
+    "actor_kind": {
+      "$ref": "#/$defs/ActorKind"
+    },
+    "case_id": {
+      "title": "Case Id",
+      "type": "string"
+    },
+    "error_code": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Error Code"
+    },
+    "event_type": {
+      "title": "Event Type",
+      "type": "string"
+    },
+    "input_hash": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Input Hash"
+    },
+    "occurred_at": {
+      "format": "date-time",
+      "title": "Occurred At",
+      "type": "string"
+    },
+    "output_hash": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Output Hash"
+    },
+    "sequence": {
+      "minimum": 1,
+      "title": "Sequence",
+      "type": "integer"
+    },
+    "status": {
+      "title": "Status",
+      "type": "string"
+    },
+    "tenant_id": {
+      "title": "Tenant Id",
+      "type": "string"
+    },
+    "trace_id": {
+      "title": "Trace Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "sequence",
+    "trace_id",
+    "tenant_id",
+    "case_id",
+    "actor_identity",
+    "actor_kind",
+    "event_type",
+    "status",
+    "occurred_at"
+  ],
+  "title": "TraceEvent",
+  "type": "object"
+}

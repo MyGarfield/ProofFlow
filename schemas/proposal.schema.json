@@ -1,0 +1,160 @@
+{
+  "$defs": {
+    "ArtifactMeta": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "case_id": {
+          "minLength": 1,
+          "title": "Case Id",
+          "type": "string"
+        },
+        "classification": {
+          "$ref": "#/$defs/DataClassification",
+          "default": "PUBLIC_SYNTHETIC"
+        },
+        "content_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Content Hash"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "producer_identity": {
+          "minLength": 1,
+          "title": "Producer Identity",
+          "type": "string"
+        },
+        "schema_version": {
+          "default": "proofflow.dev/v1alpha1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_refs": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Refs",
+          "type": "array"
+        },
+        "tenant_id": {
+          "minLength": 1,
+          "title": "Tenant Id",
+          "type": "string"
+        },
+        "trace_id": {
+          "minLength": 1,
+          "title": "Trace Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "tenant_id",
+        "case_id",
+        "producer_identity",
+        "trace_id",
+        "created_at"
+      ],
+      "title": "ArtifactMeta",
+      "type": "object"
+    },
+    "DataClassification": {
+      "enum": [
+        "PUBLIC_SYNTHETIC",
+        "INTERNAL",
+        "RESTRICTED"
+      ],
+      "title": "DataClassification",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "actions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Actions",
+      "type": "array"
+    },
+    "calculation_ref": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Calculation Ref"
+    },
+    "evidence_refs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Evidence Refs",
+      "type": "array"
+    },
+    "meta": {
+      "$ref": "#/$defs/ArtifactMeta"
+    },
+    "option_code": {
+      "title": "Option Code",
+      "type": "string"
+    },
+    "risks": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Risks",
+      "type": "array"
+    },
+    "rule_refs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Rule Refs",
+      "type": "array"
+    },
+    "summary": {
+      "title": "Summary",
+      "type": "string"
+    },
+    "uncertainties": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Uncertainties",
+      "type": "array"
+    }
+  },
+  "required": [
+    "meta",
+    "option_code",
+    "summary",
+    "actions",
+    "evidence_refs",
+    "rule_refs"
+  ],
+  "title": "Proposal",
+  "type": "object"
+}

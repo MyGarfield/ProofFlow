@@ -1,0 +1,60 @@
+{
+  "$defs": {
+    "ActorKind": {
+      "enum": [
+        "AGENT",
+        "HUMAN",
+        "SYSTEM"
+      ],
+      "title": "ActorKind",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "actor_kind": {
+      "$ref": "#/$defs/ActorKind",
+      "default": "AGENT"
+    },
+    "caller_identity": {
+      "title": "Caller Identity",
+      "type": "string"
+    },
+    "case_id": {
+      "title": "Case Id",
+      "type": "string"
+    },
+    "expected_state_version": {
+      "minimum": 0,
+      "title": "Expected State Version",
+      "type": "integer"
+    },
+    "idempotency_key": {
+      "title": "Idempotency Key",
+      "type": "string"
+    },
+    "schema_version": {
+      "default": "proofflow.dev/v1alpha1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "tenant_id": {
+      "title": "Tenant Id",
+      "type": "string"
+    },
+    "trace_id": {
+      "title": "Trace Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "tenant_id",
+    "case_id",
+    "caller_identity",
+    "trace_id",
+    "idempotency_key",
+    "expected_state_version"
+  ],
+  "title": "SkillContext",
+  "type": "object"
+}

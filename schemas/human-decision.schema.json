@@ -1,0 +1,58 @@
+{
+  "$defs": {
+    "ActorKind": {
+      "enum": [
+        "AGENT",
+        "HUMAN",
+        "SYSTEM"
+      ],
+      "title": "ActorKind",
+      "type": "string"
+    },
+    "ApprovalDecision": {
+      "enum": [
+        "APPROVE",
+        "REJECT",
+        "REVISE"
+      ],
+      "title": "ApprovalDecision",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "actor_id": {
+      "title": "Actor Id",
+      "type": "string"
+    },
+    "actor_kind": {
+      "$ref": "#/$defs/ActorKind"
+    },
+    "actor_role": {
+      "title": "Actor Role",
+      "type": "string"
+    },
+    "decided_at": {
+      "format": "date-time",
+      "title": "Decided At",
+      "type": "string"
+    },
+    "decision": {
+      "$ref": "#/$defs/ApprovalDecision"
+    },
+    "reason": {
+      "title": "Reason",
+      "type": "string"
+    }
+  },
+  "required": [
+    "actor_id",
+    "actor_kind",
+    "actor_role",
+    "decision",
+    "reason",
+    "decided_at"
+  ],
+  "title": "HumanDecision",
+  "type": "object"
+}

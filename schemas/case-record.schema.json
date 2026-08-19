@@ -1,0 +1,87 @@
+{
+  "$defs": {
+    "CaseState": {
+      "enum": [
+        "RECEIVED",
+        "INGESTING",
+        "NEEDS_EVIDENCE",
+        "FACTS_READY",
+        "RULES_READY",
+        "CALC_READY",
+        "PROPOSAL_READY",
+        "AUDIT_BLOCKED",
+        "AWAITING_APPROVAL",
+        "APPROVED",
+        "REJECTED",
+        "REVISION_REQUIRED",
+        "PACKAGED",
+        "CLOSED"
+      ],
+      "title": "CaseState",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "artifact_refs": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Artifact Refs",
+      "type": "array"
+    },
+    "as_of_date": {
+      "format": "date",
+      "title": "As Of Date",
+      "type": "string"
+    },
+    "case_id": {
+      "minLength": 1,
+      "title": "Case Id",
+      "type": "string"
+    },
+    "input_manifest_hash": {
+      "minLength": 1,
+      "title": "Input Manifest Hash",
+      "type": "string"
+    },
+    "jurisdiction": {
+      "minLength": 1,
+      "title": "Jurisdiction",
+      "type": "string"
+    },
+    "state": {
+      "$ref": "#/$defs/CaseState",
+      "default": "RECEIVED"
+    },
+    "state_version": {
+      "default": 0,
+      "minimum": 0,
+      "title": "State Version",
+      "type": "integer"
+    },
+    "tenant_id": {
+      "minLength": 1,
+      "title": "Tenant Id",
+      "type": "string"
+    },
+    "unresolved_items": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Unresolved Items",
+      "type": "array"
+    }
+  },
+  "required": [
+    "case_id",
+    "tenant_id",
+    "jurisdiction",
+    "as_of_date",
+    "input_manifest_hash"
+  ],
+  "title": "CaseRecord",
+  "type": "object"
+}

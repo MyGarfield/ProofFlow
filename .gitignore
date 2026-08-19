@@ -1,5 +1,16 @@
 .DS_Store
 Thumbs.db
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+__pycache__/
+*.py[cod]
+.coverage
+htmlcov/
+
+# Local generated reference runs. Frozen, reviewed evidence belongs under evidence/.
+.proofflow/
 
 # Local submission profile contains personal contact and delivery data.
 /submission/private/
