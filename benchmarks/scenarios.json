@@ -1,0 +1,203 @@
+{
+  "schema_version": "proofflow.benchmark-scenarios/v1",
+  "suite_id": "proofflow-public-contracts",
+  "suite_version": "0.3.0",
+  "fixture_clock": "2026-08-20T04:00:00Z",
+  "data_classification": "PUBLIC_SYNTHETIC",
+  "measurement_scope": "QUALITY_AND_SAFETY_CONTRACTS_ONLY",
+  "legal_accuracy_measured": false,
+  "performance_measured": false,
+  "comparison_policy": "STRICT_RECURSIVE_CLOSED_SET",
+  "excluded_coverage": [
+    "AGENTTEAMS_ORCHESTRATION",
+    "LEGAL_ACCURACY",
+    "LLM_PROMPT_INJECTION_DEFENSE",
+    "MCP_TOOL_POISONING",
+    "PERFORMANCE"
+  ],
+  "scenarios": [
+    {
+      "id": "happy_path",
+      "title": "Controlled happy path reaches a verified package",
+      "contract_classes": [
+        "quality"
+      ],
+      "fault": "NONE",
+      "expected": {
+        "approval_record_present": true,
+        "external_side_effects_enabled": false,
+        "stage": "PACKAGED",
+        "verification_valid": true
+      }
+    },
+    {
+      "id": "missing_parameter",
+      "title": "A missing wage parameter blocks deterministic calculation",
+      "contract_classes": [
+        "quality",
+        "safety"
+      ],
+      "fault": "REMOVE_MONTHLY_WAGE_AVERAGE",
+      "expected": {
+        "issue_codes": [
+          "MISSING_PARAMETER"
+        ],
+        "skill_status": "BLOCKED",
+        "value_emitted": false
+      }
+    },
+    {
+      "id": "rule_scope_and_time",
+      "title": "Foreign and expired rules require human resolution",
+      "contract_classes": [
+        "quality",
+        "safety"
+      ],
+      "fault": "REQUEST_FOREIGN_AND_EXPIRED_RULES",
+      "expected": {
+        "expired_citation_count": 0,
+        "expired_issue_codes": [
+          "INSUFFICIENT_AUTHORITY"
+        ],
+        "expired_status": "NEEDS_HUMAN",
+        "foreign_citation_count": 0,
+        "foreign_issue_codes": [
+          "INSUFFICIENT_AUTHORITY"
+        ],
+        "foreign_status": "NEEDS_HUMAN"
+      }
+    },
+    {
+      "id": "parser_field_allowlist",
+      "title": "The parser allowlist ignores an instruction-like document field",
+      "contract_classes": [
+        "safety"
+      ],
+      "coverage_boundary": "PARSER_FIELD_ALLOWLIST_ONLY_NO_LLM_MCP_OR_AGENTTEAMS",
+      "fault": "EMBED_INSTRUCTION_LIKE_TEXT_IN_UNTRUSTED_DOCUMENT_FIELD",
+      "expected": {
+        "instruction_like_field_extracted": false,
+        "instruction_like_field_ignored": true,
+        "skill_status": "SUCCESS"
+      }
+    },
+    {
+      "id": "evidence_tamper",
+      "title": "Evidence bytes that disagree with the declared digest are blocked",
+      "contract_classes": [
+        "integrity",
+        "safety"
+      ],
+      "fault": "DECLARE_INCORRECT_SOURCE_DIGEST",
+      "expected": {
+        "evidence_emitted": false,
+        "issue_codes": [
+          "SOURCE_HASH_MISMATCH"
+        ],
+        "skill_status": "BLOCKED"
+      }
+    },
+    {
+      "id": "approval_toctou",
+      "title": "A post-request artifact mutation invalidates pending approval",
+      "contract_classes": [
+        "integrity",
+        "safety"
+      ],
+      "fault": "MUTATE_PROPOSAL_AFTER_APPROVAL_REQUEST",
+      "expected": {
+        "approval_record_present": false,
+        "blocked_issue_codes": [
+          "ARTIFACT_CHANGED"
+        ],
+        "blocked_stage": "human_approval",
+        "stage_after_attempt": "AWAITING_APPROVAL"
+      }
+    },
+    {
+      "id": "package_tamper",
+      "title": "A packaged file mutation is detected by independent verification",
+      "contract_classes": [
+        "integrity",
+        "safety"
+      ],
+      "fault": "MUTATE_PACKAGED_DRAFT",
+      "expected": {
+        "package_hash_mismatch_detected": true,
+        "verification_valid": false
+      }
+    },
+    {
+      "id": "seal_tamper",
+      "title": "A sealed evidence object mutated after sealing is rejected",
+      "contract_classes": [
+        "integrity",
+        "safety"
+      ],
+      "fault": "MUTATE_SEALED_EVIDENCE_WITHOUT_RESEALING",
+      "expected": {
+        "blocked": true,
+        "blocker_issue_present": true,
+        "input_hash_valid": false,
+        "issue_codes": [
+          "UNVERIFIED_ARTIFACT"
+        ],
+        "value_emitted": false
+      }
+    },
+    {
+      "id": "resealed_value_tamper",
+      "title": "A same-context evidence value cannot gain provenance by recalculating its SHA seal",
+      "contract_classes": [
+        "integrity",
+        "safety"
+      ],
+      "fault": "MUTATE_EVIDENCE_VALUE_AND_RESEAL_IN_SAME_CONTEXT",
+      "expected": {
+        "blocked": true,
+        "blocker_issue_present": true,
+        "input_hash_valid": true,
+        "issue_codes": [
+          "UNTRUSTED_EVIDENCE"
+        ],
+        "same_context": true,
+        "value_emitted": false
+      }
+    },
+    {
+      "id": "cross_tenant_calculation",
+      "title": "A validly sealed evidence object from another tenant is rejected",
+      "contract_classes": [
+        "safety"
+      ],
+      "fault": "RESEAL_ONE_EVIDENCE_OBJECT_FOR_ANOTHER_TENANT",
+      "expected": {
+        "blocked": true,
+        "blocker_issue_present": true,
+        "cross_tenant_input_count": 1,
+        "issue_codes": [
+          "CROSS_TENANT_REFERENCE"
+        ],
+        "value_emitted": false
+      }
+    },
+    {
+      "id": "unresolved_calculation_boundary",
+      "title": "A validly sealed unresolved fact cannot become a calculation parameter",
+      "contract_classes": [
+        "quality",
+        "safety"
+      ],
+      "fault": "MARK_REQUIRED_WAGE_FACT_UNRESOLVED_AND_RESEAL",
+      "expected": {
+        "blocked": true,
+        "blocker_issue_present": true,
+        "issue_codes": [
+          "UNRESOLVED_PARAMETER"
+        ],
+        "unresolved_input_count": 1,
+        "value_emitted": false
+      }
+    }
+  ]
+}
