@@ -15,8 +15,10 @@
     "worker_execution_observed",
     "llm_inference_observed",
     "team_operational_ready",
-    "ready_workers",
-    "worker_phases",
+    "leader_phase",
+    "specialist_ready_workers",
+    "total_worker_containers",
+    "specialist_phases",
     "task_event_ids",
     "matrix_event_ids",
     "worker_mcp_call_receipts",
@@ -40,10 +42,12 @@
     "worker_execution_observed": {"const": true},
     "llm_inference_observed": {"const": true},
     "team_operational_ready": {"const": true},
-    "ready_workers": {"type": "integer", "minimum": 1},
-    "worker_phases": {
+    "leader_phase": {"const": "Running"},
+    "specialist_ready_workers": {"type": "integer", "minimum": 0},
+    "total_worker_containers": {"type": "integer", "minimum": 1},
+    "specialist_phases": {
       "type": "object",
-      "minProperties": 1,
+      "minProperties": 0,
       "additionalProperties": {"const": "Running"}
     },
     "task_event_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
