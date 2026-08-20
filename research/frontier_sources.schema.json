@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/MyGarfield/ProofFlow/blob/feature/frontier-champion-research/research/frontier_sources.schema.json",
+  "$id": "https://github.com/MyGarfield/ProofFlow/schemas/frontier-research/2026-08-21-r1",
   "title": "ProofFlow frontier research source registry",
   "type": "object",
   "additionalProperties": false,
@@ -17,7 +17,7 @@
   "properties": {
     "$schema": {"const": "https://json-schema.org/draft/2020-12/schema"},
     "schema_version": {"const": "proofflow.frontier-sources/v1"},
-    "research_id": {"const": "frontier-champion-research-2026-08-20"},
+    "research_id": {"const": "frontier-champion-research-2026-08-21-r1"},
     "accessed_at": {"const": "2026-08-21"},
     "official_rubric": {
       "type": "object",
@@ -35,60 +35,62 @@
           "minItems": 5,
           "maxItems": 5,
           "uniqueItems": true,
-          "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["id", "label", "weight_points", "source_ids"],
-            "properties": {
-              "id": {
-                "enum": [
-                  "scene_value_and_reproducibility",
-                  "multi_agent_collaboration_loop",
-                  "skill_engineering_and_reuse",
-                  "engineering_runtime_and_security_audit",
-                  "open_source"
-                ]
-              },
-              "label": {"type": "string", "minLength": 1},
-              "weight_points": {"type": "integer", "minimum": 1, "maximum": 100},
-              "source_ids": {
-                "type": "array",
-                "minItems": 1,
-                "items": {"type": "string", "pattern": "^FR-[0-9]{3}$"},
-                "uniqueItems": true
-              }
-            }
-          },
+          "items": {"$ref": "#/$defs/rubric_dimension"},
           "prefixItems": [
             {
-              "properties": {
-                "id": {"const": "scene_value_and_reproducibility"},
-                "weight_points": {"const": 25}
-              }
+              "allOf": [
+                {"$ref": "#/$defs/rubric_dimension"},
+                {
+                  "properties": {
+                    "id": {"const": "scene_value_and_reproducibility"},
+                    "weight_points": {"const": 25}
+                  }
+                }
+              ]
             },
             {
-              "properties": {
-                "id": {"const": "multi_agent_collaboration_loop"},
-                "weight_points": {"const": 25}
-              }
+              "allOf": [
+                {"$ref": "#/$defs/rubric_dimension"},
+                {
+                  "properties": {
+                    "id": {"const": "multi_agent_collaboration_loop"},
+                    "weight_points": {"const": 25}
+                  }
+                }
+              ]
             },
             {
-              "properties": {
-                "id": {"const": "skill_engineering_and_reuse"},
-                "weight_points": {"const": 25}
-              }
+              "allOf": [
+                {"$ref": "#/$defs/rubric_dimension"},
+                {
+                  "properties": {
+                    "id": {"const": "skill_engineering_and_reuse"},
+                    "weight_points": {"const": 25}
+                  }
+                }
+              ]
             },
             {
-              "properties": {
-                "id": {"const": "engineering_runtime_and_security_audit"},
-                "weight_points": {"const": 20}
-              }
+              "allOf": [
+                {"$ref": "#/$defs/rubric_dimension"},
+                {
+                  "properties": {
+                    "id": {"const": "engineering_runtime_and_security_audit"},
+                    "weight_points": {"const": 20}
+                  }
+                }
+              ]
             },
             {
-              "properties": {
-                "id": {"const": "open_source"},
-                "weight_points": {"const": 5}
-              }
+              "allOf": [
+                {"$ref": "#/$defs/rubric_dimension"},
+                {
+                  "properties": {
+                    "id": {"const": "open_source"},
+                    "weight_points": {"const": 5}
+                  }
+                }
+              ]
             }
           ]
         },
@@ -282,6 +284,30 @@
     }
   },
   "$defs": {
-    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "rubric_dimension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "weight_points", "source_ids"],
+      "properties": {
+        "id": {
+          "enum": [
+            "scene_value_and_reproducibility",
+            "multi_agent_collaboration_loop",
+            "skill_engineering_and_reuse",
+            "engineering_runtime_and_security_audit",
+            "open_source"
+          ]
+        },
+        "label": {"type": "string", "minLength": 1},
+        "weight_points": {"type": "integer", "minimum": 1, "maximum": 100},
+        "source_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "pattern": "^FR-[0-9]{3}$"},
+          "uniqueItems": true
+        }
+      }
+    }
   }
 }

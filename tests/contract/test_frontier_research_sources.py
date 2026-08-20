@@ -5,7 +5,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import pytest
-from jsonschema import Draft202012Validator, FormatChecker
+from jsonschema import Draft202012Validator, FormatChecker, ValidationError
 
 ROOT = Path(__file__).parents[2]
 RESEARCH_DIR = ROOT / "research"
@@ -257,6 +257,7 @@ def test_frontier_source_schema_and_exact_registry_are_valid() -> None:
 
     Draft202012Validator.check_schema(schema)
     Draft202012Validator(schema, format_checker=FormatChecker()).validate(document)
+    assert document["research_id"] == "frontier-champion-research-2026-08-21-r1"
 
     claims = document["claims"]
     sources = document["sources"]
@@ -297,6 +298,15 @@ def test_frontier_source_schema_and_exact_registry_are_valid() -> None:
         assert actual == expected
         assert source["accessed_at"] == document["accessed_at"] == "2026-08-21"
         validate_public_source_url(source)
+
+
+def test_rubric_prefix_items_still_require_common_dimension_fields() -> None:
+    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+    document = source_document()
+    del document["official_rubric"]["dimensions"][0]["source_ids"]
+
+    with pytest.raises(ValidationError):
+        Draft202012Validator(schema, format_checker=FormatChecker()).validate(document)
 
 
 def test_claim_source_ids_and_supports_are_exact_bidirectional_links() -> None:
