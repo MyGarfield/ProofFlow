@@ -35,6 +35,16 @@ EXPECTED_IMAGE_ENV_KEYS = {
     "PYTHON_SHA256",
     "PYTHON_VERSION",
 }
+BUILD_INPUT_FILES = (
+    ".dockerignore",
+    "deploy/tool-service/Dockerfile",
+    "deploy/tool-service/requirements.lock",
+    "deploy/tool-service/THIRD_PARTY_NOTICES.md",
+    "LICENSE",
+    "NOTICE",
+)
+BUILD_INPUT_DIRECTORIES = ("src", "data/rules")
+DIRECTORY_BUNDLE_FORMAT = "PATH_LENGTH_U64_BE_PATH_BYTES_CONTENT_LENGTH_U64_BE_CONTENT_BYTES_V1"
 EXPECTED_LIMITATIONS = (
     "This is a point-in-time scan against one mutable vulnerability database snapshot.",
     (
@@ -47,8 +57,8 @@ EXPECTED_LIMITATIONS = (
         "network behavior were not inspected."
     ),
     (
-        "This evidence does not verify registry signatures, build provenance, deployment "
-        "configuration, or production security."
+        "Unsigned build-input hashes are not a build attestation or digital signature and do "
+        "not verify deployment or production security."
     ),
     (
         "No finding at a severity is evidence of scanner non-detection, not proof that no "
@@ -117,6 +127,91 @@ def _validate_schema(document: dict[str, Any], schema: dict[str, Any]) -> None:
 
 def _sha256(payload: bytes) -> str:
     return f"sha256:{hashlib.sha256(payload).hexdigest()}"
+
+
+def _is_generated_python_cache(relative_path: Path) -> bool:
+    return "__pycache__" in relative_path.parts or relative_path.suffix in {".pyc", ".pyo"}
+
+
+def _directory_input_files(relative_directory: str) -> list[Path]:
+    directory = ROOT / relative_directory
+    if not directory.is_dir() or directory.is_symlink():
+        raise EvidenceValidationError(
+            f"build input directory is missing or unsafe: {relative_directory}"
+        )
+    files: list[Path] = []
+    for candidate in directory.rglob("*"):
+        relative_path = candidate.relative_to(directory)
+        if _is_generated_python_cache(relative_path):
+            continue
+        if candidate.is_symlink():
+            raise EvidenceValidationError(f"build input symlink is not allowed: {candidate}")
+        if candidate.is_dir():
+            continue
+        if not candidate.is_file():
+            raise EvidenceValidationError(f"build input is not a regular file: {candidate}")
+        if relative_directory == "src":
+            allowed = candidate.suffix == ".py" or candidate.name == "py.typed"
+        else:
+            allowed = candidate.suffix == ".json"
+        if not allowed:
+            raise EvidenceValidationError(f"unexpected build input file: {candidate}")
+        files.append(candidate)
+    if not files:
+        raise EvidenceValidationError(f"build input directory is empty: {relative_directory}")
+    return sorted(files, key=lambda item: item.relative_to(directory).as_posix())
+
+
+def _expected_build_input_records() -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    for relative_path in BUILD_INPUT_FILES:
+        source = ROOT / relative_path
+        if not source.is_file() or source.is_symlink():
+            raise EvidenceValidationError(f"build input file is missing or unsafe: {relative_path}")
+        payload = source.read_bytes()
+        records.append(
+            {
+                "path": relative_path,
+                "kind": "FILE_BYTES",
+                "sha256": _sha256(payload),
+                "bytes": len(payload),
+                "file_count": 1,
+            }
+        )
+    for relative_directory in BUILD_INPUT_DIRECTORIES:
+        directory = ROOT / relative_directory
+        digest = hashlib.sha256()
+        total_bytes = 0
+        files = _directory_input_files(relative_directory)
+        for source in files:
+            relative_path = source.relative_to(directory).as_posix().encode("utf-8")
+            payload = source.read_bytes()
+            digest.update(len(relative_path).to_bytes(8, byteorder="big"))
+            digest.update(relative_path)
+            digest.update(len(payload).to_bytes(8, byteorder="big"))
+            digest.update(payload)
+            total_bytes += len(payload)
+        records.append(
+            {
+                "path": relative_directory,
+                "kind": "DIRECTORY_BUNDLE_V1",
+                "sha256": f"sha256:{digest.hexdigest()}",
+                "bytes": total_bytes,
+                "file_count": len(files),
+            }
+        )
+    return records
+
+
+def _validate_build_input_provenance(report: dict[str, Any]) -> None:
+    provenance = report["build_input_provenance"]
+    if provenance["directory_bundle_format"] != DIRECTORY_BUNDLE_FORMAT:
+        raise EvidenceValidationError("unexpected build-input directory bundle format")
+    dockerignore = set((ROOT / ".dockerignore").read_text(encoding="utf-8").splitlines())
+    if not {"demo", "**/__pycache__/", "**/*.py[cod]"} <= dockerignore:
+        raise EvidenceValidationError("Docker build context exclusions were weakened")
+    if provenance["inputs"] != _expected_build_input_records():
+        raise EvidenceValidationError("build-input provenance differs from repository bytes")
 
 
 def _parse_datetime(value: str, label: str) -> datetime:
@@ -372,6 +467,7 @@ def validate(evidence_path: Path = DEFAULT_EVIDENCE, *, release_gate: bool = Fal
     report = load_json_strict(evidence_path)
     schema = load_json_strict(DEFAULT_SCHEMA)
     _validate_schema(report, schema)
+    _validate_build_input_provenance(report)
 
     dockerfile = (ROOT / "deploy/tool-service/Dockerfile").read_text(encoding="utf-8")
     expected_from = f"FROM {report['scope']['base_image']}\n"

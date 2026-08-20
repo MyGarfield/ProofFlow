@@ -27,7 +27,7 @@ ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_OUTPUT = ROOT / "deploy/tool-service/evidence"
 
 TARGET_TAG = "proofflow-tool-service:0.1.0a0"
-TARGET_IMAGE_ID = "sha256:eb1ced4bfd38ee333c17bfac99716486a5850fbfb12bdfc4c11f178514868505"
+TARGET_IMAGE_ID = "sha256:1a4c4efb2d4e4fe37503ba0082282218e0b8c978dd22c1bd1488b5942d087775"
 TARGET_REFERENCE = f"proofflow-tool-service@{TARGET_IMAGE_ID}"
 BASE_IMAGE_REFERENCE = (
     "python:3.12-alpine@sha256:285a71327884a4d50efbea30104473b0fa43ecefa499458899670ca30dae76e5"
@@ -53,6 +53,16 @@ ARTIFACT_NAMES = {
     "spdx": "sbom.spdx.json",
     "trivy": "vulnerabilities.trivy.json",
 }
+BUILD_INPUT_FILES = (
+    ".dockerignore",
+    "deploy/tool-service/Dockerfile",
+    "deploy/tool-service/requirements.lock",
+    "deploy/tool-service/THIRD_PARTY_NOTICES.md",
+    "LICENSE",
+    "NOTICE",
+)
+BUILD_INPUT_DIRECTORIES = ("src", "data/rules")
+DIRECTORY_BUNDLE_FORMAT = "PATH_LENGTH_U64_BE_PATH_BYTES_CONTENT_LENGTH_U64_BE_CONTENT_BYTES_V1"
 
 
 class CollectionError(RuntimeError):
@@ -93,6 +103,85 @@ def load_json_bytes(payload: bytes, label: str) -> dict[str, Any]:
 
 def sha256_bytes(payload: bytes) -> str:
     return f"sha256:{hashlib.sha256(payload).hexdigest()}"
+
+
+def _is_generated_python_cache(relative_path: Path) -> bool:
+    return "__pycache__" in relative_path.parts or relative_path.suffix in {".pyc", ".pyo"}
+
+
+def _directory_input_files(relative_directory: str) -> list[Path]:
+    directory = ROOT / relative_directory
+    if not directory.is_dir() or directory.is_symlink():
+        raise CollectionError(f"build input directory is missing or unsafe: {relative_directory}")
+    files: list[Path] = []
+    for candidate in directory.rglob("*"):
+        relative_path = candidate.relative_to(directory)
+        if _is_generated_python_cache(relative_path):
+            continue
+        if candidate.is_symlink():
+            raise CollectionError(f"build input symlink is not allowed: {candidate}")
+        if candidate.is_dir():
+            continue
+        if not candidate.is_file():
+            raise CollectionError(f"build input is not a regular file: {candidate}")
+        if relative_directory == "src":
+            allowed = candidate.suffix == ".py" or candidate.name == "py.typed"
+        else:
+            allowed = candidate.suffix == ".json"
+        if not allowed:
+            raise CollectionError(f"unexpected build input file: {candidate}")
+        files.append(candidate)
+    if not files:
+        raise CollectionError(f"build input directory is empty: {relative_directory}")
+    return sorted(files, key=lambda item: item.relative_to(directory).as_posix())
+
+
+def build_input_provenance() -> dict[str, Any]:
+    inputs: list[dict[str, Any]] = []
+    for relative_path in BUILD_INPUT_FILES:
+        source = ROOT / relative_path
+        if not source.is_file() or source.is_symlink():
+            raise CollectionError(f"build input file is missing or unsafe: {relative_path}")
+        payload = source.read_bytes()
+        inputs.append(
+            {
+                "path": relative_path,
+                "kind": "FILE_BYTES",
+                "sha256": sha256_bytes(payload),
+                "bytes": len(payload),
+                "file_count": 1,
+            }
+        )
+    for relative_directory in BUILD_INPUT_DIRECTORIES:
+        directory = ROOT / relative_directory
+        digest = hashlib.sha256()
+        total_bytes = 0
+        files = _directory_input_files(relative_directory)
+        for source in files:
+            relative_path = source.relative_to(directory).as_posix().encode("utf-8")
+            payload = source.read_bytes()
+            digest.update(len(relative_path).to_bytes(8, byteorder="big"))
+            digest.update(relative_path)
+            digest.update(len(payload).to_bytes(8, byteorder="big"))
+            digest.update(payload)
+            total_bytes += len(payload)
+        inputs.append(
+            {
+                "path": relative_directory,
+                "kind": "DIRECTORY_BUNDLE_V1",
+                "sha256": f"sha256:{digest.hexdigest()}",
+                "bytes": total_bytes,
+                "file_count": len(files),
+            }
+        )
+    return {
+        "claim_level": "UNSIGNED_LOCAL_BUILD_INPUT_DIGEST_SNAPSHOT",
+        "hash_algorithm": "SHA-256",
+        "directory_bundle_format": DIRECTORY_BUNDLE_FORMAT,
+        "hashes_are_digital_signatures": False,
+        "build_relationship_attested": False,
+        "inputs": inputs,
+    }
 
 
 def docker_image_metadata() -> dict[str, Any]:
@@ -447,10 +536,11 @@ def collect(output_dir: Path) -> dict[str, Any]:
 
         high_or_critical = vulnerability_counts["HIGH"] + vulnerability_counts["CRITICAL"]
         report: dict[str, Any] = {
-            "schema_version": "1.0.0",
+            "schema_version": "1.1.0",
             "collected_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
             "claim_level": "POINT_IN_TIME_PACKAGE_VULNERABILITY_SCAN",
             "subject": subject,
+            "build_input_provenance": build_input_provenance(),
             "scope": {
                 "acquisition": "DOCKER_IMAGE_SAVE",
                 "scanner_target": "READ_ONLY_IMAGE_ARCHIVE",
@@ -524,8 +614,8 @@ def collect(output_dir: Path) -> dict[str, Any]:
                     "secrets, and network behavior were not inspected."
                 ),
                 (
-                    "This evidence does not verify registry signatures, build provenance, "
-                    "deployment configuration, or production security."
+                    "Unsigned build-input hashes are not a build attestation or digital "
+                    "signature and do not verify deployment or production security."
                 ),
                 (
                     "No finding at a severity is evidence of scanner non-detection, not proof "

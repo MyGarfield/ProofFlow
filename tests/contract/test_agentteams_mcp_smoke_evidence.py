@@ -25,6 +25,36 @@ EXPECTED_SKILL_ASSIGNMENTS = {
     "strategy-agent": set(),
     "audit-agent": {"conflict_detect", "decision_audit"},
 }
+EXPECTED_TOOL_SERVICE_IMAGE_ID = (
+    "sha256:1a4c4efb2d4e4fe37503ba0082282218e0b8c978dd22c1bd1488b5942d087775"
+)
+EXPECTED_TOOL_SERVICE_RUNTIME = {
+    "container_name": "proofflow-tool-service",
+    "image_id": EXPECTED_TOOL_SERVICE_IMAGE_ID,
+    "state": "running",
+    "health": "healthy",
+    "service_port": 8787,
+    "host_port_published": False,
+    "security_profile": {
+        "user": "65532:65532",
+        "read_only_rootfs": True,
+        "privileged": False,
+        "cap_add": [],
+        "cap_drop": ["ALL"],
+        "no_new_privileges": True,
+    },
+    "resource_limits": {
+        "pids_limit": 128,
+        "memory_bytes": 268435456,
+        "memory_swap_bytes": 536870912,
+        "nano_cpus": 1000000000,
+        "tmpfs_tmp": "rw,noexec,nosuid,size=16m",
+    },
+    "network_profile": {
+        "network_mode": "agentteams-net",
+        "network_aliases": ["proofflow-tool-service.local"],
+    },
+}
 
 
 def load_validator() -> ModuleType:
@@ -45,6 +75,8 @@ def test_mcp_snapshot_passes_real_schema_and_strict_semantic_validation() -> Non
     validator = load_validator()
 
     assert schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
+    assert document["schema_version"] == schema["properties"]["schema_version"]["const"] == "1.2"
+    assert document["collector"]["version"] == "1.2"
     Draft202012Validator.check_schema(schema)
     assert (
         list(Draft202012Validator(schema, format_checker=FormatChecker()).iter_errors(document))
@@ -71,6 +103,13 @@ def test_infrastructure_and_manager_mcp_smoke_are_distinct_evidence_layers() -> 
     assert baseline["mcp_runtime_evidence"] == str(SNAPSHOT_PATH.relative_to(DEPLOY))
     assert baseline["mcp_runtime_observed_at"] < mcp_smoke["collected_at"]
     assert baseline["resource_inventory_observed_at"] < mcp_smoke["collected_at"]
+    assert (
+        baseline["tool_service_runtime_observed_at"]
+        == (mcp_smoke["tool_service_runtime"]["observed_at"])
+    )
+    assert baseline["tool_service_runtime_observed_at"] < mcp_smoke["collected_at"]
+    assert baseline["tool_service_runtime_evidence"] == str(SNAPSHOT_PATH.relative_to(DEPLOY))
+    assert baseline["tool_service_image_id"] == EXPECTED_TOOL_SERVICE_IMAGE_ID
     assert (
         baseline["skill_distribution_observed_at"]
         == (mcp_smoke["skill_distribution"]["observed_at"])
@@ -102,6 +141,18 @@ def apply_attack(document: dict[str, Any], attack: str) -> None:
         document["summary"]["claim_level"] = "production-ready"
     elif attack == "tool-service-image-repin":
         document["tool_service_image_id"] = f"sha256:{'f' * 64}"
+    elif attack == "runtime-image-repin":
+        document["tool_service_runtime"]["image_id"] = f"sha256:{'f' * 64}"
+    elif attack == "runtime-root-user":
+        document["tool_service_runtime"]["security_profile"]["user"] = "0:0"
+    elif attack == "runtime-cap-drop-removed":
+        document["tool_service_runtime"]["security_profile"]["cap_drop"] = []
+    elif attack == "runtime-host-port-published":
+        document["tool_service_runtime"]["host_port_published"] = True
+    elif attack == "runtime-resource-limit-weakened":
+        document["tool_service_runtime"]["resource_limits"]["pids_limit"] = 0
+    elif attack == "runtime-observed-after-collection":
+        document["tool_service_runtime"]["observed_at"] = "2026-08-21T14:07:05Z"
     elif attack == "skill-assignment-rebind":
         assignments = {
             item["worker_name"]: item
@@ -186,6 +237,8 @@ def apply_attack(document: dict[str, Any], attack: str) -> None:
         document["summary"]["worker_runtime_observed"] = True
     elif attack == "summary-skill-runtime":
         document["summary"]["skill_runtime_consumption_observed"] = True
+    elif attack == "summary-runtime-profile":
+        document["summary"]["tool_service_runtime_profile_verified"] = False
     elif attack == "skill-summary-count":
         document["skill_distribution"]["summary"]["manager_repository_hash_matches"] = 7
     elif attack == "invalid-date-time":
@@ -203,6 +256,7 @@ def apply_attack(document: dict[str, Any], attack: str) -> None:
     [
         "missing-collected_at",
         "missing-tool_service_image_id",
+        "missing-tool_service_runtime",
         "missing-collector",
         "missing-scope",
         "missing-provenance",
@@ -214,6 +268,12 @@ def apply_attack(document: dict[str, Any], attack: str) -> None:
         "scope-worker-execution",
         "claim-production",
         "tool-service-image-repin",
+        "runtime-image-repin",
+        "runtime-root-user",
+        "runtime-cap-drop-removed",
+        "runtime-host-port-published",
+        "runtime-resource-limit-weakened",
+        "runtime-observed-after-collection",
         "skill-assignment-rebind",
         "skill-content-repin",
         "skill-manager-hash",
@@ -234,6 +294,7 @@ def apply_attack(document: dict[str, Any], attack: str) -> None:
         "human-secret",
         "summary-worker-runtime",
         "summary-skill-runtime",
+        "summary-runtime-profile",
         "skill-summary-count",
         "invalid-date-time",
         "provenance-upgrade",
@@ -253,6 +314,8 @@ def test_mcp_schema_and_semantics_reject_public_evidence_attacks(attack: str) ->
     "attack",
     [
         "tool-service-image-repin",
+        "runtime-image-repin",
+        "runtime-observed-after-collection",
         "skill-assignment-rebind",
         "skill-content-repin",
         "skill-manager-hash",
@@ -279,7 +342,9 @@ def test_tool_service_image_id_is_bound_to_validated_supply_chain_evidence() -> 
     document = snapshot()
     supply_chain = json.loads(SUPPLY_CHAIN_EVIDENCE_PATH.read_text())
 
-    assert document["tool_service_image_id"] == supply_chain["subject"]["image_id"]
+    assert document["tool_service_image_id"] == EXPECTED_TOOL_SERVICE_IMAGE_ID
+    assert document["tool_service_runtime"]["image_id"] == EXPECTED_TOOL_SERVICE_IMAGE_ID
+    assert supply_chain["subject"]["image_id"] == EXPECTED_TOOL_SERVICE_IMAGE_ID
     validator.validate_semantics(document, strict=True)
 
     document["tool_service_image_id"] = f"sha256:{'f' * 64}"
@@ -289,6 +354,16 @@ def test_tool_service_image_id_is_bound_to_validated_supply_chain_evidence() -> 
         match="does not match the supply-chain evidence",
     ):
         validator.validate_semantics(document, strict=True)
+
+
+def test_tool_service_runtime_profile_is_public_safe_and_fail_closed() -> None:
+    document = snapshot()
+    runtime = document["tool_service_runtime"]
+    observed_at = runtime.pop("observed_at")
+
+    assert runtime == EXPECTED_TOOL_SERVICE_RUNTIME
+    assert observed_at < document["collected_at"]
+    assert document["summary"]["tool_service_runtime_profile_verified"] is True
 
 
 def test_skill_distribution_is_exact_and_hash_bound_to_repository_contracts() -> None:

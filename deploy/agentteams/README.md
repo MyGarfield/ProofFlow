@@ -38,7 +38,8 @@ Manager 的脱敏点时证据与 Manager 操作员 MCP 冒烟证据，但尚无 
   后续独立的 Manager 操作员公开合成 MCP 冒烟快照；
 - [evidence/mcp-smoke-evidence.schema.json](evidence/mcp-smoke-evidence.schema.json) 与
   [scripts/validate_mcp_smoke_evidence.py](scripts/validate_mcp_smoke_evidence.py)：独立的 MCP evidence
-  Draft 2020-12 schema 与跨字段语义门禁；
+  Draft 2020-12 schema 与跨字段语义门禁；除工具链、ACL 和资源状态外，还锁定 tool-service 的
+  非 root、只读、`cap-drop=ALL`、`no-new-privileges`、资源限制与未发布宿主端口配置；
 - [mcp/](mcp/)：已用于本地点时配置的 evidence、rules 与 calculation REST-to-MCP 公开源模板；
   仓库中的 `accessToken` 仍为空，运行凭据不进入版本库或证据；
 - [patches/v1.2.2-macos-colima-daemon-socket.patch](patches/v1.2.2-macos-colima-daemon-socket.patch)：
@@ -58,11 +59,13 @@ MCP 快照是已完成 smoke 的后验 allowlist 摘要，不是会重复调用 
 内部使用现有凭据，但凭据值、cookie、env、完整响应、材料字段、Matrix ID 与个人信息均不读取或
 写入公开文件。
 
-较晚的 MCP smoke 是在当时的 Alpine tool-service 快照镜像替换运行容器后重新执行的。快照发布
-`tool_service_image_id`；独立 validator 会先验证
+较晚的 MCP smoke 已在本地点时替换为 tool-service local image ID
+`sha256:1a4c4efb2d4e4fe37503ba0082282218e0b8c978dd22c1bd1488b5942d087775` 后重新执行。公开快照同时发布
+根级 `tool_service_image_id` 与脱敏 `tool_service_runtime.image_id`；独立 validator 会先验证
 `../tool-service/evidence/supply-chain-evidence.json` 自身的 Draft 2020-12 schema，再要求两份证据的
-`subject.image_id` 完全一致。这个跨文件相等性只绑定两个点时证据对象，不证明远端 registry 当前
-内容、镜像持续运行状态或生产安全性。
+镜像 ID 三方完全一致，并校验运行容器的安全、资源与网络 allowlist。这个跨文件相等性只绑定点时
+证据对象与本地运行观察，不证明远端 registry 当前内容、镜像持续运行状态或生产安全性；任何环境值、
+credential、cookie 与旧容器备份名均不进入公开快照。
 
 证据 validator 的开发依赖固定在 `uv.lock`；直接采集前应先执行 `uv sync --group dev`，并通过
 `uv run deploy/agentteams/scripts/collect-public-evidence.sh ...` 调用。Collector 会在生成证据前确认
@@ -130,6 +133,11 @@ Evidence Worker 对 evidence `tools/list` 返回 200，而 Calculation Worker �
 操作员随后用三份公开合成文档完成三次 evidence ingest、规则检索和确定性计算；公开结果只保留计数、
 状态、结果 hash 与 decimal string `60000`，不保留材料字段或完整响应。同 scope 的 evidence 改值后
 即使重新 seal，calculation 仍以 `UNTRUSTED_EVIDENCE` 返回 `BLOCKED` 且 `value=null`。
+
+本次镜像刷新后重复得到 `3/3` ingest、13 个 Evidence、4 条 citation、`60000` 与相同
+reproducibility hash；新的 calculation output hash 由本次点时 Artifact 元数据重新产生。运行观察还确认
+容器健康、UID/GID `65532:65532`、只读 rootfs、无新增 capability、`cap-drop=ALL`、
+`no-new-privileges`、PIDs/内存/CPU 限制与原 `agentteams-net:8787` 服务边界保持不变。
 
 ACL、403 与工具链结果来自已完成操作的脱敏 allowlist；资源和 tools inventory 则由后续只读命令
 独立核验。该证据没有启动 Worker 或 LLM。Manager 操作员能调用 MCP 不等于 Evidence/Rule/

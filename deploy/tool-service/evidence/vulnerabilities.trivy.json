@@ -3,18 +3,18 @@
   "Trivy": {
     "Version": "0.74.0"
   },
-  "ReportID": "01a01ba1-7d86-7154-a1b3-e258f2f087c8",
-  "CreatedAt": "2026-08-19T20:06:03.398089216Z",
-  "ArtifactID": "sha256:85f41ed79962e5388643e29a2c6e28b12e2672e5eee1e1aead9d5cb70fab16a5",
+  "ReportID": "01a01f6b-a498-7a55-b7cc-973220388010",
+  "CreatedAt": "2026-08-20T13:45:43.320758748Z",
+  "ArtifactID": "sha256:c996fa3bdaf5da5d6aa2dddc7d082750435cf4a6202c89e6013cb02e31a17150",
   "ArtifactName": "target.tar",
   "ArtifactType": "container_image",
   "Metadata": {
-    "Size": 62270464,
+    "Size": 62092800,
     "OS": {
       "Family": "alpine",
       "Name": "3.24.1"
     },
-    "ImageID": "sha256:85f41ed79962e5388643e29a2c6e28b12e2672e5eee1e1aead9d5cb70fab16a5",
+    "ImageID": "sha256:c996fa3bdaf5da5d6aa2dddc7d082750435cf4a6202c89e6013cb02e31a17150",
     "DiffIDs": [
       "sha256:34884abbe92863fce933ed7c39c0e045631af0ed86d5cc0dfbdf9fdca426ce3c",
       "sha256:e841883ead55c7764ef03835ed98a55882e84f57dd6f90ffbc7d31d5fc8974a6",
@@ -23,14 +23,14 @@
       "sha256:1795cb87fa6b40bbcb94d653426970f527db8e8d73e01f3315b6ac3d253f9311",
       "sha256:80a5730bb36d06c30fa066459db01e61d26a1597f64cfd14fc4ee943e81b7afa",
       "sha256:fba22a04b47e77068546b09803cf69e1a621ca1672c92c06363e37db1797724b",
-      "sha256:8342ae7b821b0d31672c6ebfc08587fcbb7c9d4725ee6a3666f0f408e9740569",
-      "sha256:a0b3d3822eb85e118ea726c71c03ae5fe10cca07104f4c5ce8fc2251a05e0f69",
-      "sha256:55ce227a857c7a3da8892393ae2a5cef9246ef14c626aaabcacc9c5f5e1eacb4",
-      "sha256:0499269a6a24dc6944daeb2bf6646e964495883791db639fb7100ea5e962db41"
+      "sha256:882632f9baabb61386553d9b9984ddbb8ed46fb7c2f70587d496bf68e6dc7947",
+      "sha256:c92051cf21abcf2ca327cf38fbebb1b5412044e28700ddba82fe73b6bb9119ea",
+      "sha256:68eef6154d9f532a86834ca9074e093564fa21241e1261378016c8890c2ad1a3",
+      "sha256:189be4c990b52576df84502cd18309e93fb1b1e0ad3fe223c0ad1c41579f1dbc"
     ],
     "ImageConfig": {
       "architecture": "amd64",
-      "created": "2026-08-20T03:58:52.31803114+08:00",
+      "created": "2026-08-20T21:33:35.030650227+08:00",
       "history": [
         {
           "created": "2026-06-16T00:01:29.967161902Z",
@@ -112,43 +112,43 @@
           "created_by": "/bin/sh -c python -m pip install     --disable-pip-version-check     --no-cache-dir     --require-hashes     --requirement /tmp/requirements.lock     \u0026\u0026 rm /tmp/requirements.lock     \u0026\u0026 python -m pip uninstall --yes pip     \u0026\u0026 python -c \"import importlib.util; assert importlib.util.find_spec('pip') is None\""
         },
         {
-          "created": "2026-08-19T19:58:47.343481351Z",
-          "created_by": "/bin/sh -c #(nop) COPY dir:dd8beb88340f6c7e61c21002afc0a61a196d85136fd1b36cddb231d84e3d5d40 in /app/src/ "
+          "created": "2026-08-20T13:33:25.328233978Z",
+          "created_by": "/bin/sh -c #(nop) COPY dir:247d460b69424875712089af37b8fc1b277e3382730387024a61f62f687940f5 in /app/src/ "
         },
         {
-          "created": "2026-08-19T19:58:47.929742573Z",
+          "created": "2026-08-20T13:33:26.290565425Z",
           "created_by": "/bin/sh -c #(nop) COPY dir:24a70067e34460e575fa9d307f074bd99c658cc3f05fd7122dc051c636868f9e in /app/data/rules/ "
         },
         {
-          "created": "2026-08-19T19:58:48.454894483Z",
+          "created": "2026-08-20T13:33:27.231655456Z",
           "created_by": "/bin/sh -c #(nop) COPY multi:d82e224d936945d14a1f9e7a281ee54467aa876b6196cd1906c552eced5b3081 in /usr/share/doc/proofflow/ "
         },
         {
-          "created": "2026-08-19T19:58:49.006502166Z",
+          "created": "2026-08-20T13:33:28.790988048Z",
           "created_by": "/bin/sh -c #(nop) COPY file:2b3e1aa76fda62bdf7592c14b424509fca47ce7b8fe7bcbc0daeb9c36b8efa0a in /usr/share/doc/proofflow/ "
         },
         {
-          "created": "2026-08-20T03:58:49.669313426+08:00",
+          "created": "2026-08-20T21:33:30.140082717+08:00",
           "created_by": "/bin/sh -c #(nop)  USER 65532:65532",
           "empty_layer": true
         },
         {
-          "created": "2026-08-20T03:58:50.516505929+08:00",
+          "created": "2026-08-20T21:33:31.591404045+08:00",
           "created_by": "/bin/sh -c #(nop)  EXPOSE 8787",
           "empty_layer": true
         },
         {
-          "created": "2026-08-20T03:58:51.157832244+08:00",
+          "created": "2026-08-20T21:33:32.921515836+08:00",
           "created_by": "/bin/sh -c #(nop)  HEALTHCHECK \u0026{Test:[CMD python -c import urllib.request; urllib.request.urlopen('http://127.0.0.1:8787/health', timeout=2).read()] Interval:10s Timeout:3s StartPeriod:5s StartInterval:0s Retries:3}",
           "empty_layer": true
         },
         {
-          "created": "2026-08-20T03:58:51.695148953+08:00",
+          "created": "2026-08-20T21:33:34.059178472+08:00",
           "created_by": "/bin/sh -c #(nop)  ENTRYPOINT [\"python\" \"-m\" \"proofflow.cli\" \"serve-tools\"]",
           "empty_layer": true
         },
         {
-          "created": "2026-08-20T03:58:52.31803114+08:00",
+          "created": "2026-08-20T21:33:35.030650227+08:00",
           "created_by": "/bin/sh -c #(nop)  CMD [\"--rules\" \"/app/data/rules/cn_labor_contract_law.catalog.json\" \"--rules-sha256\" \"sha256:27686c904451870dd5953ec6e47c155a395b2f279995e50f68aea984e6bf91de\" \"--host\" \"0.0.0.0\" \"--port\" \"8787\"]",
           "empty_layer": true
         }
@@ -164,10 +164,10 @@
           "sha256:1795cb87fa6b40bbcb94d653426970f527db8e8d73e01f3315b6ac3d253f9311",
           "sha256:80a5730bb36d06c30fa066459db01e61d26a1597f64cfd14fc4ee943e81b7afa",
           "sha256:fba22a04b47e77068546b09803cf69e1a621ca1672c92c06363e37db1797724b",
-          "sha256:8342ae7b821b0d31672c6ebfc08587fcbb7c9d4725ee6a3666f0f408e9740569",
-          "sha256:a0b3d3822eb85e118ea726c71c03ae5fe10cca07104f4c5ce8fc2251a05e0f69",
-          "sha256:55ce227a857c7a3da8892393ae2a5cef9246ef14c626aaabcacc9c5f5e1eacb4",
-          "sha256:0499269a6a24dc6944daeb2bf6646e964495883791db639fb7100ea5e962db41"
+          "sha256:882632f9baabb61386553d9b9984ddbb8ed46fb7c2f70587d496bf68e6dc7947",
+          "sha256:c92051cf21abcf2ca327cf38fbebb1b5412044e28700ddba82fe73b6bb9119ea",
+          "sha256:68eef6154d9f532a86834ca9074e093564fa21241e1261378016c8890c2ad1a3",
+          "sha256:189be4c990b52576df84502cd18309e93fb1b1e0ad3fe223c0ad1c41579f1dbc"
         ]
       },
       "config": {
@@ -253,24 +253,24 @@
         "DiffID": "sha256:fba22a04b47e77068546b09803cf69e1a621ca1672c92c06363e37db1797724b"
       },
       {
-        "Size": 385536,
-        "Digest": "sha256:adf20ca06e08dc81524bc016110f32996dde89f8198487c2eee87a8bdde58a0c",
-        "DiffID": "sha256:8342ae7b821b0d31672c6ebfc08587fcbb7c9d4725ee6a3666f0f408e9740569"
+        "Size": 207872,
+        "Digest": "sha256:13c0e2c89f41d409250a1d927ce4e694dd2aae7eec21a5cce58e10886c764670",
+        "DiffID": "sha256:882632f9baabb61386553d9b9984ddbb8ed46fb7c2f70587d496bf68e6dc7947"
       },
       {
         "Size": 6656,
-        "Digest": "sha256:c341c96eb393271dd636b4bb21cf59f0306dd9edfe626cd44984eb9b11fb270f",
-        "DiffID": "sha256:a0b3d3822eb85e118ea726c71c03ae5fe10cca07104f4c5ce8fc2251a05e0f69"
+        "Digest": "sha256:dff3ece4d6aae06e4e7b37d449e295b3c723a4f564a34939721610faa6617beb",
+        "DiffID": "sha256:c92051cf21abcf2ca327cf38fbebb1b5412044e28700ddba82fe73b6bb9119ea"
       },
       {
         "Size": 16896,
-        "Digest": "sha256:44f42533ac09389738dec56c55e46f9a91b4b3957b957039527b575a6e2409ad",
-        "DiffID": "sha256:55ce227a857c7a3da8892393ae2a5cef9246ef14c626aaabcacc9c5f5e1eacb4"
+        "Digest": "sha256:197cd8bab36904cc280439c2f6cdc99e773491d0211e6756f7d97a3a6b18b435",
+        "DiffID": "sha256:68eef6154d9f532a86834ca9074e093564fa21241e1261378016c8890c2ad1a3"
       },
       {
         "Size": 5120,
-        "Digest": "sha256:73d54b04020313d0877f36e9e56f0ff349a89628df692d5c8fe51eeb2f138463",
-        "DiffID": "sha256:0499269a6a24dc6944daeb2bf6646e964495883791db639fb7100ea5e962db41"
+        "Digest": "sha256:09729c90b8341df346386249263b827adca7a2ecef74eb45e1dac38fcbfedc5b",
+        "DiffID": "sha256:189be4c990b52576df84502cd18309e93fb1b1e0ad3fe223c0ad1c41579f1dbc"
       }
     ]
   },

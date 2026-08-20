@@ -5,31 +5,96 @@
       "media_type": "application/vnd.cyclonedx+json",
       "path": "sbom.cyclonedx.json",
       "record_count": 937,
-      "sha256": "sha256:0b310340555e5a88596d6d3a86e4afdfb0f52befbfd7469b5a0b81e611b785b5"
+      "sha256": "sha256:04a2d1d1c083f94df2a1afe85c9e3329aa6cdd039ca6c92854300a53b33c9e12"
     },
     {
       "bytes": 815897,
       "media_type": "application/spdx+json",
       "path": "sbom.spdx.json",
       "record_count": 45,
-      "sha256": "sha256:847a80d25d54239c03d7096033d530036a22f5cf799a822c7ff88f20351e2990"
+      "sha256": "sha256:f99c0dd2a32b389ad55c09232535575af55dd52ff34bdb1ae51c548c4bb257b7"
     },
     {
-      "bytes": 105659,
+      "bytes": 105661,
       "media_type": "application/vnd.aquasec.trivy.report+json",
       "path": "vulnerabilities.trivy.json",
       "record_count": 0,
-      "sha256": "sha256:5bddff4d6c83c97cc0f4f56117d5c8d4bd24b8f4355630d34766d67733011e2b"
+      "sha256": "sha256:6a1169e2ff0b1a7796082495f70c2c7371192555ca4fd28d7387fbdd1eb70e97"
     }
   ],
+  "build_input_provenance": {
+    "build_relationship_attested": false,
+    "claim_level": "UNSIGNED_LOCAL_BUILD_INPUT_DIGEST_SNAPSHOT",
+    "directory_bundle_format": "PATH_LENGTH_U64_BE_PATH_BYTES_CONTENT_LENGTH_U64_BE_CONTENT_BYTES_V1",
+    "hash_algorithm": "SHA-256",
+    "hashes_are_digital_signatures": false,
+    "inputs": [
+      {
+        "bytes": 748,
+        "file_count": 1,
+        "kind": "FILE_BYTES",
+        "path": ".dockerignore",
+        "sha256": "sha256:01a9e3d98a5deeda327f43ab1be68d2a4ea8caa59a1ef70944d473855cd17b1e"
+      },
+      {
+        "bytes": 1238,
+        "file_count": 1,
+        "kind": "FILE_BYTES",
+        "path": "deploy/tool-service/Dockerfile",
+        "sha256": "sha256:a7bcbf70780620f613af1e8decf431835b50b16e8521c58d04a470e2c3f71a94"
+      },
+      {
+        "bytes": 6672,
+        "file_count": 1,
+        "kind": "FILE_BYTES",
+        "path": "deploy/tool-service/requirements.lock",
+        "sha256": "sha256:176d1745f167cb99883d00bb30b94244392210b9fee58bc8d4e528d839947048"
+      },
+      {
+        "bytes": 1468,
+        "file_count": 1,
+        "kind": "FILE_BYTES",
+        "path": "deploy/tool-service/THIRD_PARTY_NOTICES.md",
+        "sha256": "sha256:52de15babc65d8ef07e4ebc24f40d5b2b96dfa2f27541279c96278494dcf5272"
+      },
+      {
+        "bytes": 11352,
+        "file_count": 1,
+        "kind": "FILE_BYTES",
+        "path": "LICENSE",
+        "sha256": "sha256:5967b02f871bf65907ef73a24818e5bc12a5a924a144782344c32e81e890485f"
+      },
+      {
+        "bytes": 779,
+        "file_count": 1,
+        "kind": "FILE_BYTES",
+        "path": "NOTICE",
+        "sha256": "sha256:2c6cbc2d973c58a1085b90c24279c6e34d57d16d840707a048e9e11e9e6e36b4"
+      },
+      {
+        "bytes": 189034,
+        "file_count": 20,
+        "kind": "DIRECTORY_BUNDLE_V1",
+        "path": "src",
+        "sha256": "sha256:2f27a0e9e7f3c6badfdcfaba9c018b79841445edbf7791114132407151b321a2"
+      },
+      {
+        "bytes": 3107,
+        "file_count": 1,
+        "kind": "DIRECTORY_BUNDLE_V1",
+        "path": "data/rules",
+        "sha256": "sha256:14ee2982056ce477c6eb580f682a3e86e45f5c35dae42950bb864e376ebcdb5a"
+      }
+    ]
+  },
   "claim_level": "POINT_IN_TIME_PACKAGE_VULNERABILITY_SCAN",
-  "collected_at": "2026-08-19T20:06:34.444000Z",
+  "collected_at": "2026-08-20T13:47:11.705081Z",
   "limitations": [
     "This is a point-in-time scan against one mutable vulnerability database snapshot.",
     "Scanner and advisory database false positives, false negatives, and coverage gaps remain possible.",
     "The scan covers final-image OS and language packages, not dynamic application behavior.",
     "Runtime configuration, running-container environment, credentials, secrets, and network behavior were not inspected.",
-    "This evidence does not verify registry signatures, build provenance, deployment configuration, or production security.",
+    "Unsigned build-input hashes are not a build attestation or digital signature and do not verify deployment or production security.",
     "No finding at a severity is evidence of scanner non-detection, not proof that no vulnerability exists."
   ],
   "reproducibility": {
@@ -40,7 +105,7 @@
     "tool_images_pinned_by_digest": true,
     "validator": "deploy/tool-service/scripts/validate_supply_chain_evidence.py"
   },
-  "schema_version": "1.0.0",
+  "schema_version": "1.1.0",
   "scope": {
     "acquisition": "DOCKER_IMAGE_SAVE",
     "base_image": "python:3.12-alpine@sha256:285a71327884a4d50efbea30104473b0fa43ecefa499458899670ca30dae76e5",
@@ -56,10 +121,10 @@
     "target_archive_published": false
   },
   "subject": {
-    "created_at": "2026-08-20T03:58:52.31803114+08:00",
-    "image_config_digest": "sha256:85f41ed79962e5388643e29a2c6e28b12e2672e5eee1e1aead9d5cb70fab16a5",
-    "image_id": "sha256:eb1ced4bfd38ee333c17bfac99716486a5850fbfb12bdfc4c11f178514868505",
-    "immutable_reference": "proofflow-tool-service@sha256:eb1ced4bfd38ee333c17bfac99716486a5850fbfb12bdfc4c11f178514868505",
+    "created_at": "2026-08-20T21:33:35.030650227+08:00",
+    "image_config_digest": "sha256:c996fa3bdaf5da5d6aa2dddc7d082750435cf4a6202c89e6013cb02e31a17150",
+    "image_id": "sha256:1a4c4efb2d4e4fe37503ba0082282218e0b8c978dd22c1bd1488b5942d087775",
+    "immutable_reference": "proofflow-tool-service@sha256:1a4c4efb2d4e4fe37503ba0082282218e0b8c978dd22c1bd1488b5942d087775",
     "platform": "linux/amd64",
     "tag": "proofflow-tool-service:0.1.0a0"
   },
@@ -126,11 +191,11 @@
     }
   },
   "vulnerability_database": {
-    "bytes": 1311363072,
-    "downloaded_at": "2026-08-19T20:05:17.835547655Z",
-    "next_update": "2026-08-20T19:01:58.382134067Z",
+    "bytes": 1312845824,
+    "downloaded_at": "2026-08-20T13:43:41.698231422Z",
+    "next_update": "2026-08-21T07:02:00.713536389Z",
     "schema_version": 2,
-    "sha256": "sha256:7d9211a2f0ca51ff7c6f3417e5856a95398ad56866fb4748692eb0ecf5dc4207",
-    "updated_at": "2026-08-19T19:01:58.382134595Z"
+    "sha256": "sha256:97c9b035c6d1685c9406ec4500d08d38214734136f23fcccd400833ec9cafbba",
+    "updated_at": "2026-08-20T07:02:00.71353677Z"
   }
 }

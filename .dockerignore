@@ -7,6 +7,8 @@
 .proofflow
 __pycache__
 *.py[cod]
+**/__pycache__/
+**/*.py[cod]
 
 # Credentials and private key material must never enter the Docker build context.
 .env
@@ -37,6 +39,7 @@ submission/private
 tests
 benchmarks
 docs
+demo
 examples
 schemas
 specs

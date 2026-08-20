@@ -1,22 +1,21 @@
 # Tool-service supply-chain evidence
 
-Document status: `HISTORICAL_POINT_IN_TIME_IMAGE_SNAPSHOT / CURRENT_SOURCE_NOT_BOUND`
+Document status: `CURRENT_IMAGE_POINT_IN_TIME_PACKAGE_SCAN / UNSIGNED_INPUT_HASHES`
 
 ## Point-in-time result
 
-The published evidence set covers the historical local `linux/amd64` image
+The published evidence set covers the current local `linux/amd64` image
 `proofflow-tool-service:0.1.0a0` with image ID
-`sha256:eb1ced4bfd38ee333c17bfac99716486a5850fbfb12bdfc4c11f178514868505`.
+`sha256:1a4c4efb2d4e4fe37503ba0082282218e0b8c978dd22c1bd1488b5942d087775`.
 The Dockerfile pins the official Python platform manifest directly:
 
 `python:3.12-alpine@sha256:285a71327884a4d50efbea30104473b0fa43ecefa499458899670ca30dae76e5`
 
 The snapshot image uses Alpine 3.24.1. It installs the hash-locked runtime dependencies and then
-uninstalls `pip`; the build fails if the `pip` module remains importable. Runtime imports, the
-public health route, rejected unauthenticated access, and the authenticated synthetic
-evidence-to-rule-to-calculation HTTP flow were observed separately by the operator. Those runtime
-observations are not fields in this evidence Schema: the machine manifest explicitly records
-`runtime_container_inspected=false` and must not be cited as proof of the runtime profile.
+uninstalls `pip`; the build fails if the `pip` module remains importable. Runtime behavior is not a
+field in this evidence Schema: the machine manifest explicitly records
+`runtime_container_inspected=false` and must not be cited as proof of the runtime profile or HTTP
+behavior.
 
 The snapshot Trivy report contains zero vulnerability records at every reported severity:
 
@@ -42,10 +41,24 @@ v0.74.0 as released on 2026-08-14:
 | Trivy | 0.74.0 | `sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969` | `sha256:ee940acbf1f58ebadb42d01434ce4609530bf1b52536afbd1eee66cd7123c5c9` |
 
 The Trivy database used by the snapshot report was updated at
-`2026-08-19T19:01:58.382134595Z`. Its unpacked database hash is
-`sha256:7d9211a2f0ca51ff7c6f3417e5856a95398ad56866fb4748692eb0ecf5dc4207`.
+`2026-08-20T07:02:00.71353677Z`. Its unpacked database hash is
+`sha256:97c9b035c6d1685c9406ec4500d08d38214734136f23fcccd400833ec9cafbba`.
 The complete database is not committed; its version, update/download times, byte count, and hash
 are recorded in the evidence manifest.
+
+## Unsigned build-input hashes
+
+Schema version 1.1 records strict SHA-256 and byte-count entries for `.dockerignore`, the
+Dockerfile, the hash-locked requirements, notices and licenses, plus deterministic directory-bundle
+hashes for `src` and `data/rules`. The validator recomputes all eight entries from repository bytes
+and rejects missing, reordered, duplicated, unexpected, or changed inputs. The directory hash uses
+sorted relative paths with explicit unsigned 64-bit big-endian path/content lengths before each
+byte sequence.
+
+These hashes make the local input snapshot independently recomputable. They are not digital
+signatures, SLSA provenance, a registry attestation, or cryptographic proof that a registry image
+was produced from those inputs. The manifest therefore records both
+`hashes_are_digital_signatures=false` and `build_relationship_attested=false`.
 
 ## Published artifacts
 
@@ -72,7 +85,7 @@ analysis runs with `--network none`, `--offline-scan`, and `--skip-db-update`. I
 temporary Docker volume is removed after collection.
 
 ```bash
-python3 deploy/tool-service/scripts/collect_supply_chain_evidence.py
+uv run python deploy/tool-service/scripts/collect_supply_chain_evidence.py
 uv run python deploy/tool-service/scripts/validate_supply_chain_evidence.py --release-gate
 uv run pytest tests/contract/test_tool_service_supply_chain.py -q
 ```
@@ -99,10 +112,11 @@ and passing the image HTTP flow. Removing `pip` produced the snapshot zero-recor
 The rejected Debian and intermediate Alpine raw reports are not included in this repository. The
 counts and package examples in this remediation narrative are operator-maintained historical
 observations and cannot be independently reproduced from the final-image evidence bundle alone;
-only the historical snapshot result is schema-bound to the published raw artifacts.
+only the current final-image result is schema-bound to the published raw artifacts.
 
-The switch replaces glibc with musl. Current dependencies and the current flow were tested, but
-future native dependencies, DNS/locale behavior, and performance still require regression testing.
+The switch replaces glibc with musl. Repository tests cover the current dependency set, but dynamic
+container behavior is separate evidence; future native dependencies, DNS/locale behavior, and
+performance still require regression testing.
 
 ## Boundaries
 
@@ -110,8 +124,9 @@ This package scan does not inspect running-container environment values or crede
 record the public image configuration embedded in the archive; the validator restricts its
 environment variable names to the expected Python/runtime allowlist and rejects a runtime API-token
 key. The scan does not assess dynamic behavior, exploitability, application logic, TLS/gateway
-configuration, orchestration policy, registry signatures, build provenance, or production
+configuration, orchestration policy, registry signatures, signed build provenance, or production
 deployment security. Database and scanner false positives, false negatives, and coverage gaps
-remain possible. It also does not bind the current Git working tree or current source bundle to the
-historical image; a new image build requires a new SBOM, vulnerability scan and cross-bound runtime
+remain possible. The unsigned build-input hashes bind this manifest to local repository bytes at
+collection time, but do not attest the build relationship between those bytes and the image. A new
+image build requires new input hashes, SBOMs, vulnerability evidence, and cross-bound runtime
 evidence before it may be called the current release image.

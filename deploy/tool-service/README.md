@@ -33,5 +33,6 @@ The service is reference infrastructure, not a production perimeter. It has no T
 rate limiter, token rotation controller, or durable idempotency store. Put a trusted gateway in
 front of it, keep the Docker network private, and accept only `PUBLIC_SYNTHETIC` fixtures.
 
-The point-in-time CycloneDX/SPDX SBOMs, Trivy report, strict evidence schema, validator, exact tool
-pins, and limitations are documented in [SUPPLY_CHAIN_EVIDENCE.md](SUPPLY_CHAIN_EVIDENCE.md).
+The point-in-time CycloneDX/SPDX SBOMs, Trivy report, unsigned reproducible build-input hashes,
+strict evidence schema, validator, exact tool pins, and limitations are documented in
+[SUPPLY_CHAIN_EVIDENCE.md](SUPPLY_CHAIN_EVIDENCE.md).

@@ -1,11 +1,11 @@
 {
-  "schema_version": "1.1",
+  "schema_version": "1.2",
   "evidence_kind": "agentteams-manager-operator-mcp-smoke",
-  "collected_at": "2026-08-19T20:35:39Z",
-  "tool_service_image_id": "sha256:eb1ced4bfd38ee333c17bfac99716486a5850fbfb12bdfc4c11f178514868505",
+  "collected_at": "2026-08-20T14:07:11Z",
+  "tool_service_image_id": "sha256:1a4c4efb2d4e4fe37503ba0082282218e0b8c978dd22c1bd1488b5942d087775",
   "collector": {
     "name": "allowlisted-mcp-post-run-verification",
-    "version": "1.1",
+    "version": "1.2",
     "read_only_post_run_checks": true,
     "response_allowlist_only": true
   },
@@ -32,6 +32,38 @@
     "environment_dumped": false,
     "raw_material_values_emitted": false,
     "personal_identifiers_emitted": false
+  },
+  "tool_service_runtime": {
+    "observed_at": "2026-08-20T14:07:05Z",
+    "container_name": "proofflow-tool-service",
+    "image_id": "sha256:1a4c4efb2d4e4fe37503ba0082282218e0b8c978dd22c1bd1488b5942d087775",
+    "state": "running",
+    "health": "healthy",
+    "service_port": 8787,
+    "host_port_published": false,
+    "security_profile": {
+      "user": "65532:65532",
+      "read_only_rootfs": true,
+      "privileged": false,
+      "cap_add": [],
+      "cap_drop": [
+        "ALL"
+      ],
+      "no_new_privileges": true
+    },
+    "resource_limits": {
+      "pids_limit": 128,
+      "memory_bytes": 268435456,
+      "memory_swap_bytes": 536870912,
+      "nano_cpus": 1000000000,
+      "tmpfs_tmp": "rw,noexec,nosuid,size=16m"
+    },
+    "network_profile": {
+      "network_mode": "agentteams-net",
+      "network_aliases": [
+        "proofflow-tool-service.local"
+      ]
+    }
   },
   "mcp_servers": [
     {
@@ -108,7 +140,7 @@
       "status": "SUCCESS",
       "observed_total_decimal_string": "60000",
       "reproducibility_hash": "sha256:e27533ee98fa3e7b51fbd8f49569399e3d6c8985a9b732f536655de49b5c4b43",
-      "output_hash": "sha256:09bc4629ea45b4b521bad6a925aed8b2a6868d03e35dc73b86c0bb48d214a044",
+      "output_hash": "sha256:c13d21654ac003a590bd1fb02c6f658fd74f3427b4d2dfe2b5b729d77ecf1704",
       "value_present": true
     },
     "tamper_probe": {
@@ -121,7 +153,7 @@
     }
   },
   "skill_distribution": {
-    "observed_at": "2026-08-19T20:35:39Z",
+    "observed_at": "2026-08-20T14:07:11Z",
     "worker_assignments": [
       {
         "worker_name": "case-manager",
@@ -404,6 +436,7 @@
     "cross_role_denial_observed": true,
     "manager_positive_workflow_passed": true,
     "resealed_tamper_blocked": true,
+    "tool_service_runtime_profile_verified": true,
     "all_workers_stopped": true,
     "worker_runtime_observed": false,
     "team_operational_ready": false,

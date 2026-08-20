@@ -7,6 +7,7 @@ import json
 import math
 import re
 import sys
+from datetime import datetime
 from hashlib import sha256
 from pathlib import Path
 from typing import Any, NoReturn, TextIO
@@ -22,7 +23,7 @@ SUPPLY_CHAIN_EVIDENCE_PATH = (
 SUPPLY_CHAIN_SCHEMA_PATH = (
     Path(__file__).resolve().parents[2] / "tool-service/evidence/supply-chain-evidence.schema.json"
 )
-EXPECTED_SCHEMA_VERSION = "1.1"
+EXPECTED_SCHEMA_VERSION = "1.2"
 IMAGE_ID_PATTERN = re.compile(r"sha256:[0-9a-f]{64}")
 
 EXPECTED_SERVERS = {
@@ -79,6 +80,32 @@ EXPECTED_SKILL_WORKERS = {
     for skill in skills
 }
 EXPECTED_HUMANS = {"proof-reviewer", "proof-approver"}
+EXPECTED_TOOL_SERVICE_RUNTIME = {
+    "container_name": "proofflow-tool-service",
+    "state": "running",
+    "health": "healthy",
+    "service_port": 8787,
+    "host_port_published": False,
+    "security_profile": {
+        "user": "65532:65532",
+        "read_only_rootfs": True,
+        "privileged": False,
+        "cap_add": [],
+        "cap_drop": ["ALL"],
+        "no_new_privileges": True,
+    },
+    "resource_limits": {
+        "pids_limit": 128,
+        "memory_bytes": 268435456,
+        "memory_swap_bytes": 536870912,
+        "nano_cpus": 1000000000,
+        "tmpfs_tmp": "rw,noexec,nosuid,size=16m",
+    },
+    "network_profile": {
+        "network_mode": "agentteams-net",
+        "network_aliases": ["proofflow-tool-service.local"],
+    },
+}
 
 
 class McpSmokeValidationError(ValueError):
@@ -209,6 +236,18 @@ def _records(document: dict[str, Any], key: str) -> list[dict[str, Any]]:
     return value
 
 
+def _timestamp(value: Any, label: str) -> datetime:
+    if not isinstance(value, str):
+        raise McpSmokeValidationError(f"{label} must be a date-time string")
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise McpSmokeValidationError(f"{label} is not a valid date-time") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise McpSmokeValidationError(f"{label} must include a timezone")
+    return parsed
+
+
 def _index_exact(
     records: list[dict[str, Any]], key: str, expected: set[str], label: str
 ) -> dict[str, dict[str, Any]]:
@@ -226,10 +265,25 @@ def validate_semantics(document: dict[str, Any], *, strict: bool = False) -> Non
     validate_schema(document)
     if document.get("schema_version") != EXPECTED_SCHEMA_VERSION:
         raise McpSmokeValidationError("schema version is outside the contract")
-    if document.get("tool_service_image_id") != _load_supply_chain_image_id():
+    tool_service_image_id = document.get("tool_service_image_id")
+    if tool_service_image_id != _load_supply_chain_image_id():
         raise McpSmokeValidationError(
             "tool-service image ID does not match the supply-chain evidence"
         )
+
+    tool_service_runtime = _mapping(document, "tool_service_runtime")
+    if tool_service_runtime.get("image_id") != tool_service_image_id:
+        raise McpSmokeValidationError(
+            "running tool-service image ID does not match the evidence subject"
+        )
+    for key, expected_value in EXPECTED_TOOL_SERVICE_RUNTIME.items():
+        if tool_service_runtime.get(key) != expected_value:
+            raise McpSmokeValidationError("tool-service runtime profile is inconsistent")
+    if _timestamp(tool_service_runtime.get("observed_at"), "runtime observed_at") > _timestamp(
+        document.get("collected_at"), "collected_at"
+    ):
+        raise McpSmokeValidationError("tool-service runtime observation is later than collection")
+    tool_service_runtime_profile_verified = True
 
     servers = _index_exact(
         _records(document, "mcp_servers"),
@@ -438,6 +492,7 @@ def validate_semantics(document: dict[str, Any], *, strict: bool = False) -> Non
         == "deny",
         "manager_positive_workflow_passed": positive_workflow_passed,
         "resealed_tamper_blocked": tamper_blocked,
+        "tool_service_runtime_profile_verified": tool_service_runtime_profile_verified,
         "all_workers_stopped": all_workers_stopped,
         "worker_runtime_observed": resources.get("proof_flow_worker_containers") != 0,
         "team_operational_ready": team_operational_ready,
@@ -455,6 +510,7 @@ def validate_semantics(document: dict[str, Any], *, strict: bool = False) -> Non
         exact_acl_match
         and positive_workflow_passed
         and tamper_blocked
+        and tool_service_runtime_profile_verified
         and all_workers_stopped
         and not expected_summary["worker_runtime_observed"]
         and not team_operational_ready

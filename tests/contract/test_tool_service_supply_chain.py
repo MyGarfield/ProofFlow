@@ -16,6 +16,32 @@ VALIDATOR_PATH = ROOT / "deploy/tool-service/scripts/validate_supply_chain_evide
 REPORT_NAME = "supply-chain-evidence.json"
 
 
+def test_tool_service_build_context_is_minimal_and_excludes_generated_bytecode() -> None:
+    dockerignore = set((ROOT / ".dockerignore").read_text().splitlines())
+    assert {
+        "demo",
+        "tests",
+        "benchmarks",
+        "docs",
+        "examples",
+        "schemas",
+        "specs",
+        "submission/private",
+        "**/__pycache__/",
+        "**/*.py[cod]",
+    } <= dockerignore
+
+    dockerfile = (ROOT / "deploy/tool-service/Dockerfile").read_text()
+    copy_instructions = [line for line in dockerfile.splitlines() if line.startswith("COPY ")]
+    assert copy_instructions == [
+        "COPY deploy/tool-service/requirements.lock /tmp/requirements.lock",
+        "COPY src/ /app/src/",
+        "COPY data/rules/ /app/data/rules/",
+        "COPY LICENSE NOTICE /usr/share/doc/proofflow/",
+        "COPY deploy/tool-service/THIRD_PARTY_NOTICES.md /usr/share/doc/proofflow/",
+    ]
+
+
 def load_validator() -> ModuleType:
     spec = importlib.util.spec_from_file_location("supply_chain_validator", VALIDATOR_PATH)
     assert spec is not None and spec.loader is not None
@@ -60,7 +86,7 @@ def test_public_supply_chain_evidence_passes_schema_semantics_and_release_gate()
     validator.validate(EVIDENCE / REPORT_NAME, release_gate=True)
 
     assert report["subject"]["image_id"] == (
-        "sha256:eb1ced4bfd38ee333c17bfac99716486a5850fbfb12bdfc4c11f178514868505"
+        "sha256:1a4c4efb2d4e4fe37503ba0082282218e0b8c978dd22c1bd1488b5942d087775"
     )
     assert report["summary"]["vulnerability_records"] == {
         "UNKNOWN": 0,
@@ -70,6 +96,20 @@ def test_public_supply_chain_evidence_passes_schema_semantics_and_release_gate()
         "CRITICAL": 0,
     }
     assert report["summary"]["verdict"] == "NO_HIGH_OR_CRITICAL_FOUND"
+    assert report["schema_version"] == "1.1.0"
+    provenance = report["build_input_provenance"]
+    assert provenance["hashes_are_digital_signatures"] is False
+    assert provenance["build_relationship_attested"] is False
+    assert [item["path"] for item in provenance["inputs"]] == [
+        ".dockerignore",
+        "deploy/tool-service/Dockerfile",
+        "deploy/tool-service/requirements.lock",
+        "deploy/tool-service/THIRD_PARTY_NOTICES.md",
+        "LICENSE",
+        "NOTICE",
+        "src",
+        "data/rules",
+    ]
     assert "proof that no vulnerability exists" in report["limitations"][-1]
 
 
@@ -79,6 +119,8 @@ def test_public_supply_chain_evidence_passes_schema_semantics_and_release_gate()
         ("extra-root", "schema validation failed"),
         ("claim-escalation", "schema validation failed"),
         ("repin-image", "schema validation failed"),
+        ("forge-build-input", "build-input provenance differs"),
+        ("signature-escalation", "schema validation failed"),
         ("absolute-artifact", "schema validation failed"),
         ("weaken-limitations", "limitations were weakened"),
     ],
@@ -93,6 +135,10 @@ def test_manifest_attacks_fail_closed(tmp_path: Path, attack: str, expected: str
         report["claim_level"] = "PRODUCTION_SECURITY_CERTIFICATION"
     elif attack == "repin-image":
         report["subject"]["image_id"] = "sha256:" + "f" * 64
+    elif attack == "forge-build-input":
+        report["build_input_provenance"]["inputs"][0]["sha256"] = "sha256:" + "f" * 64
+    elif attack == "signature-escalation":
+        report["build_input_provenance"]["hashes_are_digital_signatures"] = True
     elif attack == "absolute-artifact":
         report["artifacts"][0]["path"] = "/Users/example/private.json"
     elif attack == "weaken-limitations":

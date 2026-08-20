@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://proofflow.dev/schemas/supply-chain-evidence-v1.json",
+  "$id": "https://proofflow.dev/schemas/supply-chain-evidence-v1.1.json",
   "title": "ProofFlow tool-service supply-chain evidence",
   "type": "object",
   "additionalProperties": false,
@@ -9,6 +9,7 @@
     "collected_at",
     "claim_level",
     "subject",
+    "build_input_provenance",
     "scope",
     "tools",
     "vulnerability_database",
@@ -18,10 +19,11 @@
     "limitations"
   ],
   "properties": {
-    "schema_version": { "const": "1.0.0" },
+    "schema_version": { "const": "1.1.0" },
     "collected_at": { "type": "string", "format": "date-time" },
     "claim_level": { "const": "POINT_IN_TIME_PACKAGE_VULNERABILITY_SCAN" },
     "subject": { "$ref": "#/$defs/subject" },
+    "build_input_provenance": { "$ref": "#/$defs/buildInputProvenance" },
     "scope": { "$ref": "#/$defs/scope" },
     "tools": { "$ref": "#/$defs/tools" },
     "vulnerability_database": { "$ref": "#/$defs/database" },
@@ -77,14 +79,64 @@
       "properties": {
         "tag": { "const": "proofflow-tool-service:0.1.0a0" },
         "immutable_reference": {
-          "const": "proofflow-tool-service@sha256:eb1ced4bfd38ee333c17bfac99716486a5850fbfb12bdfc4c11f178514868505"
+          "const": "proofflow-tool-service@sha256:1a4c4efb2d4e4fe37503ba0082282218e0b8c978dd22c1bd1488b5942d087775"
         },
         "image_id": {
-          "const": "sha256:eb1ced4bfd38ee333c17bfac99716486a5850fbfb12bdfc4c11f178514868505"
+          "const": "sha256:1a4c4efb2d4e4fe37503ba0082282218e0b8c978dd22c1bd1488b5942d087775"
         },
         "image_config_digest": { "$ref": "#/$defs/sha256" },
         "platform": { "const": "linux/amd64" },
         "created_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "buildInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "kind", "sha256", "bytes", "file_count"],
+      "properties": {
+        "path": {
+          "enum": [
+            ".dockerignore",
+            "deploy/tool-service/Dockerfile",
+            "deploy/tool-service/requirements.lock",
+            "deploy/tool-service/THIRD_PARTY_NOTICES.md",
+            "LICENSE",
+            "NOTICE",
+            "src",
+            "data/rules"
+          ]
+        },
+        "kind": { "enum": ["FILE_BYTES", "DIRECTORY_BUNDLE_V1"] },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "bytes": { "type": "integer", "minimum": 1 },
+        "file_count": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "buildInputProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_level",
+        "hash_algorithm",
+        "directory_bundle_format",
+        "hashes_are_digital_signatures",
+        "build_relationship_attested",
+        "inputs"
+      ],
+      "properties": {
+        "claim_level": { "const": "UNSIGNED_LOCAL_BUILD_INPUT_DIGEST_SNAPSHOT" },
+        "hash_algorithm": { "const": "SHA-256" },
+        "directory_bundle_format": {
+          "const": "PATH_LENGTH_U64_BE_PATH_BYTES_CONTENT_LENGTH_U64_BE_CONTENT_BYTES_V1"
+        },
+        "hashes_are_digital_signatures": { "const": false },
+        "build_relationship_attested": { "const": false },
+        "inputs": {
+          "type": "array",
+          "minItems": 8,
+          "maxItems": 8,
+          "items": { "$ref": "#/$defs/buildInput" }
+        }
       }
     },
     "scope": {

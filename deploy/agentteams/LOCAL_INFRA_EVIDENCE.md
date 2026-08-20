@@ -197,11 +197,16 @@ canonical source 与八份已分配 MinIO Worker-storage `SKILL.md` 的 SHA-256 
 MinIO 对象仅流入哈希函数，未发布原文、凭据、alias、对象元数据或内部绝对路径；离线 validator
 会重算仓库源哈希并拒绝 assignment 重绑、storage Worker 重绑和三处哈希整体改钉。
 
-这次较晚 smoke 在当时的 Alpine tool-service 快照镜像替换运行容器后重新执行。快照中的
-`tool_service_image_id` 来自只读 `docker inspect`，且 validator 会验证并读取
+这次较晚 smoke 已在 tool-service local image ID
+`sha256:1a4c4efb2d4e4fe37503ba0082282218e0b8c978dd22c1bd1488b5942d087775` 替换运行容器后重新执行。
+快照中的根级 `tool_service_image_id` 和 `tool_service_runtime.image_id` 来自只读、固定字段的
+`docker inspect`，且 validator 会验证并读取
 [`../tool-service/evidence/supply-chain-evidence.json`](../tool-service/evidence/supply-chain-evidence.json)
-的 `subject.image_id` 后要求两者相等。该绑定防止 MCP 快照单独改钉到另一合法 SHA-256；它仍只是
-两个点时公开证据对象的交叉一致性，不是远端 registry 证明、持续运行证明或生产认证。
+的 `subject.image_id` 后要求三者相等。schema 与 validator 还锁定非 root、只读 rootfs、
+`cap-drop=ALL`、`no-new-privileges`、无宿主端口发布以及原 PIDs/内存/CPU/tmpfs/network 配置。
+该绑定防止 MCP 快照单独改钉到另一合法 SHA-256 或弱化运行配置；它仍只是点时公开证据对象与本地
+运行观察的交叉一致性，不是远端 registry 证明、持续运行证明或生产认证。环境值、credential、cookie
+与旧容器备份名均未进入公开文件。
 
 公开文件可以离线重复验证，不会重新调用 MCP 或改变 trusted-artifact registry：
 

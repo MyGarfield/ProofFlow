@@ -9,6 +9,7 @@
     "evidence_kind",
     "collected_at",
     "tool_service_image_id",
+    "tool_service_runtime",
     "collector",
     "scope",
     "provenance",
@@ -23,7 +24,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "1.1"
+      "const": "1.2"
     },
     "evidence_kind": {
       "const": "agentteams-manager-operator-mcp-smoke"
@@ -50,7 +51,7 @@
           "const": "allowlisted-mcp-post-run-verification"
         },
         "version": {
-          "const": "1.1"
+          "const": "1.2"
         },
         "read_only_post_run_checks": {
           "const": true
@@ -153,6 +154,128 @@
         },
         "personal_identifiers_emitted": {
           "const": false
+        }
+      }
+    },
+    "tool_service_runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observed_at",
+        "container_name",
+        "image_id",
+        "state",
+        "health",
+        "service_port",
+        "host_port_published",
+        "security_profile",
+        "resource_limits",
+        "network_profile"
+      ],
+      "properties": {
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "container_name": {
+          "const": "proofflow-tool-service"
+        },
+        "image_id": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "state": {
+          "const": "running"
+        },
+        "health": {
+          "const": "healthy"
+        },
+        "service_port": {
+          "const": 8787
+        },
+        "host_port_published": {
+          "const": false
+        },
+        "security_profile": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "user",
+            "read_only_rootfs",
+            "privileged",
+            "cap_add",
+            "cap_drop",
+            "no_new_privileges"
+          ],
+          "properties": {
+            "user": {
+              "const": "65532:65532"
+            },
+            "read_only_rootfs": {
+              "const": true
+            },
+            "privileged": {
+              "const": false
+            },
+            "cap_add": {
+              "type": "array",
+              "maxItems": 0
+            },
+            "cap_drop": {
+              "const": [
+                "ALL"
+              ]
+            },
+            "no_new_privileges": {
+              "const": true
+            }
+          }
+        },
+        "resource_limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "pids_limit",
+            "memory_bytes",
+            "memory_swap_bytes",
+            "nano_cpus",
+            "tmpfs_tmp"
+          ],
+          "properties": {
+            "pids_limit": {
+              "const": 128
+            },
+            "memory_bytes": {
+              "const": 268435456
+            },
+            "memory_swap_bytes": {
+              "const": 536870912
+            },
+            "nano_cpus": {
+              "const": 1000000000
+            },
+            "tmpfs_tmp": {
+              "const": "rw,noexec,nosuid,size=16m"
+            }
+          }
+        },
+        "network_profile": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "network_mode",
+            "network_aliases"
+          ],
+          "properties": {
+            "network_mode": {
+              "const": "agentteams-net"
+            },
+            "network_aliases": {
+              "const": [
+                "proofflow-tool-service.local"
+              ]
+            }
+          }
         }
       }
     },
@@ -340,7 +463,7 @@
               "const": "sha256:e27533ee98fa3e7b51fbd8f49569399e3d6c8985a9b732f536655de49b5c4b43"
             },
             "output_hash": {
-              "const": "sha256:09bc4629ea45b4b521bad6a925aed8b2a6868d03e35dc73b86c0bb48d214a044"
+              "const": "sha256:c13d21654ac003a590bd1fb02c6f658fd74f3427b4d2dfe2b5b729d77ecf1704"
             },
             "value_present": {
               "const": true
@@ -729,6 +852,7 @@
         "cross_role_denial_observed",
         "manager_positive_workflow_passed",
         "resealed_tamper_blocked",
+        "tool_service_runtime_profile_verified",
         "all_workers_stopped",
         "worker_runtime_observed",
         "team_operational_ready",
@@ -754,6 +878,9 @@
           "const": true
         },
         "resealed_tamper_blocked": {
+          "const": true
+        },
+        "tool_service_runtime_profile_verified": {
           "const": true
         },
         "all_workers_stopped": {
