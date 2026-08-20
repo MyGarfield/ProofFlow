@@ -41,7 +41,7 @@ LLM，不能证明 Team/Matrix 协作、运行中 Skill 消费、模型质量或
 
 - **已验证事实**：本地参考核心合同；上述 Manager 操作员 MCP 正负向 smoke；六个停止态 Worker
   CR、八个 Skill、一个非 operational Team 和两个未参与的合成 Human 资源；本机同进程 HTTP
-  基准 300/300 functional success；稳定全仓测试 `353 passed`，其中 Demo 定向测试 `19 passed`。
+  基准 300/300 functional success；稳定全仓测试 `366 passed`，其中 Demo 定向测试 `19 passed`。
 - **合理推断**：最小 ACL、后端身份边界和 trusted-artifact registry 能降低跨角色调用与重新封装
   Evidence 被接受的风险；单次 smoke 不能量化风险降低幅度。
 - **未验证事项**：LLM Worker 协作、Matrix/TeamHarness 任务链、真实 Human 身份映射、MCP 长稳与
@@ -58,6 +58,9 @@ LLM，不能证明 Team/Matrix 协作、运行中 Skill 消费、模型质量或
   [`benchmarks/evaluation/`](../benchmarks/evaluation/) 已集成并通过合同测试，但报告仍为
   `PROTOCOL_VALIDATED_NOT_EXECUTED`；`deterministic_reference`、`single_agent`、`six_agent` 三臂和
   五项官方评分均为 `UNKNOWN`，分值为 `null`。
+- **研究状态**：[`docs/11_FRONTIER_RESEARCH_AND_CHAMPION_STRATEGY.md`](11_FRONTIER_RESEARCH_AND_CHAMPION_STRATEGY.md)
+  登记 21 条一手来源与 30 个分层 claim，并把实验接到现有三臂协议；实验仍未执行，外部研究不得
+  外推为 ProofFlow 运行效果。
 
 ## 首个验证场景
 

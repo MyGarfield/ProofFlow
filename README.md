@@ -54,7 +54,7 @@ Unknown/Low/Medium/High/Critical 均为 0，CycloneDX 记录 937 个 components�
 AgentTeams MCP Schema v1.2 与严格语义 validator 已强制供应链 `subject.image_id`、MCP 快照根级
 `tool_service_image_id` 和脱敏运行观察 `tool_service_runtime.image_id` 三方相等。该交叉绑定与零
 finding 都只是未签名的点时证据，不证明构建关系、数字签名、attestation、远端 registry 状态、
-持续可用性或生产安全，也绝不等于镜像“clean”或无漏洞。当前稳定全仓测试为 `353 passed`。
+持续可用性或生产安全，也绝不等于镜像“clean”或无漏洞。当前稳定全仓测试为 `366 passed`。
 
 脱敏点时证据见 [AgentTeams 本地证据](deploy/agentteams/LOCAL_INFRA_EVIDENCE.md)、
 [MCP Manager 操作员冒烟](deploy/agentteams/evidence/mcp-manager-operator-smoke-2026-08-20.json)、
@@ -65,6 +65,11 @@ finding 都只是未签名的点时证据，不证明构建关系、数字签名
 [`benchmarks/evaluation/`](benchmarks/evaluation/)。当前报告状态固定为
 `PROTOCOL_VALIDATED_NOT_EXECUTED`；三臂和五项官方评分均为 `UNKNOWN`，分值为 `null`，不得写成
 已经完成消融实验或获得比赛分数。
+
+海外前沿研究、反对理由与冠军证据实验见
+[冠军证据策略](docs/11_FRONTIER_RESEARCH_AND_CHAMPION_STRATEGY.md)；21 条一手来源及 30 个分层 claim
+登记在 [`research/frontier_sources.json`](research/frontier_sources.json)。外部研究只用于形成可检验
+假设，不等于 ProofFlow 已实现或已取得效果。
 
 ## 5 分钟本地复现
 
@@ -176,7 +181,7 @@ uv run mypy
 uv run pytest
 ```
 
-当前稳定全仓测试为 `353 passed`，其中 Demo 定向套件为 `19 passed`。测试覆盖正常链、文件哈希、
+当前稳定全仓测试为 `366 passed`，其中 Demo 定向套件为 `19 passed`。测试覆盖正常链、文件哈希、
 提示注入字段、地区/时态规则过滤、缺参阻断、确定性重放、冲突检测、Trace 缺失、越权审批、批准后
 篡改、包文件篡改和未执行评测的 `UNKNOWN`/`null` 合同。
 
@@ -192,6 +197,8 @@ uv run pytest
 - [本地性能基准](docs/08_PERFORMANCE_BENCHMARK.md)
 - [复赛 Demo Runbook](docs/09_SEMIFINAL_DEMO_RUNBOOK.md)
 - [三臂评测协议](docs/10_EVALUATION_PROTOCOL.md)
+- [海外前沿研究与冠军证据策略](docs/11_FRONTIER_RESEARCH_AND_CHAMPION_STRATEGY.md)
+- [机器可读一手来源登记](research/frontier_sources.json)
 - [Agent Identity](specs/06_AGENT_IDENTITY.yaml)
 - [Skill 规格](specs/07_SKILL_SPEC.yaml)
 
