@@ -30,7 +30,8 @@ def manifest() -> dict:
 
 
 def valid_worker_evidence(arm_id: str = "six_agent") -> dict:
-    worker_count = 1 if arm_id == "single_agent" else 6
+    specialist_count = 0 if arm_id == "single_agent" else 5
+    total_worker_containers = 1 if arm_id == "single_agent" else 6
     return {
         "schema_version": "proofflow.worker-run-evidence/v1",
         "evidence_kind": "worker-orchestration-run",
@@ -42,8 +43,12 @@ def valid_worker_evidence(arm_id: str = "six_agent") -> dict:
         "worker_execution_observed": True,
         "llm_inference_observed": True,
         "team_operational_ready": True,
-        "ready_workers": worker_count,
-        "worker_phases": {f"worker-{index}": "Running" for index in range(worker_count)},
+        "leader_phase": "Running",
+        "specialist_ready_workers": specialist_count,
+        "total_worker_containers": total_worker_containers,
+        "specialist_phases": {
+            f"specialist-{index}": "Running" for index in range(specialist_count)
+        },
         "task_event_ids": ["task-event-001"],
         "matrix_event_ids": ["matrix-event-001"],
         "worker_mcp_call_receipts": [
@@ -129,8 +134,14 @@ def test_current_manager_smoke_is_blocked_and_maps_to_unknown() -> None:
         "worker_execution_observed": smoke["scope"]["worker_execution"],
         "llm_inference_observed": smoke["scope"]["llm_inference"],
         "team_operational_ready": team["operational_ready"],
-        "ready_workers": team["ready_workers"],
-        "worker_phases": {item["name"]: item["phase"] for item in smoke["resources"]["workers"]},
+        "leader_phase": team["leader_worker_phase"],
+        "specialist_ready_workers": team["ready_workers"],
+        "total_worker_containers": smoke["resources"]["proof_flow_worker_containers"],
+        "specialist_phases": {
+            item["name"]: item["phase"]
+            for item in smoke["resources"]["workers"]
+            if item["role"] == "worker"
+        },
         "task_event_ids": [],
         "matrix_event_ids": [],
         "worker_mcp_call_receipts": [],
@@ -149,7 +160,7 @@ def test_current_manager_smoke_is_blocked_and_maps_to_unknown() -> None:
     assert gate["status"] == "BLOCKED"
     assert gate["score_status"] == "UNKNOWN"
     assert "WORKER_EXECUTION_NOT_OBSERVED" in gate["reason_codes"]
-    assert "READY_WORKER_COUNT_MISMATCH" in gate["reason_codes"]
+    assert "TOTAL_WORKER_CONTAINER_COUNT_MISMATCH" in gate["reason_codes"]
     assert "LLM_INFERENCE_NOT_OBSERVED" in gate["reason_codes"]
 
 
@@ -168,7 +179,35 @@ def test_valid_provider_neutral_worker_evidence_opens_only_matching_arm() -> Non
     assert single_gate == {"status": "READY", "score_status": "ELIGIBLE", "reason_codes": []}
     assert mismatched_gate["status"] == "BLOCKED"
     assert "ARM_ID_MISMATCH" in mismatched_gate["reason_codes"]
-    assert "READY_WORKER_COUNT_MISMATCH" in mismatched_gate["reason_codes"]
+    assert "SPECIALIST_READY_COUNT_MISMATCH" in mismatched_gate["reason_codes"]
+
+
+def test_six_agent_rejects_ready_workers_six_as_specialist_count() -> None:
+    evidence = valid_worker_evidence("six_agent")
+    evidence["specialist_ready_workers"] = 6
+
+    gate = gate_worker_execution_evidence(evidence, arm_id="six_agent")
+
+    assert gate["status"] == "BLOCKED"
+    assert "SPECIALIST_READY_COUNT_MISMATCH" in gate["reason_codes"]
+
+
+def test_six_agent_requires_running_leader_separately_from_specialists() -> None:
+    evidence = valid_worker_evidence("six_agent")
+    evidence["leader_phase"] = "Stopped"
+
+    gate = gate_worker_execution_evidence(evidence, arm_id="six_agent")
+
+    assert gate["status"] == "BLOCKED"
+    assert "LEADER_NOT_RUNNING" in gate["reason_codes"]
+
+
+def test_single_agent_leader_only_topology_is_one_total_and_zero_specialists() -> None:
+    gate = gate_worker_execution_evidence(
+        valid_worker_evidence("single_agent"), arm_id="single_agent"
+    )
+
+    assert gate == {"status": "READY", "score_status": "ELIGIBLE", "reason_codes": []}
 
 
 def test_unexecuted_protocol_report_never_emits_zero_or_pass() -> None:

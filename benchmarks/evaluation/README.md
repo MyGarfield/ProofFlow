@@ -26,3 +26,11 @@ gate can open.
 The scenario manifest, schemas, gate, and tests are independent of the existing
 deterministic public contract and local HTTP performance suites. Those suites
 remain unchanged and retain their narrower measurement boundaries.
+
+The AgentTeams topology is explicit in the Worker evidence contract:
+`readyWorkers` is the specialist count, not the total Worker count. A
+Leader-only `single_agent` run requires `leader_phase=Running`,
+`specialist_ready_workers=0`, and `total_worker_containers=1`. The
+`six_agent` run requires `leader_phase=Running`,
+`specialist_ready_workers=5`, and `total_worker_containers=6`. A value of six
+for the specialist field is rejected as a semantic mismatch.

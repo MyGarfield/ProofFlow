@@ -8,8 +8,8 @@
 
 本协议解决的是“怎样在真实 Worker 编排发生后，公平比较确定性参考、单 Agent 和六 Agent”的测量
 与证据合同，不是一次已完成的 LLM 评测。当前仓库事实仍是：六个 Worker 为 `Stopped`、容器数为 0、
-`readyWorkers=0`，现有 AgentTeams 结果由 Manager 操作员完成，没有 Worker 执行、LLM 推理、Team
-任务链或真实 Human Gate 证据。因此本次新增的协议报告只能是
+AgentTeams 的 `readyWorkers=0`（该字段只统计 specialist，不统计 Leader），现有 AgentTeams 结果由
+Manager 操作员完成，没有 Worker 执行、LLM 推理、Team 任务链或真实 Human Gate 证据。因此本次新增的协议报告只能是
 `PROTOCOL_VALIDATED_NOT_EXECUTED`，三臂和五项官方评分均为 `UNKNOWN`，分值为 `null`；不得写成
 0 分、PASS 或“未通过”。
 
@@ -48,8 +48,8 @@ six-agent 必须共享同一冻结输入、规则、公式和模型配置，并�
 | arm | 定义 | LLM | Worker 门禁 | 比较用途 |
 |---|---|---|---|---|
 | `deterministic_reference` | 现有参考核心、冻结合成 fixture、固定规则和版本化公式 | 否 | 不需要 | 质量/安全参考；不能冒充 Agent 运行 |
-| `single_agent` | 一个真实 Worker 消费同一组 ProofFlow 工具合同；不允许用 Manager 操作员代替 | 是 | 需要 1 个 Running/ready Worker | 单 Agent 消融基线 |
-| `six_agent` | 六个真实 Worker 的 AgentTeams DAG，含 Specialist MCP ACL、Matrix/task event 和 Human Gate | 是 | 需要 6 个 Running/ready Worker | 目标多 Agent 系统 |
+| `single_agent` | Leader-only 拓扑：一个真实 Leader Worker 消费同一组 ProofFlow 工具合同；不允许用 Manager 操作员代替 | 是 | `leader_phase=Running`、`specialist_ready_workers=0`、`total_worker_containers=1` | 单 Agent 消融基线 |
+| `six_agent` | 六个真实 Worker 的 AgentTeams DAG，含 Leader、5 个 Specialist、MCP ACL、Matrix/task event 和 Human Gate | 是 | `leader_phase=Running`、`specialist_ready_workers=5`、`total_worker_containers=6` | 目标多 Agent 系统 |
 
 `single_agent` 与 `six_agent` 的 `model.provider_id` 可以来自任何合法 provider；协议只要求把不含密钥
 的 provider/model 标识、配置摘要、Token receipt 和 rate-card 标识写入 provenance，不绑定任何 SDK、
@@ -60,8 +60,10 @@ six-agent 必须共享同一冻结输入、规则、公式和模型配置，并�
 LLM 臂必须先通过 `worker-run-evidence.schema.json`。最低条件为：
 
 1. `worker_execution_observed=true`、`llm_inference_observed=true`，而不是 CR 存在或 Manager 能调用 MCP；
-2. `team_operational_ready=true`，`single_agent` 的 ready 数为 1，`six_agent` 的 ready 数为 6，且所有
-   `worker_phases` 为 `Running`；
+2. `team_operational_ready=true`，并按 AgentTeams 的字段语义分别满足：`single_agent` 为
+   `leader_phase=Running`、`specialist_ready_workers=0`、`total_worker_containers=1`；`six_agent` 为
+   `leader_phase=Running`、`specialist_ready_workers=5`、`total_worker_containers=6`。Leader 单独检查，
+   Specialist 通过 `specialist_phases` 检查为 `Running`；不能把 total Worker 数写入 `readyWorkers`；
 3. 至少一个 task event、Matrix event、Worker MCP call receipt 和 Skill consumption receipt，并且都
    能关联同一个 `trace_id`；
 4. 存在 Human Gate receipt；配置中的合成 Human 资源不能替代真实参与 receipt；
@@ -71,8 +73,10 @@ LLM 臂必须先通过 `worker-run-evidence.schema.json`。最低条件为：
    都有 digest 或稳定标识。
 
 当前 Manager smoke 只有 `scope.worker_execution=false`、`llm_inference=false`，Team 的
-`operational_ready=false`，六 Worker Stopped，因此被协议测试明确映射到 `BLOCKED` gate 和 `UNKNOWN`
-score。禁止用 `controller phase=Active`、CR、Skill hash 8/8、MCP 正向 smoke 或健康接口替代运行门。
+`operational_ready=false`，Leader 为 Stopped、`readyWorkers=0`（specialist 数）、total Worker containers
+为 0，因此被协议测试明确映射到 `BLOCKED` gate 和 `UNKNOWN` score。禁止用 `controller phase=Active`、
+CR、Skill hash 8/8、MCP 正向 smoke 或健康接口替代运行门；`readyWorkers=6` 也不能作为 six-agent 的
+正确字段，six-agent 必须是 Leader Running + 5 specialists ready + total 6。
 
 ## 场景与安全合同
 
@@ -163,8 +167,9 @@ false block、重复副作用和 Trace 不完整计数。比例必须带分子�
    结果。
 3. 在完成旧 key 撤销和新 key 轮换、并确认不会把 key 暴露在 help/log/env 输出后，采集 one-worker
    运行证据；先验证 `worker-run-evidence.schema.json`，再打开 `single_agent` gate。
-4. 采集六 Worker Running、ready=6、真实 DAG/Matrix/MCP/Skill/Human receipts；通过后才打开
-   `six_agent` gate。任何一步失败，臂状态保持 `UNKNOWN`。
+4. 采集六 Worker Running、`leader_phase=Running`、`specialist_ready_workers=5`、
+   `total_worker_containers=6` 以及真实 DAG/Matrix/MCP/Skill/Human receipts；通过后才打开 `six_agent`
+   gate。任何一步失败，臂状态保持 `UNKNOWN`。
 5. 运行所有适用场景和故障注入；先写原始 run ledger，再生成汇总，不从汇总反推原始事实。
 6. 用独立 verifier 检查闭集 issue code、对象 hash、Human Gate 对象摘要、跨 tenant、Trace 完整性、
    duplicate side effects、Token/rate card 和成本完整性。

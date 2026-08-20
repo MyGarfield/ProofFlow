@@ -9,18 +9,28 @@
     "deterministic_reference": {
       "requires_worker_execution_evidence": false,
       "requires_llm_inference": false,
+      "topology": "NO_WORKER",
+      "required_leader_phase": null,
+      "required_specialist_ready_workers": 0,
+      "required_total_worker_containers": 0,
       "execution_allowed_before_worker_boot": true
     },
     "single_agent": {
       "requires_worker_execution_evidence": true,
       "requires_llm_inference": true,
-      "required_ready_worker_count": 1,
+      "topology": "LEADER_ONLY",
+      "required_leader_phase": "Running",
+      "required_specialist_ready_workers": 0,
+      "required_total_worker_containers": 1,
       "execution_allowed_before_worker_boot": false
     },
     "six_agent": {
       "requires_worker_execution_evidence": true,
       "requires_llm_inference": true,
-      "required_ready_worker_count": 6,
+      "topology": "SIX_WORKER_TEAM",
+      "required_leader_phase": "Running",
+      "required_specialist_ready_workers": 5,
+      "required_total_worker_containers": 6,
       "execution_allowed_before_worker_boot": false
     }
   },
@@ -203,8 +213,10 @@
       "worker_execution_observed",
       "llm_inference_observed",
       "team_operational_ready",
-      "ready_workers",
-      "worker_phases",
+      "leader_phase",
+      "specialist_ready_workers",
+      "total_worker_containers",
+      "specialist_phases",
       "task_event_ids",
       "matrix_event_ids",
       "worker_mcp_call_receipts",
@@ -217,7 +229,8 @@
     ],
     "forbidden_shortcuts": [
       "manager_operator_smoke_without_worker_execution",
-      "controller_phase_active_without_ready_workers",
+      "controller_phase_active_without_specialist_ready_workers",
+      "leader_phase_missing_or_stopped",
       "worker_cr_state_without_runtime_consumption_receipt",
       "model_key_or_environment_dump",
       "synthetic_human_configuration_without_human_gate_receipt"

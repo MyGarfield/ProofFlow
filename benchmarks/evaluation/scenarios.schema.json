@@ -72,12 +72,19 @@
       "required": [
         "requires_worker_execution_evidence",
         "requires_llm_inference",
+        "topology",
+        "required_leader_phase",
+        "required_specialist_ready_workers",
+        "required_total_worker_containers",
         "execution_allowed_before_worker_boot"
       ],
       "properties": {
         "requires_worker_execution_evidence": {"type": "boolean"},
         "requires_llm_inference": {"type": "boolean"},
-        "required_ready_worker_count": {"type": "integer", "minimum": 0},
+        "topology": {"type": "string", "minLength": 1},
+        "required_leader_phase": {"type": ["string", "null"]},
+        "required_specialist_ready_workers": {"type": "integer", "minimum": 0},
+        "required_total_worker_containers": {"type": "integer", "minimum": 0},
         "execution_allowed_before_worker_boot": {"type": "boolean"}
       }
     },
