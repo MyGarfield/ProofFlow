@@ -39,7 +39,7 @@ ProofFlow 不以“法律聊天更聪明”为核心，而以以下命题参赛�
 | 场景与复制性 | 23–25 | 一个解除/裁员案例贯穿；基线、对象、输入输出、价值指标；第二领域复用 | 合成窄场景已建立；尚无价值实测和第二领域 |
 | 多 Agent | 23–25 | AgentTeams v1.2.2 真实六 Worker、任务 DAG、Matrix 事件、异常与人工介入 | 控制面与六 Worker CR 已配置，但 Worker 全部 Stopped、容器与 ready 数为 0；无 LLM/协作证据 |
 | Skill | 22–25 | 八个可分发 Skill；I/O、权限、失败、版本、测试、复用和运行 receipt | 八个 Skill 已分发并核对；尚无运行中 Worker 消费 receipt |
-| 工程与安全 | 18–20 | 一键运行、Trace、指标、Human Gate、篡改/越权/重放、离线备份 | 三 MCP 最小 ACL 与 operator 正负向 smoke 已验证；供应链仅有历史镜像快照，当前源码扫描待刷新；Team/Human 仍仅配置 |
+| 工程与安全 | 18–20 | 一键运行、Trace、指标、Human Gate、篡改/越权/重放、离线备份 | 三 MCP 最小 ACL 与 operator 正负向 smoke 已验证；当前镜像已有供应链 Schema v1.1 点时扫描，并由 AgentTeams MCP Schema v1.2 严格语义 validator 与运行观察三方交叉绑定 image ID；Team/Human 仍仅配置，未形成多 Agent 运行闭环 |
 | 开源 | 5 | Apache-2.0、CI、Quick Start、Release、贡献/安全说明、可复现实例 | License/CI/Quick Start 已加入；Release/社区待完成 |
 
 内部目标为 91 分以上；它不是官方晋级线，也不得写入对外材料作为已获得分数。
@@ -57,12 +57,15 @@ ProofFlow 不以“法律聊天更聪明”为核心，而以以下命题参赛�
 - [x] 完成 Manager 操作员合成 evidence → rules → calculation 与重封篡改阻断 smoke；
 - [x] 创建 Team 和两个合成 Human CR，同时记录 Team `operational_ready=false`、Human 未参与；
 - [x] 建立本机同进程 HTTP 基准；300/300 只作为本地回归，不是 MCP/LLM/SLA 证据；
-- [x] 切换 pinned Python 3.12 Alpine platform manifest，移除运行时 pip，并重建当前源码候选完成
-  一次未发布、未做 Schema 绑定的隔离合成 HTTP 操作员 smoke；
-- [x] 当前源码格式、类型、Schema、证据 validator 与全仓 306 项测试通过；
-- [ ] 为当前源码候选重新生成 SBOM/点时漏洞扫描，替换运行容器并刷新 AgentTeams 交叉证据；
+- [x] 切换 pinned Python 3.12 Alpine platform manifest，移除运行时 pip，并为当前镜像生成供应链
+  Schema v1.1、SBOM、固定数据库点时漏洞扫描和八项 unsigned build-input hashes；
+- [x] 替换本地运行容器并刷新 AgentTeams MCP Schema v1.2 证据；严格语义 validator 已强制供应链
+  subject、MCP 快照根级和运行观察三处 image ID 相等；
+- [x] 当前格式、类型、Schema、证据 validator 与稳定全仓 `351 passed` 门禁通过；
 - [ ] 加入缺参、冲突、异地/过期规则、审批后修改、越权角色异常样例；
-- [ ] 建立演示 UI 最小信息架构与三分钟脚本。
+- [x] 建立本地演示 UI、90 秒 runbook 与 `18 passed` 定向套件；它不运行 Worker/LLM 或产生外部副作用；
+- [x] 集成三臂评测协议、Schema、CLI 与合同测试；当前状态为
+  `PROTOCOL_VALIDATED_NOT_EXECUTED`，三臂和官方评分仍为 `UNKNOWN`/`null`。
 
 ### 2026-08-25 至 08-28：真实 AgentTeams 闭环
 
@@ -114,15 +117,22 @@ ProofFlow 不以“法律聊天更聪明”为核心，而以以下命题参赛�
   轮换是启动 Worker 前的硬门禁；
 - 本机同进程 HTTP 基准为 300/300 functional success，但未经过 MCP、AgentTeams 或 LLM，不能写成
   SLA 或端到端性能；
-- 公开供应链机器证据只绑定历史 Alpine 镜像
-  `sha256:eb1ced4bfd38ee333c17bfac99716486a5850fbfb12bdfc4c11f178514868505`；该点时扫描为全 severity 0、
-  CycloneDX 937 components、verdict `NO_HIGH_OR_CRITICAL_FOUND`，但不绑定当前源码。当前候选只有
-  未发布、未做 Schema 绑定的隔离合成 HTTP 操作员 smoke，新的 SBOM/漏洞扫描与 AgentTeams 交叉证据仍是发布前门禁；当前源码全仓
-  306 tests passed。零 finding 不能表述为“clean”、无漏洞或安全证明；Debian 4 Critical/22 High
-  仅是未附原始报告的操作员历史观察。
+- 公开供应链机器证据绑定当前最小化 Alpine 镜像
+  `sha256:1a4c4efb2d4e4fe37503ba0082282218e0b8c978dd22c1bd1488b5942d087775`；该点时扫描为全 severity 0、
+  CycloneDX 937 components、verdict `NO_HIGH_OR_CRITICAL_FOUND`，并以供应链 Schema v1.1 绑定八项
+  当前构建输入摘要；AgentTeams MCP Schema v1.2 与严格语义 validator 已强制供应链
+  `subject.image_id`、MCP 快照根级 `tool_service_image_id` 和运行观察
+  `tool_service_runtime.image_id` 三方相等。摘要、交叉绑定与点时零 finding 不是 clean 结论、签名、
+  build attestation、构建关系证明、持续运行证明或生产安全认证；Debian 4 Critical/22 High 仅是未附
+  原始报告的操作员历史观察；
+- 稳定全仓测试为 `351 passed`，本地 Demo 定向测试为 `18 passed`；
+- [`10_EVALUATION_PROTOCOL.md`](10_EVALUATION_PROTOCOL.md) 与
+  [`benchmarks/evaluation/`](../benchmarks/evaluation/) 已集成，但报告状态仍为
+  `PROTOCOL_VALIDATED_NOT_EXECUTED`；`deterministic_reference`、`single_agent`、`six_agent` 三臂和
+  五项官方评分均为 `UNKNOWN`，分值为 `null`。
 
 因此，当前最短关键路径是：密钥轮换 → 逐 Worker 启动与真实 MCP 调用 → Team/Matrix
-任务 DAG → 真实 Human Gate → 端到端评测与演示。任何前置步骤失败都应保持 fail closed，而不是
+任务 DAG → 真实 Human Gate → 执行三臂端到端评测与真实多 Agent 演示。任何前置步骤失败都应保持 fail closed，而不是
 通过修改宣传口径绕过。
 
 点时结论分别以
@@ -148,7 +158,8 @@ ProofFlow 不以“法律聊天更聪明”为核心，而以以下命题参赛�
 10. Package 文件被修改后独立验真失败；
 11. 当前默认没有任何外部现实副作用；
 12. 所有指标可追溯到冻结原始运行；
-13. 发布镜像完成最终 SBOM/漏洞扫描，Critical/High 门禁与剩余风险有机器可读证据。
+13. 依赖、源码或镜像变化后重新生成 SBOM/漏洞扫描与交叉绑定证据，Critical/High 门禁和剩余风险
+    始终有机器可读记录。
 
 ## 最强反对理由与反证任务
 

@@ -10,8 +10,9 @@
 - Team：`CONTROLLER_ACTIVE / OPERATIONALLY_NOT_READY`
 - AgentTeams Human：`TWO_SYNTHETIC_RESOURCES_ACTIVE / NO_PARTICIPATION`
 - Worker / LLM 协作：`NOT_VALIDATED_PENDING_KEY_ROTATION`
+- 三臂评测：`PROTOCOL_VALIDATED_NOT_EXECUTED / SCORES_UNKNOWN`
 - RAG / OCR：`NOT_IMPLEMENTED`
-- tool-service 镜像发布门：`HISTORICAL_SNAPSHOT_VALIDATED / CURRENT_SOURCE_SCAN_PENDING`
+- tool-service 镜像证据：`CURRENT_POINT_IN_TIME_SCAN / AGENTTEAMS_RUNTIME_IMAGE_ID_CROSS_BOUND`
 - 生产运行与真实法律准确率：`NOT_VALIDATED`
 
 截至 2026 年 8 月 20 日，仓库已从纯方案阶段进入合成数据参考实现阶段。Python 3.12 核心实现
@@ -40,18 +41,23 @@ LLM，不能证明 Team/Matrix 协作、运行中 Skill 消费、模型质量或
 
 - **已验证事实**：本地参考核心合同；上述 Manager 操作员 MCP 正负向 smoke；六个停止态 Worker
   CR、八个 Skill、一个非 operational Team 和两个未参与的合成 Human 资源；本机同进程 HTTP
-  基准 300/300 functional success。
+  基准 300/300 functional success；稳定全仓测试 `351 passed`，其中 Demo 定向测试 `18 passed`。
 - **合理推断**：最小 ACL、后端身份边界和 trusted-artifact registry 能降低跨角色调用与重新封装
   Evidence 被接受的风险；单次 smoke 不能量化风险降低幅度。
 - **未验证事项**：LLM Worker 协作、Matrix/TeamHarness 任务链、真实 Human 身份映射、MCP 长稳与
   故障恢复、法律准确率、生产容量和 SLA。模型 API Key 轮换完成前不启动 Worker 或触发 LLM。
-- **供应链门状态**：公开机器证据绑定历史最小化 Alpine 镜像
-  `sha256:eb1ced4bfd38ee333c17bfac99716486a5850fbfb12bdfc4c11f178514868505`；其固定数据库点时扫描的
+- **供应链门状态**：公开机器证据绑定当前最小化 Alpine 镜像
+  `sha256:1a4c4efb2d4e4fe37503ba0082282218e0b8c978dd22c1bd1488b5942d087775`；其固定数据库点时扫描的
   Unknown/Low/Medium/High/Critical 均为 0，CycloneDX 为 937 components，verdict 仅为
-  `NO_HIGH_OR_CRITICAL_FOUND`。该证据不提供 build provenance，也不绑定当前工作树。当前源码候选
-  只有一次未发布、未做 Schema 绑定的隔离 non-root/read-only 合成 HTTP 操作员 smoke；新 SBOM、漏洞扫描和 AgentTeams 交叉证据尚未
-  刷新，因此发布门为 pending。当前源码全仓测试为 306 passed；历史零 finding 不能外推为当前镜像
-  “clean”、无漏洞或安全证明。此前 Debian 4 Critical/22 High 仅是未附原始报告的操作员历史观察。
+  `NO_HIGH_OR_CRITICAL_FOUND`。供应链 Schema v1.1 绑定八项当前构建输入摘要；AgentTeams MCP
+  Schema v1.2 与严格语义 validator 已强制供应链 `subject.image_id`、MCP 快照根级
+  `tool_service_image_id` 和运行观察 `tool_service_runtime.image_id` 三方相等。摘要与交叉绑定不是
+  签名、build attestation、构建关系证明、持续运行证明或生产安全认证；点时零 finding 也不能外推为
+  镜像“clean”或无漏洞。此前 Debian 4 Critical/22 High 仅是未附原始报告的操作员历史观察。
+- **评测状态**：[`docs/10_EVALUATION_PROTOCOL.md`](10_EVALUATION_PROTOCOL.md) 与
+  [`benchmarks/evaluation/`](../benchmarks/evaluation/) 已集成并通过合同测试，但报告仍为
+  `PROTOCOL_VALIDATED_NOT_EXECUTED`；`deterministic_reference`、`single_agent`、`six_agent` 三臂和
+  五项官方评分均为 `UNKNOWN`，分值为 `null`。
 
 ## 首个验证场景
 
@@ -77,6 +83,8 @@ LLM，不能证明 Team/Matrix 协作、运行中 Skill 消费、模型质量或
 - 显式本地 Human 决定，批准与完整对象摘要绑定；
 - Package 文件哈希和独立验真；
 - 合成提示注入字段测试；
+- 仅 loopback、公开合成数据的本地演示控制台及 `18 passed` 定向测试；
+- 三臂评测 manifest、Schema、CLI 和 fail-closed 合同；协议已验证但尚未执行；
 - GitHub Actions、Ruff、mypy、pytest 和 Apache-2.0。
 
 ## 非目标与未实现范围

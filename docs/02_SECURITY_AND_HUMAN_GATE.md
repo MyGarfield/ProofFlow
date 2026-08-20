@@ -49,7 +49,7 @@ Manager 操作员工具链；Human/Matrix 的真实身份映射仍未验证。
 | 审批后篡改 | 待批对象摘要变化后批准失败；有 E2E 测试 | 并发数据库事务和跨服务 TOCTOU 未做 |
 | Trace 缺失 | Audit 强制 BLOCK | OTel、append-only ledger、保留策略未做 |
 | 包文件篡改 | 独立 verify 发现文件哈希变化；有 E2E 测试 | 签名发布、SBOM/provenance 和托管验证器未做 |
-| 镜像供应链 | 历史最小化 Alpine 镜像 `sha256:eb1ced4bfd38ee333c17bfac99716486a5850fbfb12bdfc4c11f178514868505` 的 Schema-bound 点时扫描为全 severity 0、CycloneDX 937 components、verdict `NO_HIGH_OR_CRITICAL_FOUND`；当前源码候选仅有未发布、未做 Schema 绑定的隔离合成 HTTP 操作员 smoke | 历史证据不含 build provenance且不绑定当前工作树；当前候选的新 SBOM/漏洞扫描与 AgentTeams 交叉绑定待完成。当前源码 306 tests passed；历史零 finding 不等于 clean、无漏洞或运行时安全。Debian 4 Critical/22 High 仅是未附原始报告的操作员历史观察 |
+| 镜像供应链 | 当前最小化 Alpine 镜像 `sha256:1a4c4efb2d4e4fe37503ba0082282218e0b8c978dd22c1bd1488b5942d087775` 的供应链 Schema v1.1 点时扫描为全 severity 0、CycloneDX 937 components、verdict `NO_HIGH_OR_CRITICAL_FOUND`，并绑定八项构建输入摘要；AgentTeams MCP Schema v1.2 与严格语义 validator 已强制供应链 subject、MCP 快照根级和运行观察三处 image ID 相等 | 这些未签名点时摘要与交叉绑定不是 clean 结论、数字签名、build attestation、构建关系证明、持续运行证明或生产安全认证。当前稳定全仓测试为 `351 passed`；Debian 4 Critical/22 High 仅是未附原始报告的操作员历史观察 |
 
 ## AgentTeams 点时安全证据边界
 
@@ -58,10 +58,20 @@ Manager 操作员工具链；Human/Matrix 的真实身份映射仍未验证。
 重新封装 Evidence 哈希的负向探针返回 `BLOCKED / UNTRUSTED_EVIDENCE`。这些事实证明当前工具合同
 能阻断该特定攻击，不证明来源身份、任意篡改、持久化恢复或生产授权均安全。
 
+公开 MCP 证据已升级到 Schema v1.2；严格语义 validator 要求其根级 `tool_service_image_id`、
+脱敏 `tool_service_runtime.image_id` 与供应链证据 `subject.image_id` 三方等于
+`sha256:1a4c4efb2d4e4fe37503ba0082282218e0b8c978dd22c1bd1488b5942d087775`，并锁定 non-root、只读
+rootfs、`cap-drop=ALL`、`no-new-privileges`、资源限制、无宿主端口发布和本地网络边界。这仍只是
+点时 allowlist 观察，不证明容器持续处于该状态。
+
 六个 Worker CR 全部为 `Stopped`，Worker 容器数和 ready Worker 数均为 0。Team CR 的 `Active`
 只是控制面配置状态；因此不存在可被描述为“AgentTeams 多 Agent 安全闭环”的运行证据。MCP smoke
-由 Manager 操作员发起、未调用 LLM。公开摘要、Schema 和局限见
+由 Manager 操作员发起、未调用 LLM，也没有 Human 参与。模型 API Key 安全轮换仍是启动 Worker
+或触发 LLM 的硬门禁。公开摘要、Schema 和局限见
 [`mcp-manager-operator-smoke-2026-08-20.json`](../deploy/agentteams/evidence/mcp-manager-operator-smoke-2026-08-20.json)。
+
+已集成的三臂评测当前仅为 `PROTOCOL_VALIDATED_NOT_EXECUTED`；三臂和五项官方评分均为
+`UNKNOWN`/`null`。因此这些安全合同测试不能被表述为已经执行的 AgentTeams 红队结果或官方得分。
 
 ## 回滚与恢复边界
 

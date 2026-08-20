@@ -8,7 +8,7 @@ AgentTeams 等协作运行时之上，将 Agent、Skill、证据、规则、确�
 
 ## 当前真实状态
 
-状态：`REFERENCE_CORE_VERIFIED / AGENTTEAMS_MANAGER_OPERATOR_SMOKE`
+状态：`REFERENCE_CORE_VERIFIED / AGENTTEAMS_MANAGER_OPERATOR_SMOKE / EVALUATION_PROTOCOL_VALIDATED_NOT_EXECUTED`
 
 截至 2026 年 8 月 20 日，仓库已经包含一个仅使用合成数据的确定性参考核心：
 
@@ -27,7 +27,9 @@ AgentTeams 等协作运行时之上，将 Agent、Skill、证据、规则、确�
   计算结果为十进制字符串 `60000`；同 scope 修改 Evidence 值并重新封装哈希后，计算以
   `UNTRUSTED_EVIDENCE` 阻断；
 - Evidence Worker 对 evidence MCP 的 `tools/list` 返回 200，Calculation Worker 的跨角色访问返回
-  403。
+  403；
+- 已集成 `deterministic_reference`、`single_agent`、`six_agent` 三臂评测协议、Schema、CLI 与契约测试，
+  但尚未执行三臂对照评测。
 
 这些 AgentTeams 结果是**配置与 Manager 操作员冒烟证据**，不是多 Agent 运行：六个 Worker 全部
 `Stopped`，Worker 容器数为 0；Team CR 虽为 `Active`，但 `readyWorkers=0`、Leader 为 `Stopped`，
@@ -45,19 +47,24 @@ AgentTeams 等协作运行时之上，将 Agent、Skill、证据、规则、确�
 
 因此，当前运行结果只能证明这个合成参考切片的结构合同与确定性属性，不能外推为法律准确性、
 生产安全性或比赛最终成绩。本机同进程 HTTP 基准虽为 300/300 functional success，但它不测 MCP、
-AgentTeams 或 LLM，也不是 SLA。仓库发布的供应链证据绑定历史 Alpine 镜像
-`sha256:eb1ced4bfd38ee333c17bfac99716486a5850fbfb12bdfc4c11f178514868505`：固定数据库点时扫描的
+AgentTeams 或 LLM，也不是 SLA。仓库发布的供应链证据绑定当前最小化 Alpine 镜像
+`sha256:1a4c4efb2d4e4fe37503ba0082282218e0b8c978dd22c1bd1488b5942d087775`：固定数据库点时扫描的
 Unknown/Low/Medium/High/Critical 均为 0，CycloneDX 记录 937 个 components，verdict 仅为
-`NO_HIGH_OR_CRITICAL_FOUND`。该镜像不绑定当前工作树；当前源码候选有一次未随仓库发布、未做
-Schema 绑定的隔离合成 HTTP 操作员 smoke，
-但新的 SBOM/漏洞扫描与 AgentTeams 交叉证据仍待刷新，不能称为当前发布镜像。当前源码的格式、类型、
-Schema、证据 validator 与全仓门禁已通过，测试为 306 passed。零 finding 只是历史点时 scanner
-non-detection，绝不等于“clean”、无漏洞或安全证明。
+`NO_HIGH_OR_CRITICAL_FOUND`。供应链 Schema v1.1 还绑定八项当前构建输入的可复核 SHA-256；
+AgentTeams MCP Schema v1.2 与严格语义 validator 已强制供应链 `subject.image_id`、MCP 快照根级
+`tool_service_image_id` 和脱敏运行观察 `tool_service_runtime.image_id` 三方相等。该交叉绑定与零
+finding 都只是未签名的点时证据，不证明构建关系、数字签名、attestation、远端 registry 状态、
+持续可用性或生产安全，也绝不等于镜像“clean”或无漏洞。当前稳定全仓测试为 `351 passed`。
 
 脱敏点时证据见 [AgentTeams 本地证据](deploy/agentteams/LOCAL_INFRA_EVIDENCE.md)、
 [MCP Manager 操作员冒烟](deploy/agentteams/evidence/mcp-manager-operator-smoke-2026-08-20.json)、
 [本地性能基准](docs/08_PERFORMANCE_BENCHMARK.md)和
 [供应链证据](deploy/tool-service/evidence/supply-chain-evidence.json)。
+
+评测资产见 [评测协议](docs/10_EVALUATION_PROTOCOL.md) 和
+[`benchmarks/evaluation/`](benchmarks/evaluation/)。当前报告状态固定为
+`PROTOCOL_VALIDATED_NOT_EXECUTED`；三臂和五项官方评分均为 `UNKNOWN`，分值为 `null`，不得写成
+已经完成消融实验或获得比赛分数。
 
 ## 5 分钟本地复现
 
@@ -65,7 +72,21 @@ non-detection，绝不等于“clean”、无漏洞或安全证明。
 
 ```bash
 uv sync --dev
+```
 
+本地可视化演示只绑定 `127.0.0.1`，使用公开合成输入，不调用 LLM、AgentTeams Worker 或外部业务
+系统：
+
+```bash
+uv run python -m demo.server --port 8765
+```
+
+浏览器打开 `http://127.0.0.1:8765`。完整 90 秒路径、安全边界和故障处理见
+[复赛 Demo Runbook](docs/09_SEMIFINAL_DEMO_RUNBOOK.md)；当前 Demo 定向测试为 `18 passed`。
+
+如需直接复现 CLI 参考链：
+
+```bash
 uv run proofflow prepare \
   --manifest examples/cases/happy_path/manifest.json \
   --rules data/rules/cn_labor_contract_law.catalog.json \
@@ -155,8 +176,9 @@ uv run mypy
 uv run pytest
 ```
 
-当前测试覆盖正常链、文件哈希、提示注入字段、地区/时态规则过滤、缺参阻断、确定性重放、冲突
-检测、Trace 缺失、越权审批、批准后篡改和包文件篡改。
+当前稳定全仓测试为 `351 passed`，其中 Demo 定向套件为 `18 passed`。测试覆盖正常链、文件哈希、
+提示注入字段、地区/时态规则过滤、缺参阻断、确定性重放、冲突检测、Trace 缺失、越权审批、批准后
+篡改、包文件篡改和未执行评测的 `UNKNOWN`/`null` 合同。
 
 ## 路线图与证据边界
 
@@ -167,6 +189,9 @@ uv run pytest
 - [冠军执行计划](docs/04_CHAMPIONSHIP_EXECUTION_PLAN.md)
 - [国际前沿研究雷达](docs/05_FRONTIER_RESEARCH.md)
 - [REST 工具服务](docs/07_REST_TOOL_SERVICE.md)
+- [本地性能基准](docs/08_PERFORMANCE_BENCHMARK.md)
+- [复赛 Demo Runbook](docs/09_SEMIFINAL_DEMO_RUNBOOK.md)
+- [三臂评测协议](docs/10_EVALUATION_PROTOCOL.md)
 - [Agent Identity](specs/06_AGENT_IDENTITY.yaml)
 - [Skill 规格](specs/07_SKILL_SPEC.yaml)
 

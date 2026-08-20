@@ -21,6 +21,11 @@
   跨角色 403 的 `tools/list` smoke；
 - [x] Team CR 为 `Active`、两个合成 Human CR 为 `Active`；同时验证
   `readyWorkers=0`、Leader `Stopped`、`operational_ready=false`，无 Human 参与；
+- [x] 当前最小化 Alpine 镜像完成供应链 Schema v1.1 点时扫描，并通过 AgentTeams MCP Schema v1.2
+  严格语义 validator 与脱敏运行观察三方交叉绑定 image ID；
+- [x] 本地 loopback Demo、90 秒 runbook 和 `18 passed` 定向套件；
+- [x] 三臂评测 manifest、Schema、CLI 与合同测试；当前仅为
+  `PROTOCOL_VALIDATED_NOT_EXECUTED`，没有三臂运行结果或官方分数；
 - [ ] 六 Worker/LLM 真实运行、Team/Matrix 协作与 Human Gate 验证（等待模型 API Key 安全轮换）。
 
 上述 AgentTeams 结论以
@@ -42,7 +47,7 @@
 8. [ ] 将 Matrix event、task event ID、共享文件与 ProofFlow trace_id 关联；
 9. [ ] 在运行中 Worker 链跑通缺件、冲突、缺参、规则不足、越权和审批 TOCTOU；
 10. [ ] 导出原始日志、Trace、状态、指标和证据包；
-11. [ ] 提供一键部署、现场 Demo、录屏和离线回放。
+11. [ ] 提供一键部署、现场 Demo、录屏和离线回放；当前仅完成本地 loopback Demo 与 runbook。
 
 ## 测试矩阵
 
@@ -66,6 +71,12 @@
 
 ## 评测设计
 
+[`10_EVALUATION_PROTOCOL.md`](10_EVALUATION_PROTOCOL.md) 与
+[`benchmarks/evaluation/`](../benchmarks/evaluation/) 已定义并验证
+`deterministic_reference`、`single_agent`、`six_agent` 三臂协议。当前报告状态固定为
+`PROTOCOL_VALIDATED_NOT_EXECUTED`；三臂与五项官方评分均为 `UNKNOWN`，分值为 `null`。协议、Schema
+和测试通过只证明计量与 fail-closed 合同，不证明三臂已经执行，也不产生效果提升或官方得分。
+
 基线必须同时包含：确定性工作流、单 Agent + 同工具、六 Agent ProofFlow。报告：
 
 - 任务闭环成功率；
@@ -86,13 +97,14 @@
 资源，不能作为 SLA、生产容量或多 Agent 性能结论。正式复赛评测必须另跑 direct container、Higress/
 MCP、Worker/LLM 与端到端任务层，并记录成本和故障分布。
 
-供应链发布门尚未对当前源码闭合。公开机器证据仅绑定历史 Alpine 镜像
-`sha256:eb1ced4bfd38ee333c17bfac99716486a5850fbfb12bdfc4c11f178514868505`；其固定数据库点时结果为
-全 severity 0、CycloneDX 937 components、verdict `NO_HIGH_OR_CRITICAL_FOUND`，但不含 build
-provenance，也不绑定当前工作树。当前源码候选仅有未发布、未做 Schema 绑定的隔离合成 HTTP
-操作员 smoke，仍须重新生成 SBOM、
-漏洞扫描和 AgentTeams 交叉证据后才能作为复赛镜像。当前源码全仓测试为 306 passed；任何历史零
-finding 都不得写成“clean”、无漏洞或生产安全证明。性能方法
+当前供应链机器门已绑定最小化 Alpine 镜像
+`sha256:1a4c4efb2d4e4fe37503ba0082282218e0b8c978dd22c1bd1488b5942d087775`；其固定数据库点时结果为
+全 severity 0、CycloneDX 937 components、verdict `NO_HIGH_OR_CRITICAL_FOUND`。供应链 Schema v1.1
+还绑定八项当前构建输入摘要；AgentTeams MCP Schema v1.2 与严格语义 validator 已强制供应链
+`subject.image_id`、MCP 快照根级 `tool_service_image_id` 与运行观察
+`tool_service_runtime.image_id` 三方相等。摘要、交叉绑定和点时零 finding 都不是签名、build
+attestation、构建关系证明、clean 结论、持续运行证明或生产安全认证。当前稳定全仓测试为
+`351 passed`。性能方法
 与边界见
 [`08_PERFORMANCE_BENCHMARK.md`](08_PERFORMANCE_BENCHMARK.md)；机器可读扫描证据见
 [`supply-chain-evidence.json`](../deploy/tool-service/evidence/supply-chain-evidence.json)。
