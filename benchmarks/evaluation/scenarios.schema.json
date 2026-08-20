@@ -1,0 +1,302 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/proofflow/evaluation-manifest.schema.json",
+  "title": "ProofFlow provider-neutral worker evaluation manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "protocol_version",
+    "suite_id",
+    "suite_version",
+    "data_classification",
+    "provider_neutral",
+    "execution_policy",
+    "arms",
+    "official_score_mapping",
+    "pairing",
+    "replication",
+    "measurement",
+    "worker_execution_gate",
+    "scenarios",
+    "excluded_claims"
+  ],
+  "properties": {
+    "schema_version": {"const": "proofflow.evaluation-manifest/v1"},
+    "protocol_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "suite_id": {"type": "string", "pattern": "^[a-z0-9-]+$"},
+    "suite_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "data_classification": {"const": "PUBLIC_SYNTHETIC"},
+    "provider_neutral": {"const": true},
+    "execution_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["deterministic_reference", "single_agent", "six_agent"],
+      "properties": {
+        "deterministic_reference": {"$ref": "#/$defs/armExecutionPolicy"},
+        "single_agent": {"$ref": "#/$defs/armExecutionPolicy"},
+        "six_agent": {"$ref": "#/$defs/armExecutionPolicy"}
+      }
+    },
+    "arms": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {"$ref": "#/$defs/arm"}
+    },
+    "official_score_mapping": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": {"$ref": "#/$defs/scoreMapping"}
+    },
+    "pairing": {"$ref": "#/$defs/pairing"},
+    "replication": {"$ref": "#/$defs/replication"},
+    "measurement": {"$ref": "#/$defs/measurement"},
+    "worker_execution_gate": {"$ref": "#/$defs/workerGate"},
+    "scenarios": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/scenario"}
+    },
+    "excluded_claims": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 1}
+    }
+  },
+  "$defs": {
+    "armExecutionPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requires_worker_execution_evidence",
+        "requires_llm_inference",
+        "execution_allowed_before_worker_boot"
+      ],
+      "properties": {
+        "requires_worker_execution_evidence": {"type": "boolean"},
+        "requires_llm_inference": {"type": "boolean"},
+        "required_ready_worker_count": {"type": "integer", "minimum": 0},
+        "execution_allowed_before_worker_boot": {"type": "boolean"}
+      }
+    },
+    "arm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label",
+        "execution_class",
+        "agent_count",
+        "requires_llm",
+        "requires_worker_execution_evidence",
+        "comparison_role"
+      ],
+      "properties": {
+        "id": {"enum": ["deterministic_reference", "single_agent", "six_agent"]},
+        "label": {"type": "string", "minLength": 1},
+        "execution_class": {"type": "string", "minLength": 1},
+        "agent_count": {"type": "integer", "minimum": 0},
+        "requires_llm": {"type": "boolean"},
+        "requires_worker_execution_evidence": {"type": "boolean"},
+        "comparison_role": {"type": "string", "minLength": 1}
+      }
+    },
+    "scoreMapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["score_id", "official_weight_points", "arm_coverage", "required_evidence", "unexecuted_status"],
+      "properties": {
+        "score_id": {"type": "string", "minLength": 1},
+        "official_weight_points": {"type": "integer", "minimum": 1},
+        "arm_coverage": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/armId"}},
+        "required_evidence": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "unexecuted_status": {"const": "UNKNOWN"}
+      }
+    },
+    "armId": {"enum": ["deterministic_reference", "single_agent", "six_agent"]},
+    "pairing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unit",
+        "same_fixture_manifest_required",
+        "same_rule_catalog_required",
+        "same_formula_version_required",
+        "same_model_configuration_required_for_llm_arms",
+        "randomization_policy",
+        "claim_without_complete_pair"
+      ],
+      "properties": {
+        "unit": {"const": "scenario_id+replicate_id"},
+        "same_fixture_manifest_required": {"const": true},
+        "same_rule_catalog_required": {"const": true},
+        "same_formula_version_required": {"const": true},
+        "same_model_configuration_required_for_llm_arms": {"const": true},
+        "randomization_policy": {"type": "string", "minLength": 1},
+        "claim_without_complete_pair": {"const": "UNKNOWN"}
+      }
+    },
+    "replication": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "planned_replicates_per_arm_and_scenario",
+        "minimum_valid_replicates_for_comparison",
+        "minimum_valid_replicates_is_not_a_success_threshold",
+        "unknown_is_not_counted_as_pass_or_fail",
+        "unsafe_success_is_counted_separately_from_success"
+      ],
+      "properties": {
+        "planned_replicates_per_arm_and_scenario": {"type": "integer", "minimum": 1},
+        "minimum_valid_replicates_for_comparison": {"type": "integer", "minimum": 1},
+        "minimum_valid_replicates_is_not_a_success_threshold": {"const": true},
+        "unknown_is_not_counted_as_pass_or_fail": {"const": true},
+        "unsafe_success_is_counted_separately_from_success": {"const": true}
+      }
+    },
+    "measurement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outcome", "latency", "cost", "reliability"],
+      "properties": {
+        "outcome": {"$ref": "#/$defs/outcomeMeasurement"},
+        "latency": {"$ref": "#/$defs/latencyMeasurement"},
+        "cost": {"$ref": "#/$defs/costMeasurement"},
+        "reliability": {"$ref": "#/$defs/reliabilityMeasurement"}
+      }
+    },
+    "outcomeMeasurement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "statuses",
+        "pass_definition",
+        "unknown_definition",
+        "unsafe_success_definition",
+        "failure_definition",
+        "zero_is_not_a_status"
+      ],
+      "properties": {
+        "statuses": {"const": ["PASS", "FAIL", "UNKNOWN", "UNSAFE_SUCCESS"]},
+        "pass_definition": {"type": "string", "minLength": 1},
+        "unknown_definition": {"type": "string", "minLength": 1},
+        "unsafe_success_definition": {"type": "string", "minLength": 1},
+        "failure_definition": {"type": "string", "minLength": 1},
+        "zero_is_not_a_status": {"const": true}
+      }
+    },
+    "latencyMeasurement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unit",
+        "clock",
+        "populations",
+        "percentiles",
+        "failures_in_latency_population",
+        "unknown_latency_is_null_not_zero"
+      ],
+      "properties": {
+        "unit": {"const": "milliseconds"},
+        "clock": {"type": "string", "minLength": 1},
+        "populations": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "percentiles": {"const": "nearest_rank_p50_p95_p99"},
+        "failures_in_latency_population": {"const": true},
+        "unknown_latency_is_null_not_zero": {"const": true}
+      }
+    },
+    "costMeasurement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "currency",
+        "units",
+        "token_fields",
+        "cost_components",
+        "rate_card_id_required_for_currency_cost",
+        "missing_cost_is_unknown_not_zero",
+        "cost_must_not_be_inferred_from_tokens_without_rate_card"
+      ],
+      "properties": {
+        "currency": {"type": "string", "minLength": 1},
+        "units": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "token_fields": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "cost_components": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "rate_card_id_required_for_currency_cost": {"const": true},
+        "missing_cost_is_unknown_not_zero": {"const": true},
+        "cost_must_not_be_inferred_from_tokens_without_rate_card": {"const": true}
+      }
+    },
+    "reliabilityMeasurement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "denominator",
+        "required_counts",
+        "rate_units",
+        "unknown_excluded_from_pass_fail_rate",
+        "unsafe_success_never_reclassified_as_pass"
+      ],
+      "properties": {
+        "denominator": {"const": "attempted_runs"},
+        "required_counts": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "rate_units": {"type": "string", "minLength": 1},
+        "unknown_excluded_from_pass_fail_rate": {"const": true},
+        "unsafe_success_never_reclassified_as_pass": {"const": true}
+      }
+    },
+    "workerGate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required_for_arms", "required_evidence_fields", "forbidden_shortcuts", "blocked_status"],
+      "properties": {
+        "required_for_arms": {"type": "array", "items": {"$ref": "#/$defs/armId"}},
+        "required_evidence_fields": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "forbidden_shortcuts": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "blocked_status": {"const": "UNKNOWN"}
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "category", "arm_ids", "fault_injection", "expected", "observables"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+        "title": {"type": "string", "minLength": 1},
+        "category": {"type": "string", "minLength": 1},
+        "arm_ids": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/armId"}},
+        "fault_injection": {"type": "string", "minLength": 1},
+        "expected": {"$ref": "#/$defs/expectedContract"},
+        "observables": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "expectedContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "outcome_class",
+        "terminal_stage",
+        "required_issue_codes",
+        "approval_required",
+        "external_side_effects_enabled",
+        "value_emitted",
+        "artifact_verification_valid",
+        "unsafe_success_forbidden",
+        "required_trace_events"
+      ],
+      "properties": {
+        "outcome_class": {"enum": ["PASS", "FAIL"]},
+        "terminal_stage": {"type": "string", "minLength": 1},
+        "required_issue_codes": {"type": "array", "items": {"type": "string", "pattern": "^[A-Z0-9_]+$"}},
+        "approval_required": {"type": "boolean"},
+        "external_side_effects_enabled": {"const": false},
+        "value_emitted": {"type": "boolean"},
+        "artifact_verification_valid": {"type": ["boolean", "null"]},
+        "unsafe_success_forbidden": {"const": true},
+        "required_trace_events": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^[A-Z0-9_]+$"}}
+      }
+    }
+  }
+}

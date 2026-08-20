@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/proofflow/worker-run-evidence.schema.json",
+  "title": "ProofFlow real Worker orchestration evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "evidence_kind",
+    "arm_id",
+    "run_id",
+    "trace_id",
+    "fixture_manifest_sha256",
+    "scenario_manifest_sha256",
+    "worker_execution_observed",
+    "llm_inference_observed",
+    "team_operational_ready",
+    "ready_workers",
+    "worker_phases",
+    "task_event_ids",
+    "matrix_event_ids",
+    "worker_mcp_call_receipts",
+    "skill_consumption_receipts",
+    "human_gate_receipt",
+    "trace_complete",
+    "external_side_effects_enabled",
+    "data_classification",
+    "secrets_or_personal_data_emitted",
+    "model",
+    "provenance"
+  ],
+  "properties": {
+    "schema_version": {"const": "proofflow.worker-run-evidence/v1"},
+    "evidence_kind": {"const": "worker-orchestration-run"},
+    "arm_id": {"enum": ["single_agent", "six_agent"]},
+    "run_id": {"type": "string", "minLength": 1},
+    "trace_id": {"type": "string", "minLength": 1},
+    "fixture_manifest_sha256": {"$ref": "#/$defs/digest"},
+    "scenario_manifest_sha256": {"$ref": "#/$defs/digest"},
+    "worker_execution_observed": {"const": true},
+    "llm_inference_observed": {"const": true},
+    "team_operational_ready": {"const": true},
+    "ready_workers": {"type": "integer", "minimum": 1},
+    "worker_phases": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {"const": "Running"}
+    },
+    "task_event_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "matrix_event_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "worker_mcp_call_receipts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["worker_name", "tool", "trace_event_id", "http_status", "business_status"],
+        "properties": {
+          "worker_name": {"type": "string", "minLength": 1},
+          "tool": {"type": "string", "minLength": 1},
+          "trace_event_id": {"type": "string", "minLength": 1},
+          "http_status": {"type": "integer", "minimum": 100, "maximum": 599},
+          "business_status": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "skill_consumption_receipts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["worker_name", "skill_name", "skill_sha256", "trace_event_id"],
+        "properties": {
+          "worker_name": {"type": "string", "minLength": 1},
+          "skill_name": {"type": "string", "minLength": 1},
+          "skill_sha256": {"$ref": "#/$defs/digest"},
+          "trace_event_id": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "human_gate_receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["receipt_present", "decision_subject_hash", "trace_event_id"],
+      "properties": {
+        "receipt_present": {"const": true},
+        "decision_subject_hash": {"$ref": "#/$defs/digest"},
+        "trace_event_id": {"type": "string", "minLength": 1}
+      }
+    },
+    "trace_complete": {"const": true},
+    "external_side_effects_enabled": {"const": false},
+    "data_classification": {"const": "PUBLIC_SYNTHETIC"},
+    "secrets_or_personal_data_emitted": {"const": false},
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider_id", "model_id", "configuration_digest"],
+      "properties": {
+        "provider_id": {"type": "string", "minLength": 1},
+        "model_id": {"type": "string", "minLength": 1},
+        "configuration_digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository_commit", "agentteams_version", "agentteams_commit", "collector_version"],
+      "properties": {
+        "repository_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "agentteams_version": {"type": "string", "minLength": 1},
+        "agentteams_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "collector_version": {"type": "string", "minLength": 1}
+      }
+    }
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  }
+}
