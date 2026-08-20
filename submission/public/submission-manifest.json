@@ -1,0 +1,40 @@
+{
+  "schema_version": "1.0",
+  "packaged_on": "2026-08-21",
+  "project": "ProofFlow",
+  "team": "可证智能 VeriAgent",
+  "track": "GOAI Agent Infra / 新智基座",
+  "artifact_status": "RELEASE_CANDIDATE_QA_PASSED",
+  "repository": "https://github.com/MyGarfield/ProofFlow",
+  "artifacts": [
+    {
+      "path": "submission/public/ProofFlow_GOAI_复赛答辩_v2.0.pptx",
+      "media_type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      "sha256": "fabe3102c1ef6550b131d0d230fed3a4eef46c579886ec268fc6c11c298f55a5",
+      "slides": 12,
+      "speaker_notes_with_sources": 12
+    },
+    {
+      "path": "submission/public/ProofFlow_GOAI_复赛答辩_v2.0.pdf",
+      "media_type": "application/pdf",
+      "sha256": "6c45562bd6b7fa1a813bac0d713dfa3a3a2d7f54f6e07a3763bbb1306d12e773",
+      "pages": 12,
+      "rendering": "STATIC_HIGH_RESOLUTION_SLIDE_IMAGES"
+    },
+    {
+      "path": "submission/public/PROJECT_SUMMARY_500_CN.md",
+      "media_type": "text/markdown",
+      "constraint": "正文不超过 500 个 Unicode 字符"
+    }
+  ],
+  "verified_snapshot": {
+    "pytest_passed": 366,
+    "demo_pytest_passed": 19,
+    "demo_node_tests_passed": 2,
+    "current_tool_service_image": "sha256:1a4c4efb2d4e4fe37503ba0082282218e0b8c978dd22c1bd1488b5942d087775",
+    "frontier_registry_digest": "sha256:f7e1fb4a2a177ebc44fa5105c4cd1dce9b717057692d50328d88c59f902fecfc",
+    "evaluation_status": "PROTOCOL_VALIDATED_NOT_EXECUTED",
+    "worker_runtime_status": "STOPPED_ZERO_CONTAINERS"
+  },
+  "disclosure": "PUBLIC_SYNTHETIC_ONLY; no Worker/LLM/real Human execution is claimed"
+}
