@@ -4,19 +4,145 @@
   "title": "ProofFlow frontier research source registry",
   "type": "object",
   "additionalProperties": false,
-  "required": ["$schema", "schema_version", "research_id", "accessed_at", "claims", "sources"],
+  "required": [
+    "$schema",
+    "schema_version",
+    "research_id",
+    "accessed_at",
+    "official_rubric",
+    "registry_integrity",
+    "claims",
+    "sources"
+  ],
   "properties": {
     "$schema": {"const": "https://json-schema.org/draft/2020-12/schema"},
     "schema_version": {"const": "proofflow.frontier-sources/v1"},
     "research_id": {"const": "frontier-champion-research-2026-08-20"},
-    "accessed_at": {"const": "2026-08-20"},
-    "claims": {
-      "type": "array",
-      "minItems": 1,
+    "accessed_at": {"const": "2026-08-21"},
+    "official_rubric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_ids", "dimensions", "total_points"],
+      "properties": {
+        "source_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "pattern": "^FR-[0-9]{3}$"},
+          "uniqueItems": true
+        },
+        "dimensions": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "label", "weight_points", "source_ids"],
+            "properties": {
+              "id": {
+                "enum": [
+                  "scene_value_and_reproducibility",
+                  "multi_agent_collaboration_loop",
+                  "skill_engineering_and_reuse",
+                  "engineering_runtime_and_security_audit",
+                  "open_source"
+                ]
+              },
+              "label": {"type": "string", "minLength": 1},
+              "weight_points": {"type": "integer", "minimum": 1, "maximum": 100},
+              "source_ids": {
+                "type": "array",
+                "minItems": 1,
+                "items": {"type": "string", "pattern": "^FR-[0-9]{3}$"},
+                "uniqueItems": true
+              }
+            }
+          },
+          "prefixItems": [
+            {
+              "properties": {
+                "id": {"const": "scene_value_and_reproducibility"},
+                "weight_points": {"const": 25}
+              }
+            },
+            {
+              "properties": {
+                "id": {"const": "multi_agent_collaboration_loop"},
+                "weight_points": {"const": 25}
+              }
+            },
+            {
+              "properties": {
+                "id": {"const": "skill_engineering_and_reuse"},
+                "weight_points": {"const": 25}
+              }
+            },
+            {
+              "properties": {
+                "id": {"const": "engineering_runtime_and_security_audit"},
+                "weight_points": {"const": 20}
+              }
+            },
+            {
+              "properties": {
+                "id": {"const": "open_source"},
+                "weight_points": {"const": 5}
+              }
+            }
+          ]
+        },
+        "total_points": {"const": 100}
+      }
+    },
+    "registry_integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_count",
+        "source_count",
+        "claim_ids",
+        "source_ids",
+        "normalized_registry_sha256",
+        "digest_scope",
+        "is_signature",
+        "limitations"
+      ],
+      "properties": {
+        "claim_count": {"const": 30},
+        "source_count": {"const": 21},
+        "claim_ids": {
+          "type": "array",
+          "minItems": 30,
+          "maxItems": 30,
+          "items": {"type": "string", "pattern": "^CL-[A-Z0-9_-]+$"},
+          "uniqueItems": true
+        },
+        "source_ids": {
+          "type": "array",
+          "minItems": 21,
+          "maxItems": 21,
+          "items": {"type": "string", "pattern": "^FR-[0-9]{3}$"},
+          "uniqueItems": true
+        },
+        "normalized_registry_sha256": {"$ref": "#/$defs/digest"},
+        "digest_scope": {"type": "string", "minLength": 1},
+        "is_signature": {"const": false},
+        "limitations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+        "claims": {
+          "type": "array",
+      "minItems": 30,
+      "maxItems": 30,
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["claim_id", "layer", "statement"],
+        "required": ["claim_id", "layer", "statement", "source_ids", "official_score_dimensions"],
         "properties": {
           "claim_id": {"type": "string", "pattern": "^CL-[A-Z0-9_-]+$"},
           "layer": {
@@ -28,8 +154,14 @@
             ]
           },
           "statement": {"type": "string", "minLength": 1},
+          "source_ids": {
+            "type": "array",
+            "items": {"type": "string", "pattern": "^FR-[0-9]{3}$"},
+            "uniqueItems": true
+          },
           "official_score_dimensions": {
             "type": "array",
+            "minItems": 1,
             "items": {
               "enum": [
                 "scene_value_and_reproducibility",
@@ -41,12 +173,22 @@
             },
             "uniqueItems": true
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {"layer": {"const": "VERIFIED_FACT"}},
+              "required": ["layer"]
+            },
+            "then": {"properties": {"source_ids": {"minItems": 1}}}
+          }
+        ]
       }
     },
     "sources": {
       "type": "array",
-      "minItems": 1,
+      "minItems": 21,
+      "maxItems": 21,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -59,7 +201,9 @@
           "url",
           "supports",
           "limitations",
-          "accessed_at"
+          "accessed_at",
+          "domain",
+          "revision"
         ],
         "properties": {
           "source_id": {"type": "string", "pattern": "^FR-[0-9]{3}$"},
@@ -82,7 +226,26 @@
               {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"}
             ]
           },
-          "url": {"type": "string", "format": "uri", "pattern": "^https://[^\\s]+$"},
+          "domain": {
+            "enum": [
+              "www.goaihz.com",
+              "oss.goaihz.com",
+              "www.anthropic.com",
+              "modelcontextprotocol.io",
+              "github.com",
+              "openai.com",
+              "docs.langchain.com",
+              "arxiv.org"
+            ]
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "pattern": "^https://[^\\s?#]+(?:/[^\\s?#]*)?$",
+            "not": {
+              "pattern": "^https://[^\\s/?#]+@"
+            }
+          },
           "supports": {
             "type": "array",
             "minItems": 1,
@@ -94,9 +257,31 @@
             "minItems": 1,
             "items": {"type": "string", "minLength": 1}
           },
-          "accessed_at": {"const": "2026-08-20"}
+          "accessed_at": {"const": "2026-08-21"},
+          "revision": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "value", "locator"],
+            "properties": {
+              "kind": {
+                "enum": [
+                  "FILE_SHA256",
+                  "GIT_COMMIT",
+                  "ARXIV_VERSION",
+                  "SPEC_VERSION",
+                  "UNVERSIONED_POINT_IN_TIME"
+                ]
+              },
+              "value": {"type": "string", "minLength": 1},
+              "locator": {"type": "string", "minLength": 1},
+              "content_sha256": {"$ref": "#/$defs/digest"}
+            }
+          }
         }
       }
     }
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
   }
 }

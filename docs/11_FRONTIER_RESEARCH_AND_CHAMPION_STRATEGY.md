@@ -2,7 +2,7 @@
 
 文档状态：`RESEARCH_COMPLETE / EXPERIMENTS_NOT_EXECUTED`
 
-研究访问日：`2026-08-20`
+研究访问日：`2026-08-21`（对来源版本、claim 映射和公开材料安全边界完成纠错复核）
 
 机器可读来源登记：[`research/frontier_sources.json`](../research/frontier_sources.json)
 
@@ -24,8 +24,9 @@ agent 区分，并建议从简单、可组合模式开始 `[CL-SIMPLE-COMPOSABLE
 
 外部论文、官方文档与官方仓库的结果只用于形成事实、风险模型和实验设计，不转写为 ProofFlow 的
 效果声明。每条外部事实均使用 `[FR-xxx]` 来源 ID；来源的标题、发布日（未知时为 `null`）、URL、
-支持的 claim、局限和访问日均登记在 JSON 中。访问日冻结为 `2026-08-20`，之后若来源内容变化，
-必须新增研究版本，不静默改写旧 claim。
+支持的 claim、局限、修订定位和访问日均登记在 JSON 中。访问日冻结为 `2026-08-21`，之后若来源内容变化，
+必须新增研究版本，不静默改写旧 claim。JSON 的 `official_rubric` 机器可读地锁定五项官方维度、
+25/25/25/20/5 权重和 100 分合计；定向测试按字段和数组逐项比较，不用字符串包含替代。
 
 ## 1. 官方评分项与三臂的显式映射
 
@@ -72,17 +73,17 @@ GOAI Agent Infra 官方页面和参赛手册给出的评分权重是场景价值
 2. Anthropic 的官方工程文章建议先选简单可组合模式；这与 ProofFlow 的确定性参考核心相容，并构成
    对“默认六 Agent”的反证 `[CL-SIMPLE-COMPOSABLE][FR-003]`。官方研究还把更高自主性与控制、
    安全、透明度和隐私风险联系起来 `[CL-AUTONOMY-RISK][FR-004]`。
-3. MCP 的工具边界要求把工具描述和 annotation 当作不可信输入，并保留人工拒绝工具调用的能力
-   `[CL-MCP-HUMAN-DENY][FR-005]`；MCP 授权规范还强调 audience/resource 绑定和禁止 token passthrough
+3. MCP 工具规范要求将 tool annotations 按规范视为不可信，除非 server 已被信任，并建议客户端保留
+   人工拒绝工具调用的能力 `[CL-MCP-HUMAN-DENY][FR-005]`；MCP 授权规范还强调 audience/resource 绑定和禁止 token passthrough
    `[CL-MCP-AUTH-BOUNDARY][FR-006]`。因此 ProofFlow 的 Human Gate、最小 ACL、跨租户拒绝和
    不把模型当作权限源，不是装饰性安全功能。
 4. A2A 把不同框架/供应商的 Agent 当作可发现、可协作但内部状态/记忆/工具保持不透明的对端，并定义
    任务、消息、Artifact、流式和多种协议 binding `[CL-A2A-OPAQUE-INTEROP][FR-007]`。这支持未来
    provider-neutral 的适配边界，但不证明 ProofFlow 已有 A2A 互操作运行。
-5. 官方 SDK 和 OpenTelemetry 项目都在把 Agent invocation、workflow、plan、tool execution、
-   handoff 等活动结构化为 trace/span；OpenTelemetry 当前文档仍标为 Development
-   `[CL-TRACE-STRUCTURE][FR-008] [CL-OTEL-AGENT-SEMANTICS][FR-009]`。结论是“应保存结构化 provenance”，
-   不是“已经符合标准”。
+5. OpenAI Agents SDK 文档分别记录 model generations、tool calls、handoffs、guardrails 和 custom events
+   `[CL-TRACE-STRUCTURE][FR-008]`；OpenTelemetry GenAI 文档分别定义 invoke_agent、invoke_workflow、
+   plan、execute_tool 等 span `[CL-OTEL-AGENT-SEMANTICS][FR-009]`。两者的活动集合互补，但 OpenTelemetry
+   当前文档仍标为 Development；结论是“应保存结构化 provenance”，不是“已经符合标准”。
 6. 可靠性不能只看一次任务成功。OpenAI 的评测研究要求固定 harness、任务结果、工具、预算和有效性
    检查 `[CL-EVAL-HARNESS-BUDGET][FR-010]`；τ-bench 用 pass^k 观察重复可靠性并报告跨重复运行的不
    稳定 `[CL-TAU-BENCH-RELIABILITY][FR-013]`。ProofFlow 当前协议因此保留 paired replicate、
@@ -93,9 +94,9 @@ GOAI Agent Infra 官方页面和参赛手册给出的评分权重是场景价值
    `[CL-STATEFUL-TOOLS][FR-014][FR-015]`；AgentDojo 说明间接提示注入会改变安全结果
    `[CL-PROMPT-INJECTION][FR-016]`。
 8. 记忆不是无成本的“多塞上下文”。ACE 把上下文作为生成、反思、整理的可演化 playbook，并在其
-   benchmark 报告质量、适应延迟和 rollout cost 的变化 `[CL-ADAPTIVE-CONTEXT][FR-017]`；LangGraph
+   benchmark 报告质量、适应延迟和 rollout cost 的变化 `[CL-ADAPTIVE-CONTEXT][FR-017][FR-020]`；LangGraph
    官方文档把 checkpoint、短期/长期 memory、暂停/恢复和人工 approve/edit/reject 作为工程原语
-   `[CL-PERSISTENT-HITL][FR-018][FR-019][FR-020]`。这些资料支持实验变量，不支持 ProofFlow 结果。
+   `[CL-PERSISTENT-HITL][FR-018][FR-019]`。这些资料支持实验变量，不支持 ProofFlow 结果。
 9. Agent 失败归因本身很难；Who&When 研究的识别和 step pinpoint 结果不足以把责任可靠地推断出来
    `[CL-FAILURE-ATTRIBUTION][FR-021]`。因此每个 handoff、工具调用、审批、状态转移和失败都必须有
    可关联的 Agent/step/trace/event provenance，而不能只留最终文本。
@@ -212,7 +213,7 @@ receipt 和 verifier 结果覆盖，否则仍是 `UNKNOWN`。
 
 ## 5. 成本、延迟、质量与可靠性协议（研究落地口径）
 
-研究来源的共识是“固定实验边界，再看结果”，不是事后选择好看的指标
+OpenAI 的评测方法建议固定实验边界，再看结果，不是事后选择好看的指标
 `[CL-EVAL-HARNESS-BUDGET][FR-010]`。ProofFlow 未来执行时遵守以下单位和未知语义：
 
 - **质量/安全**：优先结构合同和授权/专家标注，结果状态只用 `PASS`、`FAIL`、`UNKNOWN`、
@@ -273,12 +274,19 @@ receipt 和 verifier 结果覆盖，否则仍是 `UNKNOWN`。
 
 ## 8. 机器检查的 claim/source 映射
 
-`frontier_sources.schema.json` 锁定四层 `layer`、日期、URL、source type、每条 source 的 `supports`
-和 `limitations`。定向测试还会检查：
+`frontier_sources.schema.json` 锁定四层 `layer`、21 个 source、30 个 claim、日期、URL、source type、
+标题/发布者/发布日期、每条 source 的 `supports` 和 `limitations`，以及机器可读的 `official_rubric`。
+定向测试还会检查：
 
-- 每个 `CL-*` claim ID 在本文件出现，且每个 `FR-*` source ID 和其 URL 在本文件出现；
-- 每个 source 支持的 claim 都存在，source ID/claim ID 不重复，来源 URL 为 HTTPS 且不带凭据；
-- 所有来源的访问日都是 `2026-08-20`，发布日要么是 ISO 日期要么为 `null`；
+- 每个 `CL-*` claim ID 在本文件出现，且每个 `FR-*` source ID 和其 URL 在本文件出现；文档中的每个
+  `[CL-*][FR-*]` citation pair 与 JSON 的 claim-centric `source_ids` 精确相等，并且与 source `supports`
+  双向相等，禁止只凭全局 ID 出现通过；
+- 每个 source 支持的 claim 都存在，source ID/claim ID 不重复，来源 URL 为 HTTPS、无用户名/密码、
+  query/fragment 或 token/key/signature 参数，并满足 source_type/domain allowlist；
+- 所有来源的访问日都是 `2026-08-21`，发布日要么是 ISO 日期要么为 `null`；稳定材料记录
+  `content_sha256`，动态页面明确 `UNVERSIONED_POINT_IN_TIME` 与局限；
+- registry 精确为 30 claims / 21 sources，并通过规范化 registry digest 检测漂移。digest 不是签名，
+  不能替代来源真实性、供应链证明或外部内容未变的证明；公开材料还执行 PII/secret 扫描；
 - 文档含三臂名称、25/25/25/20/5、`UNKNOWN`、`UNSAFE_SUCCESS`、Leader/specialist/total 语义，
   防止评分、引用或运行边界悄悄漂移。
 
@@ -291,34 +299,46 @@ receipt 和 verifier 结果覆盖，否则仍是 `UNKNOWN`。
 | 尚无证据 | `CL-UNKNOWN-PROOFFLOW-AGENT-UPLIFT`, `CL-UNKNOWN-A2A-RUN`, `CL-UNKNOWN-MEMORY-GAIN`, `CL-UNKNOWN-OTEL-COMPLIANCE` |
 | 最强反对理由 | `CL-OBJECTION-DETERMINISTIC-DOMINATES`, `CL-OBJECTION-MULTIAGENT-ATTACK-SURFACE`, `CL-OBJECTION-BENCHMARK-GENERALIZATION`, `CL-OBJECTION-HUMAN-WAIT-COST` |
 
-## 9. 来源登记（访问日：2026-08-20）
+## 9. 来源登记（访问日：2026-08-21）
 
 JSON 是字段和 claim 绑定的权威来源；下表是供评审快速点击的同一登记。`published_at=null` 表示在本
 次访问中没有从一手页面获得稳定发布日期，不是推测日期。
 
 | ID | 类型 | 标题 / 发布日 | URL |
 |---|---|---|---|
-| `FR-001` | official competition page | GOAI Agent Infra track / `null` | [official page](https://www.goaihz.com/tracks?track=infra) |
-| `FR-002` | official competition manual | Agent Infra participant handbook / `null` | [official handbook](https://oss.goaihz.com/prod/20260720/6e21b053-f18b-4857-83e2-835bd96d5434.pdf) |
-| `FR-003` | official docs | Anthropic, Building effective agents / 2024-12-19 | [source](https://www.anthropic.com/engineering/building-effective-agents) |
-| `FR-004` | official docs | Anthropic, Trustworthy agents / 2026-04-09 | [source](https://www.anthropic.com/research/trustworthy-agents) |
-| `FR-005` | official spec | MCP server tools / 2025-06-18 | [source](https://modelcontextprotocol.io/specification/2025-06-18/server/tools) |
-| `FR-006` | official spec | MCP authorization / 2025-06-18 | [source](https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization) |
-| `FR-007` | official repo | A2A Protocol Specification / `null` | [source](https://github.com/a2aproject/A2A/blob/main/docs/specification.md) |
-| `FR-008` | official repo | OpenAI Agents SDK tracing / `null` | [source](https://github.com/openai/openai-agents-python/blob/main/docs/tracing.md) |
-| `FR-009` | official repo | OpenTelemetry GenAI agent spans / `null` | [source](https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/gen-ai-agent-spans.md) |
-| `FR-010` | official docs | OpenAI trustworthy third-party evaluations / 2026-05-29 | [source](https://openai.com/index/trustworthy-third-party-evaluations-foundations/) |
-| `FR-011` | paper | Magentic-One / 2024-11-07 | [paper](https://arxiv.org/abs/2411.04468) |
-| `FR-012` | paper | Why Do Multi-Agent LLM Systems Fail? / 2025-03-17 | [paper](https://arxiv.org/abs/2503.13657) |
-| `FR-013` | paper | τ-bench / 2024-06-17 | [paper](https://arxiv.org/abs/2406.12045) |
-| `FR-014` | paper | ToolSandbox / 2024-08-08 | [paper](https://arxiv.org/abs/2408.04682) |
-| `FR-015` | official repo | Apple ToolSandbox / `null` | [repository](https://github.com/apple/ToolSandbox) |
-| `FR-016` | paper | AgentDojo / 2024-06-19 | [paper](https://arxiv.org/abs/2406.13352) |
-| `FR-017` | paper | ACE / 2025-10-06 | [paper](https://arxiv.org/abs/2510.04618) |
-| `FR-018` | official project docs | LangChain Human-in-the-loop / `null` | [docs](https://docs.langchain.com/oss/python/langchain/human-in-the-loop) |
+| `FR-001` | official competition page | GOAI Agent Infra track details and review dimensions / `null` | [official page](https://www.goaihz.com/tracks) |
+| `FR-002` | official competition manual | Agent Infra 新智基座 participant handbook / `null` | [official handbook](https://oss.goaihz.com/prod/20260720/6e21b053-f18b-4857-83e2-835bd96d5434.pdf) |
+| `FR-003` | official docs | Building effective agents / 2024-12-19 | [source](https://www.anthropic.com/engineering/building-effective-agents) |
+| `FR-004` | official docs | Anthropic, Trustworthy agents in practice / 2026-04-09 | [source](https://www.anthropic.com/research/trustworthy-agents) |
+| `FR-005` | official spec | Model Context Protocol 2025-06-18 server tools specification / 2025-06-18 | [source](https://modelcontextprotocol.io/specification/2025-06-18/server/tools) |
+| `FR-006` | official spec | Model Context Protocol 2025-06-18 authorization specification / 2025-06-18 | [source](https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization) |
+| `FR-007` | official repo | Agent2Agent (A2A) Protocol Specification / `null` | [source](https://github.com/a2aproject/A2A/blob/16ba52690519bf55b9388e34d4db356efa88aa51/docs/specification.md) |
+| `FR-008` | official repo | OpenAI Agents SDK tracing documentation / `null` | [source](https://github.com/openai/openai-agents-python/blob/f73e747530d898328ba56eaf45c6f6d1ec806cc8/docs/tracing.md) |
+| `FR-009` | official repo | Semantic conventions for GenAI agent and framework spans / `null` | [source](https://github.com/open-telemetry/semantic-conventions-genai/blob/8a3767d6c5d09bc0917722720973c0c44182d960/docs/gen-ai/gen-ai-agent-spans.md) |
+| `FR-010` | official docs | A shared playbook for trustworthy third party evaluations / 2026-05-29 | [source](https://openai.com/index/trustworthy-third-party-evaluations-foundations/) |
+| `FR-011` | paper | Magentic-One: A Generalist Multi-Agent System for Solving Complex Tasks / 2024-11-07 | [paper](https://arxiv.org/abs/2411.04468v1) |
+| `FR-012` | paper | Why Do Multi-Agent LLM Systems Fail? / 2025-03-17 | [paper](https://arxiv.org/abs/2503.13657v3) |
+| `FR-013` | paper | τ-bench: A Benchmark for Tool-Agent-User Interaction in Real-World Domains / 2024-06-17 | [paper](https://arxiv.org/abs/2406.12045v1) |
+| `FR-014` | paper | ToolSandbox: A Stateful, Conversational, Interactive Evaluation Benchmark for LLM Tool Use Capabilities / 2024-08-08 | [paper](https://arxiv.org/abs/2408.04682v2) |
+| `FR-015` | official repo | ToolSandbox official repository / `null` | [repository](https://github.com/apple/ToolSandbox/blob/165848b9a78cead7ca7fe7c89c688b58e6501219/README.md) |
+| `FR-016` | paper | AgentDojo: A Dynamic Environment to Evaluate Prompt Injection Attacks and Defenses for LLM Agents / 2024-06-19 | [paper](https://arxiv.org/abs/2406.13352v3) |
+| `FR-017` | paper | Agentic Context Engineering: Evolving Contexts for Self-Improving Language Models / 2025-10-06 | [paper](https://arxiv.org/abs/2510.04618v3) |
+| `FR-018` | official project docs | LangChain Human-in-the-loop middleware / `null` | [docs](https://docs.langchain.com/oss/python/langchain/human-in-the-loop) |
 | `FR-019` | official project docs | LangGraph persistence / `null` | [docs](https://docs.langchain.com/oss/python/langgraph/persistence) |
 | `FR-020` | official project docs | LangGraph memory / `null` | [docs](https://docs.langchain.com/oss/python/langgraph/add-memory) |
-| `FR-021` | paper | Which Agent Causes Task Failures and When? / 2025-04-30 | [paper](https://arxiv.org/abs/2505.00212) |
+| `FR-021` | paper | Which Agent Causes Task Failures and When? On Automated Failure Attribution of LLM Multi-Agent Systems / 2025-04-30 | [paper](https://arxiv.org/abs/2505.00212v3) |
+
+### 9.1 来源修订与完整性策略
+
+- GitHub 来源固定为核验时的 commit permalink；`revision` 同时记录 commit、文件 locator 和稳定材料的
+  `content_sha256`，避免 `blob/main` 漂移。Apple ToolSandbox 只冻结 README，明确不冒充整个仓库已冻结。
+- arXiv 来源固定为核验时的 `vN` URL，并记录版本和 PDF `content_sha256`；标题和发布日期来自该论文
+  原始页面，不把后续版本内容倒灌到旧 URL。
+- GOAI 参赛手册记录整个 PDF 的 SHA-256；GOAI track、厂商页面和 LangChain 文档没有稳定内容版本时，
+  使用 `UNVERSIONED_POINT_IN_TIME`、访问日和 locator，并在 `limitations` 中明确不可冻结的边界。
+- `registry_integrity.normalized_registry_sha256` 只对 claims、official_rubric、sources 的规范化 JSON
+  做漂移检测，且刻意排除自身避免循环；它不是数字签名、不是 provenance attestation，也不证明外部
+  内容真实性或未被第三方改写。
 
 ## 10. 推荐的原子交付边界
 
