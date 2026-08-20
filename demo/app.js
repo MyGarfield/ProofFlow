@@ -109,6 +109,8 @@
     const awaiting = stage === "AWAITING_APPROVAL";
     const approved = stage === "APPROVED";
     const packaged = stage === "PACKAGED";
+    const gateProbeObserved = state.gate_probe === "BLOCKED_AS_EXPECTED";
+    const gateSatisfied = approved || packaged;
     const verified = packaged && state.verification && state.verification.valid;
     const verificationFailed =
       packaged && state.verification && state.verification.valid === false;
@@ -133,8 +135,26 @@
     setChainClass("prepare", prepared ? "is-complete" : "is-active", prepared ? "SEALED" : "READY");
     setChainClass(
       "gate",
-      state.gate_probe === "BLOCKED_AS_EXPECTED" ? "is-blocked" : awaiting ? "is-active" : prepared ? "is-complete" : "",
-      state.gate_probe === "BLOCKED_AS_EXPECTED" ? "409 BLOCKED" : awaiting ? "WAITING" : prepared ? "PASSED" : "LOCKED",
+      gateSatisfied
+        ? "is-complete"
+        : gateProbeObserved
+          ? "is-blocked"
+          : awaiting
+            ? "is-active"
+            : prepared
+              ? "is-complete"
+              : "",
+      gateSatisfied
+        ? gateProbeObserved
+          ? "PASSED / 409 PROVEN"
+          : "PASSED"
+        : gateProbeObserved
+          ? "409 BLOCKED"
+          : awaiting
+            ? "WAITING"
+            : prepared
+              ? "PASSED"
+              : "LOCKED",
     );
     setChainClass("approve", approved || packaged ? "is-complete" : awaiting ? "is-active" : "", approved || packaged ? "LOCAL_DEMO" : awaiting ? "REASON" : "WAIT");
     setChainClass("package", packaged ? "is-complete" : approved ? "is-active" : "", packaged ? "SEALED" : approved ? "READY" : "WAIT");

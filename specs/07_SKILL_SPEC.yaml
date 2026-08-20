@@ -2,12 +2,15 @@ apiVersion: proofflow.dev/v1alpha1
 kind: SkillSpecList
 metadata:
   name: proofflow-core-skills
-  version: 0.2.0-reference-alpha
-  status: PARTIAL_REFERENCE_IMPLEMENTATION
+  version: 0.3.0-control-plane-alpha
+  status: REFERENCE_IMPLEMENTED_DISTRIBUTION_VERIFIED_RUNTIME_UNVERIFIED
 spec:
   disclaimer: >-
-    八个 Skill 已有仅限合成数据的本地参考实现和合同测试；尚未完成
-    AgentTeams 分发、MCP/外部工具联调、正式版本发布或生产运行验证。
+    八个 Skill 已有仅限公开合成数据的本地参考实现和合同测试；repo、Manager
+    与 Worker storage 的分发副本 SHA-256 已完成点时一致性校验。evidence_ingest、
+    rule_retrieve 与 deterministic_calculate 已完成 Manager operator-driven MCP smoke，
+    但六个 Worker 仍为 Stopped，runtime consumption=false；这不证明 Worker/LLM
+    编排、全部外部工具联调、正式版本发布或生产运行。
   commonContract:
     requiredFields:
       - skillId
@@ -41,7 +44,7 @@ spec:
       displayName: 证据摄取
       version: 0.1.0-alpha
       status: REFERENCE_IMPLEMENTED
-      implementationStatus: LOCAL_REFERENCE_ONLY_AGENTTEAMS_UNVERIFIED
+      implementationStatus: LOCAL_REFERENCE_MANAGER_MCP_SMOKE_DISTRIBUTION_VERIFIED_WORKER_RUNTIME_UNVERIFIED
       purpose: "计划将原始材料转换为保留来源、哈希、置信度和数据分类的 EvidenceObject。"
       ownerIdentities:
         - PF-A2
@@ -131,7 +134,7 @@ spec:
       displayName: 事实时间线构建
       version: 0.1.0-alpha
       status: REFERENCE_IMPLEMENTED
-      implementationStatus: LOCAL_REFERENCE_ONLY_AGENTTEAMS_UNVERIFIED
+      implementationStatus: LOCAL_REFERENCE_DISTRIBUTION_VERIFIED_WORKER_RUNTIME_UNVERIFIED
       purpose: "计划从证据引用生成带来源的事实事件、时间范围、未决日期和冲突提示。"
       ownerIdentities:
         - PF-A2
@@ -202,7 +205,7 @@ spec:
       displayName: 规则检索
       version: 0.1.0-alpha
       status: REFERENCE_IMPLEMENTED
-      implementationStatus: LOCAL_CATALOG_ONLY_MCP_AGENTTEAMS_UNVERIFIED
+      implementationStatus: LOCAL_CATALOG_MANAGER_MCP_SMOKE_DISTRIBUTION_VERIFIED_WORKER_RUNTIME_UNVERIFIED
       purpose: "计划按争议焦点、地区和日期检索受控规则，并输出带来源、版本和有效期的 RuleCitation。"
       ownerIdentities:
         - PF-A3
@@ -281,7 +284,7 @@ spec:
       displayName: 确定性计算
       version: 0.1.0-alpha
       status: REFERENCE_IMPLEMENTED
-      implementationStatus: LOCAL_REFERENCE_ONLY_MCP_AGENTTEAMS_UNVERIFIED
+      implementationStatus: LOCAL_REFERENCE_MANAGER_MCP_SMOKE_DISTRIBUTION_VERIFIED_WORKER_RUNTIME_UNVERIFIED
       purpose: "计划通过显式公式和版本化参数生成可复现的分项计算表。"
       ownerIdentities:
         - PF-A4
@@ -358,7 +361,7 @@ spec:
       displayName: 冲突检测
       version: 0.1.0-alpha
       status: REFERENCE_IMPLEMENTED
-      implementationStatus: LOCAL_REFERENCE_ONLY_AGENTTEAMS_UNVERIFIED
+      implementationStatus: LOCAL_REFERENCE_DISTRIBUTION_VERIFIED_WORKER_RUNTIME_UNVERIFIED
       purpose: "计划检测证据、事实、规则和计算之间的冲突，并生成带引用和严重度的 ConflictReport。"
       ownerIdentities:
         - PF-A6
@@ -430,7 +433,7 @@ spec:
       displayName: 决策审计
       version: 0.1.0-alpha
       status: REFERENCE_IMPLEMENTED
-      implementationStatus: LOCAL_REFERENCE_ONLY_AGENTTEAMS_UNVERIFIED
+      implementationStatus: LOCAL_REFERENCE_DISTRIBUTION_VERIFIED_WORKER_RUNTIME_UNVERIFIED
       purpose: "计划检查候选方案的依据、冲突、权限和 Trace，并输出 PASS、REVISE 或 BLOCK。"
       ownerIdentities:
         - PF-A6
@@ -521,7 +524,7 @@ spec:
       displayName: 人工审批
       version: 0.1.0-alpha
       status: REFERENCE_IMPLEMENTED
-      implementationStatus: LOCAL_DEMO_ONLY_PRODUCTION_IDENTITY_AGENTTEAMS_UNVERIFIED
+      implementationStatus: LOCAL_DEMO_DISTRIBUTION_VERIFIED_WORKER_RUNTIME_UNVERIFIED
       purpose: "计划将人工批准、拒绝或退回与特定方案和审计对象哈希绑定。"
       ownerIdentities:
         - PF-A1
@@ -625,7 +628,7 @@ spec:
       displayName: 交付包生成
       version: 0.1.0-alpha
       status: REFERENCE_IMPLEMENTED
-      implementationStatus: LOCAL_CONTROLLED_DRAFT_ONLY_AGENTTEAMS_UNVERIFIED
+      implementationStatus: LOCAL_CONTROLLED_DRAFT_DISTRIBUTION_VERIFIED_WORKER_RUNTIME_UNVERIFIED
       purpose: "计划在有效人工审批后生成受控草案、附件清单、文件哈希和 PackageManifest。"
       ownerIdentities:
         - PF-A1

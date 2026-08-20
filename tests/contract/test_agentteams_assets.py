@@ -122,6 +122,80 @@ def test_all_eight_agentteams_skill_frontmatters_are_valid() -> None:
     assert observed == EXPECTED_SKILLS
 
 
+def test_public_identity_and_skill_specs_match_manager_evidence() -> None:
+    identity_spec_path = ROOT / "specs/06_AGENT_IDENTITY.yaml"
+    identity_spec = yaml.safe_load(identity_spec_path.read_text())
+    assert identity_spec["metadata"]["status"] == (
+        "REFERENCE_IMPLEMENTED_AGENTTEAMS_CONTROL_PLANE_ONLY"
+    )
+    assert identity_spec["spec"]["implementationStatus"] == (
+        "LOCAL_REFERENCE_IMPLEMENTED_CONTROL_PLANE_POINT_IN_TIME_VERIFIED_WORKER_RUNTIME_UNVERIFIED"
+    )
+    assert identity_spec["spec"]["runtimeEvidence"] == (
+        "LOCAL_TESTS_AND_MANAGER_OPERATOR_MCP_SMOKE_NO_WORKER_EXECUTION"
+    )
+    mcp_evidence = json.loads(
+        (DEPLOY / "evidence/mcp-manager-operator-smoke-2026-08-20.json").read_text()
+    )
+    assert mcp_evidence["summary"]["all_workers_stopped"] is True
+    assert mcp_evidence["summary"]["worker_runtime_observed"] is False
+    assert mcp_evidence["summary"]["team_operational_ready"] is False
+    assert mcp_evidence["resources"]["proof_flow_worker_containers"] == 0
+    evidence_team = mcp_evidence["resources"]["team"]
+    assert evidence_team["controller_phase"] == "Active"
+    assert evidence_team["operational_ready"] is False
+    spec_team = identity_spec["spec"]["agentTeamsTopology"]["team"]
+    assert spec_team == {
+        "name": evidence_team["name"],
+        "status": "CONTROL_PLANE_ACTIVE_OPERATIONAL_FALSE",
+    }
+
+    evidence_workers = {item["name"]: item for item in mcp_evidence["resources"]["workers"]}
+    evidence_assignments = {
+        item["worker_name"]: item["assigned_skills"]
+        for item in mcp_evidence["skill_distribution"]["worker_assignments"]
+    }
+    spec_identities = identity_spec["spec"]["items"]
+    spec_identity_names = {item["name"] for item in spec_identities}
+    assert set(evidence_workers) == spec_identity_names
+    assert set(evidence_assignments) == spec_identity_names
+    for identity in spec_identities:
+        worker = evidence_workers[identity["name"]]
+        assert worker["desired_state"] == "Stopped"
+        assert worker["phase"] == "Stopped"
+        assert identity["implementationStatus"] == (
+            "LOCAL_REFERENCE_IMPLEMENTED_AGENTTEAMS_WORKER_STOPPED"
+        )
+        mapping = identity["agentTeamsMapping"]
+        assert mapping["teamName"] == worker["team"]
+        assert mapping["teamRole"] == worker["role"]
+        assert mapping["verificationStatus"] == (
+            "CONTROL_PLANE_APPLIED_ASSIGNMENTS_RECONCILED_RUNTIME_NOT_OBSERVED"
+        )
+        assert mapping["assignedSkills"] == evidence_assignments[identity["name"]]
+
+    skill_spec_path = ROOT / "specs/07_SKILL_SPEC.yaml"
+    skill_spec = yaml.safe_load(skill_spec_path.read_text())
+    assert skill_spec["metadata"]["status"] == (
+        "REFERENCE_IMPLEMENTED_DISTRIBUTION_VERIFIED_RUNTIME_UNVERIFIED"
+    )
+    assert {item["skillId"] for item in skill_spec["spec"]["items"]} == EXPECTED_SKILLS
+    assert mcp_evidence["summary"]["skill_distribution_verified"] is True
+    assert mcp_evidence["summary"]["skill_runtime_consumption_observed"] is False
+    manager_smoked = set(mcp_evidence["manager_workflow"]) - {"tamper_probe"}
+    assert manager_smoked == {
+        "evidence_ingest",
+        "rule_retrieve",
+        "deterministic_calculate",
+    }
+    for item in skill_spec["spec"]["items"]:
+        assert "DISTRIBUTION_VERIFIED" in item["implementationStatus"]
+        assert item["implementationStatus"].endswith("WORKER_RUNTIME_UNVERIFIED")
+        assert ("MANAGER_MCP_SMOKE" in item["implementationStatus"]) == (
+            item["skillId"] in manager_smoked
+        )
+
+
 def test_mcp_templates_keep_backend_token_empty_and_bind_identity_to_route() -> None:
     expected = {
         "mcp-proof-evidence.yaml": (

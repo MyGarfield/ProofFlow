@@ -2,23 +2,25 @@ apiVersion: proofflow.dev/v1alpha1
 kind: AgentIdentityList
 metadata:
   name: proofflow-business-agents
-  version: 0.2.0-reference-alpha
-  status: PARTIAL_REFERENCE_IMPLEMENTATION
+  version: 0.3.0-control-plane-alpha
+  status: REFERENCE_IMPLEMENTED_AGENTTEAMS_CONTROL_PLANE_ONLY
 spec:
   disclaimer: >-
-    六个 Identity 的本地 Skill 调用边界已在确定性参考核心中实现并测试；
-    六个业务 Agent 尚未完成 AgentTeams 部署、联调或运行验证。
-  implementationStatus: LOCAL_REFERENCE_BOUNDARIES_ONLY_AGENTTEAMS_NOT_DEPLOYED
-  runtimeEvidence: LOCAL_TESTS_ONLY
-  plannedAgentTeamsTopology:
+    六个 Identity 的本地调用边界已在确定性参考核心中实现并测试；AgentTeams
+    Manager、Team、六个 Stopped Worker CR、Human 资源、三项 MCP 配置和八项 Skill
+    分发已有点时证据。当前 Worker 容器与 readyWorkers 均为 0，尚无 Worker/LLM、
+    Team 任务、Skill runtime consumption 或 AgentTeams Human 参与证据。
+  implementationStatus: LOCAL_REFERENCE_IMPLEMENTED_CONTROL_PLANE_POINT_IN_TIME_VERIFIED_WORKER_RUNTIME_UNVERIFIED
+  runtimeEvidence: LOCAL_TESTS_AND_MANAGER_OPERATOR_MCP_SMOKE_NO_WORKER_EXECUTION
+  agentTeamsTopology:
     platformManager:
-      description: "计划由 AgentTeams Manager 承担平台级团队生命周期与路由，不参与案件专业判断。"
+      description: "AgentTeams Manager 已承担控制面资源与 operator-driven MCP smoke；不计为业务 Agent，且该 smoke 不等于 Worker 编排。"
       countedAsBusinessAgent: false
     team:
-      plannedName: proof-flow-case-review
-      status: PINNED_NOT_DEPLOYED
+      name: proof-flow-case-review
+      status: CONTROL_PLANE_ACTIVE_OPERATIONAL_FALSE
     humanActor:
-      description: "计划使用 AgentTeams Human 或等价审批身份承接补件、澄清和审批。"
+      description: "两个公开合成 Human 资源已声明并具备 Team 访问映射；尚未参与真实 Worker run 或审批 receipt。"
       countedAsAgent: false
 
   items:
@@ -26,13 +28,16 @@ spec:
       name: case-manager
       displayName: Case Manager
       status: REFERENCE_BOUNDARY_IMPLEMENTED
-      implementationStatus: LOCAL_REFERENCE_ONLY_AGENTTEAMS_NOT_DEPLOYED
+      implementationStatus: LOCAL_REFERENCE_IMPLEMENTED_AGENTTEAMS_WORKER_STOPPED
       mission: "计划负责案件受理、任务拆解、任务路由和领域状态迁移，不替代专业 Agent 判断。"
-      plannedAgentTeamsMapping:
+      agentTeamsMapping:
         resourceKind: Worker
         teamRole: team_leader
         teamName: proof-flow-case-review
-        verificationStatus: NOT_STARTED
+        verificationStatus: CONTROL_PLANE_APPLIED_ASSIGNMENTS_RECONCILED_RUNTIME_NOT_OBSERVED
+        assignedSkills:
+          - human_approval
+          - document_package
       inputs:
         - CaseInputManifest
         - CaseMetadata
@@ -106,13 +111,16 @@ spec:
       name: evidence-agent
       displayName: Evidence Agent
       status: REFERENCE_BOUNDARY_IMPLEMENTED
-      implementationStatus: LOCAL_REFERENCE_ONLY_AGENTTEAMS_NOT_DEPLOYED
+      implementationStatus: LOCAL_REFERENCE_IMPLEMENTED_AGENTTEAMS_WORKER_STOPPED
       mission: "计划将原始材料转换为保留来源的证据对象、事实事件、缺件和未决事项。"
-      plannedAgentTeamsMapping:
+      agentTeamsMapping:
         resourceKind: Worker
         teamRole: worker
         teamName: proof-flow-case-review
-        verificationStatus: NOT_STARTED
+        verificationStatus: CONTROL_PLANE_APPLIED_ASSIGNMENTS_RECONCILED_RUNTIME_NOT_OBSERVED
+        assignedSkills:
+          - evidence_ingest
+          - timeline_build
       inputs:
         - SourceDocumentReference
         - CaseMetadata
@@ -175,13 +183,15 @@ spec:
       name: rule-agent
       displayName: Rule Agent
       status: REFERENCE_BOUNDARY_IMPLEMENTED
-      implementationStatus: LOCAL_REFERENCE_ONLY_AGENTTEAMS_NOT_DEPLOYED
+      implementationStatus: LOCAL_REFERENCE_IMPLEMENTED_AGENTTEAMS_WORKER_STOPPED
       mission: "计划根据争议焦点、地区和时间检索受控规则，并生成可验证的 RuleCitation。"
-      plannedAgentTeamsMapping:
+      agentTeamsMapping:
         resourceKind: Worker
         teamRole: worker
         teamName: proof-flow-case-review
-        verificationStatus: NOT_STARTED
+        verificationStatus: CONTROL_PLANE_APPLIED_ASSIGNMENTS_RECONCILED_RUNTIME_NOT_OBSERVED
+        assignedSkills:
+          - rule_retrieve
       inputs:
         - IssueCode
         - Jurisdiction
@@ -241,13 +251,15 @@ spec:
       name: calculation-agent
       displayName: Calculation Agent
       status: REFERENCE_BOUNDARY_IMPLEMENTED
-      implementationStatus: LOCAL_REFERENCE_ONLY_AGENTTEAMS_NOT_DEPLOYED
+      implementationStatus: LOCAL_REFERENCE_IMPLEMENTED_AGENTTEAMS_WORKER_STOPPED
       mission: "计划基于已确认事实、规则和显式参数调用确定性公式引擎生成分项计算。"
-      plannedAgentTeamsMapping:
+      agentTeamsMapping:
         resourceKind: Worker
         teamRole: worker
         teamName: proof-flow-case-review
-        verificationStatus: NOT_STARTED
+        verificationStatus: CONTROL_PLANE_APPLIED_ASSIGNMENTS_RECONCILED_RUNTIME_NOT_OBSERVED
+        assignedSkills:
+          - deterministic_calculate
       inputs:
         - VerifiedFactReferenceList
         - RuleCitationList
@@ -304,13 +316,14 @@ spec:
       name: strategy-agent
       displayName: Strategy Agent
       status: REFERENCE_BOUNDARY_IMPLEMENTED
-      implementationStatus: LOCAL_REFERENCE_ONLY_AGENTTEAMS_NOT_DEPLOYED
+      implementationStatus: LOCAL_REFERENCE_IMPLEMENTED_AGENTTEAMS_WORKER_STOPPED
       mission: "计划基于证据、规则和计算引用形成多个候选方案，并显式标注风险、不确定性和待确认事项。"
-      plannedAgentTeamsMapping:
+      agentTeamsMapping:
         resourceKind: Worker
         teamRole: worker
         teamName: proof-flow-case-review
-        verificationStatus: NOT_STARTED
+        verificationStatus: CONTROL_PLANE_APPLIED_ASSIGNMENTS_RECONCILED_RUNTIME_NOT_OBSERVED
+        assignedSkills: []
       inputs:
         - EvidenceReferenceList
         - RuleCitationList
@@ -369,13 +382,16 @@ spec:
       name: audit-agent
       displayName: Audit Agent
       status: REFERENCE_BOUNDARY_IMPLEMENTED
-      implementationStatus: LOCAL_REFERENCE_ONLY_AGENTTEAMS_NOT_DEPLOYED
+      implementationStatus: LOCAL_REFERENCE_IMPLEMENTED_AGENTTEAMS_WORKER_STOPPED
       mission: "计划检查证据冲突、规则覆盖、计算完整性、方案依据、权限和 Trace，并输出 PASS、REVISE 或 BLOCK。"
-      plannedAgentTeamsMapping:
+      agentTeamsMapping:
         resourceKind: Worker
         teamRole: worker
         teamName: proof-flow-case-review
-        verificationStatus: NOT_STARTED
+        verificationStatus: CONTROL_PLANE_APPLIED_ASSIGNMENTS_RECONCILED_RUNTIME_NOT_OBSERVED
+        assignedSkills:
+          - conflict_detect
+          - decision_audit
       inputs:
         - EvidenceReferenceList
         - RuleCitationList

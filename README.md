@@ -54,7 +54,7 @@ Unknown/Low/Medium/High/Critical 均为 0，CycloneDX 记录 937 个 components�
 AgentTeams MCP Schema v1.2 与严格语义 validator 已强制供应链 `subject.image_id`、MCP 快照根级
 `tool_service_image_id` 和脱敏运行观察 `tool_service_runtime.image_id` 三方相等。该交叉绑定与零
 finding 都只是未签名的点时证据，不证明构建关系、数字签名、attestation、远端 registry 状态、
-持续可用性或生产安全，也绝不等于镜像“clean”或无漏洞。当前稳定全仓测试为 `351 passed`。
+持续可用性或生产安全，也绝不等于镜像“clean”或无漏洞。当前稳定全仓测试为 `353 passed`。
 
 脱敏点时证据见 [AgentTeams 本地证据](deploy/agentteams/LOCAL_INFRA_EVIDENCE.md)、
 [MCP Manager 操作员冒烟](deploy/agentteams/evidence/mcp-manager-operator-smoke-2026-08-20.json)、
@@ -82,7 +82,7 @@ uv run python -m demo.server --port 8765
 ```
 
 浏览器打开 `http://127.0.0.1:8765`。完整 90 秒路径、安全边界和故障处理见
-[复赛 Demo Runbook](docs/09_SEMIFINAL_DEMO_RUNBOOK.md)；当前 Demo 定向测试为 `18 passed`。
+[复赛 Demo Runbook](docs/09_SEMIFINAL_DEMO_RUNBOOK.md)；当前 Demo 定向测试为 `19 passed`。
 
 如需直接复现 CLI 参考链：
 
@@ -176,7 +176,7 @@ uv run mypy
 uv run pytest
 ```
 
-当前稳定全仓测试为 `351 passed`，其中 Demo 定向套件为 `18 passed`。测试覆盖正常链、文件哈希、
+当前稳定全仓测试为 `353 passed`，其中 Demo 定向套件为 `19 passed`。测试覆盖正常链、文件哈希、
 提示注入字段、地区/时态规则过滤、缺参阻断、确定性重放、冲突检测、Trace 缺失、越权审批、批准后
 篡改、包文件篡改和未执行评测的 `UNKNOWN`/`null` 合同。
 

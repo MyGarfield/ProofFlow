@@ -174,6 +174,7 @@ def test_real_journey_blocks_package_then_approves_packages_and_verifies(
     packaged = application.dispatch("package", {})
     assert packaged["result"]["file_count"] == 2
     assert packaged["state"]["run"]["stage"] == "PACKAGED"
+    assert packaged["state"]["gate_probe"] == "BLOCKED_AS_EXPECTED"
     assert packaged["state"]["boundaries"]["external_side_effects_enabled"] is False
 
     verified = application.dispatch("verify", {})
@@ -479,6 +480,15 @@ def test_http_verification_failure_is_a_red_409_not_a_success(
     javascript = (ROOT / "demo/app.js").read_text(encoding="utf-8")
     assert "verificationFailed" in javascript
     assert "FAILED / ${state.verification.errors.length}" in javascript
+
+
+def test_ui_separates_the_409_probe_from_the_satisfied_gate_state() -> None:
+    javascript = (ROOT / "demo/app.js").read_text(encoding="utf-8")
+
+    assert 'const gateProbeObserved = state.gate_probe === "BLOCKED_AS_EXPECTED";' in javascript
+    assert "const gateSatisfied = approved || packaged;" in javascript
+    assert 'gateSatisfied\n        ? "is-complete"' in javascript
+    assert 'gateProbeObserved\n          ? "PASSED / 409 PROVEN"' in javascript
 
 
 def test_http_rejects_large_body_queries_media_type_and_closed_routes(

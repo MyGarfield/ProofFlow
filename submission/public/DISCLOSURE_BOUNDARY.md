@@ -30,7 +30,7 @@
 `sha256:1a4c4efb2d4e4fe37503ba0082282218e0b8c978dd22c1bd1488b5942d087775` 的供应链 subject、MCP 快照
 根级和脱敏运行观察三处 image ID 交叉绑定。固定数据库点时扫描的所有 severity 均为 0，但摘要、
 交叉绑定和零 finding 不是 clean 结论、签名、build attestation、构建关系证明、持续运行证明或
-生产安全认证。当前稳定全仓测试为 `351 passed`，Demo 定向测试为 `18 passed`。
+生产安全认证。当前稳定全仓测试为 `353 passed`，Demo 定向测试为 `19 passed`。
 
 评测资产状态仍为 `PROTOCOL_VALIDATED_NOT_EXECUTED`；三臂和五项官方评分均为 `UNKNOWN`，分值为
 `null`。因此不主张 Worker/LLM/Team 多 Agent 流程或三臂评测已经运行，也不主张已有真实客户、

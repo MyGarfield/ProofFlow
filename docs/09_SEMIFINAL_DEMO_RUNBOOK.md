@@ -73,6 +73,7 @@ http://127.0.0.1:8765
 预期：
 
 - stage 为 `APPROVED`；
+- Gate 从红色阻断态切换为完成态；若已执行 409 探针，显示 `PASSED / 409 PROVEN`，同时保留“先阻断、后满足”的证据；
 - 审批方式为 `LOCAL_DEMO`；
 - 审批记录绑定 Gate 前展示的 subject hash；
 - 审批角色由服务端固定为 `legal-reviewer`，浏览器不能传入或提升 role。
@@ -131,7 +132,7 @@ uv run ruff check demo tests/e2e/test_demo_server.py
 uv run pytest -q tests/e2e/test_demo_server.py
 ```
 
-当前定向实测：`18 passed`。
+当前定向实测：`19 passed`。
 
 全仓门禁：
 

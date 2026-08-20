@@ -23,7 +23,7 @@
   `readyWorkers=0`、Leader `Stopped`、`operational_ready=false`，无 Human 参与；
 - [x] 当前最小化 Alpine 镜像完成供应链 Schema v1.1 点时扫描，并通过 AgentTeams MCP Schema v1.2
   严格语义 validator 与脱敏运行观察三方交叉绑定 image ID；
-- [x] 本地 loopback Demo、90 秒 runbook 和 `18 passed` 定向套件；
+- [x] 本地 loopback Demo、90 秒 runbook 和 `19 passed` 定向套件；
 - [x] 三臂评测 manifest、Schema、CLI 与合同测试；当前仅为
   `PROTOCOL_VALIDATED_NOT_EXECUTED`，没有三臂运行结果或官方分数；
 - [ ] 六 Worker/LLM 真实运行、Team/Matrix 协作与 Human Gate 验证（等待模型 API Key 安全轮换）。
@@ -104,7 +104,7 @@ MCP、Worker/LLM 与端到端任务层，并记录成本和故障分布。
 `subject.image_id`、MCP 快照根级 `tool_service_image_id` 与运行观察
 `tool_service_runtime.image_id` 三方相等。摘要、交叉绑定和点时零 finding 都不是签名、build
 attestation、构建关系证明、clean 结论、持续运行证明或生产安全认证。当前稳定全仓测试为
-`351 passed`。性能方法
+`353 passed`。性能方法
 与边界见
 [`08_PERFORMANCE_BENCHMARK.md`](08_PERFORMANCE_BENCHMARK.md)；机器可读扫描证据见
 [`supply-chain-evidence.json`](../deploy/tool-service/evidence/supply-chain-evidence.json)。
