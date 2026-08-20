@@ -46,4 +46,4 @@ select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
-packages = ["proofflow"]
+packages = ["proofflow", "demo"]
