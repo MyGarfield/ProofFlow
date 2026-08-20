@@ -1,3 +1,59 @@
+const ProofFlowViewState = (() => {
+  "use strict";
+
+  const STEP_CLASSES = ["is-active", "is-blocked", "is-complete", "is-verified"];
+
+  function gatePresentation(stage, gateProbeObserved) {
+    if (stage === "APPROVED" || stage === "PACKAGED") {
+      return {
+        className: "is-complete",
+        label: gateProbeObserved ? "SATISFIED / BLOCK PASS" : "SATISFIED",
+      };
+    }
+    if (gateProbeObserved) {
+      return { className: "is-blocked", label: "409 BLOCKED" };
+    }
+    if (stage === "AWAITING_APPROVAL") {
+      return { className: "is-active", label: "WAITING" };
+    }
+    if (stage !== "NOT_PREPARED") {
+      return { className: "is-complete", label: "SATISFIED" };
+    }
+    return { className: "", label: "LOCKED" };
+  }
+
+  function verificationPresentation(stage, verification) {
+    if (stage !== "PACKAGED") {
+      return { className: "", label: "WAIT" };
+    }
+    if (!verification) {
+      return { className: "is-active", label: "READY" };
+    }
+    if (verification.valid) {
+      return { className: "is-verified", label: "VALID" };
+    }
+    return {
+      className: "is-blocked",
+      label: `FAILED / ${verification.errors.length}`,
+    };
+  }
+
+  function applyStepPresentation(item, output, presentation) {
+    item.classList.remove(...STEP_CLASSES);
+    if (presentation.className) {
+      item.classList.add(presentation.className);
+    }
+    output.textContent = presentation.label;
+  }
+
+  return Object.freeze({ applyStepPresentation, gatePresentation, verificationPresentation });
+})();
+
+if (typeof module === "object" && module.exports) {
+  module.exports = ProofFlowViewState;
+}
+
+if (typeof document !== "undefined") {
 (() => {
   "use strict";
 
@@ -41,11 +97,7 @@
   function setChainClass(step, className, label) {
     const item = document.querySelector(`[data-step="${step}"]`);
     const output = document.querySelector(`#step-${step}`);
-    item.classList.remove("is-active", "is-blocked", "is-complete", "is-verified");
-    if (className) {
-      item.classList.add(className);
-    }
-    output.textContent = label;
+    ProofFlowViewState.applyStepPresentation(item, output, { className, label });
   }
 
   function renderTrace(events) {
@@ -110,10 +162,11 @@
     const approved = stage === "APPROVED";
     const packaged = stage === "PACKAGED";
     const gateProbeObserved = state.gate_probe === "BLOCKED_AS_EXPECTED";
-    const gateSatisfied = approved || packaged;
-    const verified = packaged && state.verification && state.verification.valid;
-    const verificationFailed =
-      packaged && state.verification && state.verification.valid === false;
+    const gate = ProofFlowViewState.gatePresentation(stage, gateProbeObserved);
+    const verification = ProofFlowViewState.verificationPresentation(
+      stage,
+      state.verification,
+    );
 
     elements.stageValue.textContent = stage;
     elements.evidenceCount.textContent = String(state.artifacts.evidence);
@@ -133,42 +186,10 @@
     elements.benchmarkButton.disabled = busy;
 
     setChainClass("prepare", prepared ? "is-complete" : "is-active", prepared ? "SEALED" : "READY");
-    setChainClass(
-      "gate",
-      gateSatisfied
-        ? "is-complete"
-        : gateProbeObserved
-          ? "is-blocked"
-          : awaiting
-            ? "is-active"
-            : prepared
-              ? "is-complete"
-              : "",
-      gateSatisfied
-        ? gateProbeObserved
-          ? "PASSED / 409 PROVEN"
-          : "PASSED"
-        : gateProbeObserved
-          ? "409 BLOCKED"
-          : awaiting
-            ? "WAITING"
-            : prepared
-              ? "PASSED"
-              : "LOCKED",
-    );
+    setChainClass("gate", gate.className, gate.label);
     setChainClass("approve", approved || packaged ? "is-complete" : awaiting ? "is-active" : "", approved || packaged ? "LOCAL_DEMO" : awaiting ? "REASON" : "WAIT");
     setChainClass("package", packaged ? "is-complete" : approved ? "is-active" : "", packaged ? "SEALED" : approved ? "READY" : "WAIT");
-    setChainClass(
-      "verify",
-      verified ? "is-verified" : verificationFailed ? "is-blocked" : packaged ? "is-active" : "",
-      verified
-        ? "VALID"
-        : verificationFailed
-          ? `FAILED / ${state.verification.errors.length}`
-          : packaged
-            ? "READY"
-            : "WAIT",
-    );
+    setChainClass("verify", verification.className, verification.label);
     renderTrace(state.trace);
     renderBenchmark(state.benchmark);
   }
@@ -258,3 +279,4 @@
 
   bootstrap();
 })();
+}
