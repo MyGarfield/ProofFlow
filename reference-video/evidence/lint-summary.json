@@ -1,0 +1,8 @@
+{
+  "tool": "npx hyperframes lint --json",
+  "ok": true,
+  "errorCount": 0,
+  "warningCount": 1,
+  "warningCodes": ["timeline_track_too_dense"],
+  "paths_redacted": true
+}

@@ -70,6 +70,9 @@ def main() -> None:
         "evidence/dom-states.json",
         "evidence/capture_sequence.py",
         "evidence/ffmpeg-image-sequence.txt",
+        "evidence/manifest.schema.json",
+        "evidence/validate_manifest.py",
+        "evidence/lint-summary.json",
         "capture/meta.json",
         "capture/screenshots/scroll-000.png",
         "index.html",
@@ -78,11 +81,12 @@ def main() -> None:
         "STORYBOARD.md",
     ]
     manifest = json.loads((VIDEO_ROOT / "manifest.json").read_text(encoding="utf-8"))
+    manifest.pop("artifact_commit", None)
     artifact_commit = sys.argv[1] if len(sys.argv) > 1 else None
     manifest.update(
         {
             "recorded_source_commit": source_commit,
-            "artifact_commit": artifact_commit or manifest.get("artifact_commit"),
+            "artifact_payload_commit": artifact_commit or manifest.get("artifact_payload_commit"),
             "actual_duration_seconds": float(media["format"]["duration"]),
             "ffprobe": media,
             "keyframe_probes": keyframe_probes,

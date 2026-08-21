@@ -1,23 +1,32 @@
 {
   "non_loopback_requests_sent": 0,
   "policy": "allow only 127.0.0.1 or localhost; reject all other targets before socket creation",
+  "redirect_regression": {
+    "location_observed": true,
+    "redirect_followed": false,
+    "sink_requests": 0,
+    "status": 302
+  },
   "requests": [
     {
       "decision": "ALLOW_LOOPBACK",
       "method": "GET",
       "seq": 0,
+      "status": 200,
       "url": "http://127.0.0.1:8765/"
     },
     {
       "decision": "ALLOW_LOOPBACK",
       "method": "GET",
       "seq": 1,
+      "status": 200,
       "url": "http://127.0.0.1:8765/app.js"
     },
     {
       "decision": "ALLOW_LOOPBACK",
       "method": "GET",
       "seq": 2,
+      "status": 200,
       "url": "http://127.0.0.1:8765/styles.css"
     },
     {

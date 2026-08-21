@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "proofflow.reference-runtime-evidence-video.manifest.v1",
+  "type": "object",
+  "required": ["schema", "status", "recorded_source_commit", "artifact_payload_commit", "artifact_hashes", "ffprobe", "keyframe_probes", "network_ledger_non_loopback_requests_sent", "actual_duration_seconds"],
+  "properties": {
+    "schema": {"const": "proofflow.reference-runtime-evidence-video.manifest.v1"},
+    "status": {"const": "REFERENCE_RUNTIME_EVIDENCE_ONLY"},
+    "recorded_source_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "artifact_payload_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "actual_duration_seconds": {"const": 92.0},
+    "network_ledger_non_loopback_requests_sent": {"const": 0},
+    "artifact_hashes": {"type": "object", "minProperties": 10, "additionalProperties": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}},
+    "ffprobe": {"type": "object", "required": ["format", "streams"]},
+    "keyframe_probes": {"type": "array", "minItems": 7, "items": {"type": "object", "required": ["target_seconds", "nearest_frame_seconds", "key_frame", "within_one_frame"]}},
+    "claims": {"type": "object"},
+    "voiceover_status": {"const": "UNAVAILABLE_LOCAL_TTS"},
+    "audio_role": {"const": "AAC_PLACEHOLDER_SILENCE_NOT_NARRATION"}
+  },
+  "additionalProperties": true
+}

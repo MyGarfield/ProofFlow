@@ -7,12 +7,13 @@ environment values, Manager data, Worker data, or external responses.
 
 from __future__ import annotations
 
+import http.client
 import json
+import threading
 from datetime import UTC, datetime
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
-from urllib.error import HTTPError
 from urllib.parse import urlsplit
-from urllib.request import Request, urlopen
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -31,25 +32,59 @@ def guard_url(url: str) -> None:
         raise RuntimeError(f"NON_LOOPBACK_REQUEST_BLOCKED: {url}")
 
 
-def request(method: str, path: str, token: str | None = None, payload: dict | None = None):
-    url = BASE + path
+def direct_request(method: str, url: str, headers: dict[str, str] | None = None, payload: dict | None = None):
+    """Make one direct HTTP request; never reads proxy env or follows redirects."""
     guard_url(url)
-    headers = {"Origin": BASE, "Host": "127.0.0.1:8765"}
+    parsed = urlsplit(url)
+    if parsed.scheme != "http":
+        raise RuntimeError("capture supports direct HTTP loopback only")
+    connection = http.client.HTTPConnection(parsed.hostname, parsed.port or 80, timeout=10)
+    request_headers = {"Host": parsed.netloc, **(headers or {})}
     body = None
     if payload is not None:
-        headers["Content-Type"] = "application/json"
+        request_headers["Content-Type"] = "application/json"
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-    if token:
+    connection.request(method, parsed.path or "/", body=body, headers=request_headers)
+    response = connection.getresponse()
+    status = response.status
+    raw = response.read()
+    response_headers = dict(response.getheaders())
+    connection.close()
+    return status, raw, response_headers
+
+
+def request(method: str, path: str, token: str | None = None, payload: dict | None = None):
+    headers = {"Origin": BASE, "Host": "127.0.0.1:8765"}
+    if token is not None:
         headers["X-ProofFlow-Request-Token"] = token
-    req = Request(url, data=body, headers=headers, method=method)
-    try:
-        with urlopen(req, timeout=10) as response:
-            status = response.status
-            raw = response.read()
-    except HTTPError as error:
-        status = error.code
-        raw = error.read()
-    return status, json.loads(raw.decode("utf-8"))
+    status, raw, response_headers = direct_request(method, BASE + path, headers, payload)
+    return status, json.loads(raw.decode("utf-8")), response_headers
+
+
+def run_redirect_regression() -> dict[str, object]:
+    """Prove a 302 Location is observed, not followed to a sink."""
+    class RedirectHandler(BaseHTTPRequestHandler):
+        sink_requests = 0
+
+        def do_GET(self):  # noqa: N802
+            if self.path == "/sink":
+                type(self).sink_requests += 1
+            self.send_response(302)
+            self.send_header("Location", "https://proxy.invalid/sink")
+            self.end_headers()
+
+        def log_message(self, *_args):
+            return
+
+    server = HTTPServer(("127.0.0.1", 0), RedirectHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    status, _raw, headers = direct_request("GET", f"http://127.0.0.1:{server.server_port}/redirect")
+    server.shutdown()
+    thread.join(timeout=2)
+    assert status == 302 and headers.get("Location") == "https://proxy.invalid/sink"
+    assert RedirectHandler.sink_requests == 0
+    return {"status": status, "location_observed": True, "redirect_followed": False, "sink_requests": 0}
 
 
 def write(name: str, value: object) -> None:
@@ -61,11 +96,10 @@ def write(name: str, value: object) -> None:
 
 def main() -> None:
     started = datetime.now(UTC).isoformat()
-    network = [
-        {"seq": 0, "method": "GET", "url": BASE + "/", "decision": "ALLOW_LOOPBACK"},
-        {"seq": 1, "method": "GET", "url": BASE + "/app.js", "decision": "ALLOW_LOOPBACK"},
-        {"seq": 2, "method": "GET", "url": BASE + "/styles.css", "decision": "ALLOW_LOOPBACK"},
-    ]
+    network = []
+    for path in ("/", "/app.js", "/styles.css"):
+        status, _raw, _headers = direct_request("GET", BASE + path, {"Origin": BASE})
+        network.append({"seq": len(network), "method": "GET", "url": BASE + path, "decision": "ALLOW_LOOPBACK", "status": status})
     blocked_target = "https://external.invalid/blocked-by-loopback-policy"
     try:
         guard_url(blocked_target)
@@ -79,17 +113,17 @@ def main() -> None:
             }
         )
 
-    status, bootstrap = request("GET", "/api/bootstrap")
+    status, bootstrap, _headers = request("GET", "/api/bootstrap")
     assert status == 200 and bootstrap["ok"]
     token = bootstrap["request_token"]
-    network.append({"seq": 4, "method": "GET", "url": BASE + "/api/bootstrap", "decision": "ALLOW_LOOPBACK", "status": status})
+    network.append({"seq": len(network), "method": "GET", "url": BASE + "/api/bootstrap", "decision": "ALLOW_LOOPBACK", "status": status})
 
     ledger = []
     states = []
 
     def action(name: str, payload: dict | None, expected_status: int, expected_code: str | None = None):
         nonlocal network
-        status_code, result = request("POST", "/api/" + name, token, payload)
+        status_code, result, _headers = request("POST", "/api/" + name, token, payload)
         network.append({"seq": len(network), "method": "POST", "url": BASE + "/api/" + name, "decision": "ALLOW_LOOPBACK", "status": status_code})
         state = result.get("state")
         ledger.append(
@@ -136,6 +170,7 @@ def main() -> None:
         "schema": "proofflow.reference-runtime.network-ledger.v1",
         "policy": "allow only 127.0.0.1 or localhost; reject all other targets before socket creation",
         "requests": network,
+        "redirect_regression": run_redirect_regression(),
         "non_loopback_requests_sent": 0,
     })
     write("dom-states.json", {
