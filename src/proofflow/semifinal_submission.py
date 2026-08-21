@@ -20,8 +20,9 @@ MAX_ZIP_BYTES = 1200 * 1024 * 1024
 MAX_CUMULATIVE_BYTES = 3600 * 1024 * 1024
 MANIFEST_NAME = "SEMIFINAL_SUBMISSION_MANIFEST.json"
 REPORT_SUFFIX = ".report.json"
-STATUS_CANDIDATE = "CANDIDATE_NOT_SUBMIT_READY"
-STATUS_READY = "SUBMIT_READY"
+Status = Literal["CANDIDATE_NOT_SUBMIT_READY", "SUBMIT_READY"]
+STATUS_CANDIDATE: Status = "CANDIDATE_NOT_SUBMIT_READY"
+STATUS_READY: Status = "SUBMIT_READY"
 
 _SHA256_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 _PUBLIC_URL_RE = re.compile(r"^https://[^/\s]+(?:/[^\s]*)?$")
@@ -314,7 +315,7 @@ def _gate(config: dict[str, Any], artifacts: tuple[Artifact, ...], mode: str) ->
             reasons.append(f"required_{category}_missing")
     if mode == "candidate":
         warnings.append("candidate mode never authorizes portal submission")
-    status: Literal["CANDIDATE_NOT_SUBMIT_READY", "SUBMIT_READY"] = STATUS_CANDIDATE
+    status: Status = STATUS_CANDIDATE
     if mode == "submit-ready" and not reasons:
         status = STATUS_READY
     return GateReport(status=status, reasons=tuple(sorted(set(reasons))), warnings=tuple(warnings))
@@ -434,7 +435,7 @@ def build_package(
 def validate_manifest(path: Path) -> list[str]:
     """Validate a generated manifest using the checked-in JSON Schema."""
     try:
-        from jsonschema import Draft202012Validator
+        from jsonschema import Draft202012Validator  # type: ignore[import-untyped]
     except ImportError as exc:  # pragma: no cover - development dependency is pinned
         raise SubmissionBuildError(
             "jsonschema is required to validate a submission manifest"
