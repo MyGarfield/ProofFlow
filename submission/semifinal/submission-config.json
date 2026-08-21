@@ -139,6 +139,7 @@
     "schemas/tool-rule-retrieve-result.schema.json",
     "schemas/trace-event.schema.json",
     "scripts/export_schemas.py",
+    "scripts/__init__.py",
     "scripts/semifinal_submission.py",
     "scripts/build_semifinal_zip.py",
     "specs/06_AGENT_IDENTITY.yaml",
