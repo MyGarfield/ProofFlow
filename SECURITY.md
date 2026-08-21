@@ -29,6 +29,9 @@ the ignored `submission/private/` directory.
 - The pinned Alibaba Cloud Skill preflight is an offline source/static-contract check. Its upstream executable
   target set is empty for Markdown-only ProofFlow Skills (`OFFICIAL_TARGET_POLICY_EXCLUDES_SKILL_MD_ONLY_INPUTS`),
   so it is inconclusive and not a safety certification.
+- Its one-off macOS Seatbelt collector denies network for that local invocation only. It has no filesystem-read
+  allowlist and is not evidence of a production sandbox, deployment egress policy or verified credential/config
+  non-access.
 - JSON/TXT ingestion is a bounded fixture path, not a hardened document pipeline.
 - The rules/formula set is incomplete and not expert-certified.
 - The application performs no external side effects by design.

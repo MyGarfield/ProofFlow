@@ -178,21 +178,28 @@ MIT 许可原文一并保留。
 
 完整机器证据位于
 [`evidence/aliyun-official-skill-offline-preflight-2026-08-21.json`](evidence/aliyun-official-skill-offline-preflight-2026-08-21.json)，
-并由 Draft 2020-12 schema 与独立语义 validator 重新核对：固定官方 source/tag/commit、精确文件集与
-SHA-256、八个 ProofFlow Skill 输入哈希、环境变量白名单、OS 级禁网探针、十二类规则台账、补充
-Markdown 指标检查以及所有负向运行声明。
+并由 Draft 2020-12 schema 与默认 full-strict 的独立语义 validator 重新核对：固定官方
+source/tag/commit、精确文件集、SHA-256、Git blob OID、可离线重算的 source subtree tree OID、八个
+ProofFlow Skill 输入哈希、环境变量白名单、OS 级禁网探针、十二类规则台账、补充 Markdown 指标检查
+以及所有负向运行声明。manifest 也记录 tag ref、root tree 和 subtree tree；但未提交完整 commit/root
+对象链，因此 tag→commit 与 commit→root tree 仍是未签名点时观察，不宣称可离线证明。
 
 该证据**不是官方主脚本成功运行**。源码审计确认 `ALIYUN_SKILL_SEC_CLOUD=false` 会跳过情报查询与
 Skill ZIP 上传，但 `main.sh` 仍会无条件运行 `openclaw security audit --deep`，可能读取真实 OpenClaw
 配置；脚本还要求 Bash 4+，而采集主机只有 Bash 3.2。因此本次没有执行官方 `main.sh`、真实
-OpenClaw、AgentTeams Manager/Worker、LLM 或云服务。采集只在临时副本上运行独立 collector，并由
-macOS `sandbox-exec deny network*` 阻断网络；同一进程的 loopback connect 必须以 `EPERM` 失败，否则
-不产生证据。
+OpenClaw、AgentTeams Manager/Worker、LLM 或云服务。runner 不信任 caller `PATH`，仅调用固定绝对
+系统路径；采集器使用 root-owned `/usr/bin/python3 -I -S`，并记录其解析后的系统解释器路径、文件
+hash、owner 与 mode。采集只在临时副本上运行独立 collector：进入 Seatbelt 前 same-host IPv4/TCP
+positive control 必须成功，进入 `(version 1) (allow default) (deny network*)` 后的 IPv4/TCP loopback
+connect 必须以 `EPERM` 失败，否则不产生证据。
 固定源码此前从公开 GitHub 以清空 Git 环境的 HTTPS 读取，使用了网络但没有凭据；证据中的
 `external_network_observed=false` 只描述随后受沙箱约束的 collector 及其子进程，不描述源码获取阶段。
-证据同时记录精确 sandbox profile 及其 SHA-256、去除随机临时根目录与 Python 路径后的规范命令及
-SHA-256，以及生成已保留工件时 runner 观察到的 `sandbox-exec` exit code；这些字段不得解释为官方
-`main.sh` 的执行回执。
+证据同时记录精确 sandbox profile、真实 root-owned 解释器及其 SHA-256，以及仅去除随机临时根目录的
+规范命令和绑定 hash。collector 无法在父 runner 退出前证明其 exit code，因此工件明确写为
+`NOT_VERIFIED_IN_COLLECTOR_ARTIFACT`，不再自报成功 exit receipt。当前 Seatbelt profile 只限制网络，
+没有 filesystem read allowlist；凭据和 OpenClaw 配置读取只能写成
+`NOT_OBSERVED_NOT_OS_ENFORCED`。IPv4/TCP 正负对照也只代表本机本次 Seatbelt 观察，不能外推到其他
+主机、transport、后续 invocation 或生产 egress policy。
 
 官方静态策略只扫描 `package.json`、`src/` 和部分 `scripts/`，显式排除 `SKILL.md`。当前八个 Skill
 均只有 `SKILL.md`，所以官方兼容目标集为 0，结论必须是

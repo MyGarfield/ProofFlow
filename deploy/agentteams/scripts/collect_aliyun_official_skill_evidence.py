@@ -23,7 +23,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-SCHEMA_VERSION = "1.1"
+SCHEMA_VERSION = "1.2"
 CLAIM_LEVEL = "OFFLINE_PINNED_SOURCE_AND_STATIC_CONTRACT_REPLAY_ONLY"
 PROOFFLOW_BASE_COMMIT = "b63eeb60d1072c73d2d0d1d6061b3c8f800487a4"
 UPSTREAM_REPOSITORY = "https://github.com/aliyun/alibabacloud-aiops-skills"
@@ -35,6 +35,20 @@ UPSTREAM_REPOSITORY_PATH = (
 VENDORED_PATH = "third_party/aliyun/alibabacloud-openclaw-skill-security-scan/upstream"
 SANDBOX_PROFILE = "(version 1) (allow default) (deny network*)"
 OFFICIAL_EMPTY_TARGET_REASON = "OFFICIAL_TARGET_POLICY_EXCLUDES_SKILL_MD_ONLY_INPUTS"
+NETWORK_POSITIVE_CONTROL = "LOOPBACK_IPV4_TCP_CONNECT_SUCCEEDED"
+PYTHON_LAUNCHER_PATH = Path("/usr/bin/python3")
+EXPECTED_PYTHON_LAUNCHER_SHA256 = (
+    "sha256:179301dcb41ea78accc3fa0048a7e6f6710d891945a751a34addd622020c1818"
+)
+EXPECTED_RESOLVED_PYTHON_PATH = Path(
+    "/Library/Developer/CommandLineTools/Library/Frameworks/"
+    "Python3.framework/Versions/3.9/bin/python3.9"
+)
+EXPECTED_RESOLVED_PYTHON_SHA256 = (
+    "sha256:bdea59019a38eb6600cc9e71e984a97fedadc406448431281e7657030f54987e"
+)
+UPSTREAM_ROOT_TREE = "c0d8dde900cce28dd7b07321a873cca1efa40d94"
+UPSTREAM_SUBTREE_TREE = "3f097e3281d89bb59ce9a638e846070d47bcbcdc"
 
 SOURCE_DIGESTS = {
     "SKILL.md": "sha256:d5df78b1d78361596b626fb129567e2fb69eb65002de7545e451b1f648311e80",
@@ -57,6 +71,17 @@ SOURCE_DIGESTS = {
     "scripts/skill_zip_packager.sh": (
         "sha256:f61362ef8c2a3ba6ecf7e4f34740757dfb35b017def5e5bd5378818583824a47"
     ),
+}
+
+SOURCE_GIT_BLOB_OIDS = {
+    "SKILL.md": "2a30f79d7ec60fd6e54b3a6ecf6d72a1e54ce435",
+    "assets/LICENSE.txt": "80e4229339bf299202b1246d82d1d83174617b93",
+    "references/baseline.md": "075624512c0cc00ffe89527c5e39d94fc299370f",
+    "references/report_template.md": "1d4c3f14ee400b589cc0c961614ad3e492ad417e",
+    "references/skillaudit.md": "3f254b6e1ac435d74b3faaf3a4ebfb18531af188",
+    "scripts/basic_udf.sh": "9b4c85153c448c9b858aba4e410059fba1db7afa",
+    "scripts/main.sh": "ee8070ae54d9039a930f489b8f85f2de3c22ce9c",
+    "scripts/skill_zip_packager.sh": "f4cd0fdc47dfd8fe0d0c43e9e524a3a4cf59781d",
 }
 
 EXPECTED_SKILLS = (
@@ -121,12 +146,20 @@ FIXED_ENVIRONMENT = {
     "LANG": "C",
     "LC_ALL": "C",
     "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+    "PROOFFLOW_NETWORK_POSITIVE_CONTROL": NETWORK_POSITIVE_CONTROL,
     "PROOFFLOW_NETWORK_SANDBOX": "macos-sandbox-exec-deny-network-v1",
     "PYTHONDONTWRITEBYTECODE": "1",
     "PYTHONHASHSEED": "0",
     "REPORT_LANG": "zh",
 }
-OPTIONAL_OS_ENVIRONMENT = {"TMPDIR", "__CF_USER_TEXT_ENCODING"}
+OPTIONAL_OS_ENVIRONMENT = {
+    "CPATH",
+    "LIBRARY_PATH",
+    "MANPATH",
+    "SDKROOT",
+    "TMPDIR",
+    "__CF_USER_TEXT_ENCODING",
+}
 SENSITIVE_ENVIRONMENT_NAMES = {
     "ALL_PROXY",
     "AWS_ACCESS_KEY_ID",
@@ -164,11 +197,14 @@ def _canonical_sandbox_command(collected_at: str) -> list[str]:
         "REPORT_LANG=zh",
         "PYTHONDONTWRITEBYTECODE=1",
         "PYTHONHASHSEED=0",
+        f"PROOFFLOW_NETWORK_POSITIVE_CONTROL={NETWORK_POSITIVE_CONTROL}",
         "PROOFFLOW_NETWORK_SANDBOX=macos-sandbox-exec-deny-network-v1",
         "/usr/bin/sandbox-exec",
         "-p",
         SANDBOX_PROFILE,
-        "<python3>",
+        "/usr/bin/python3",
+        "-I",
+        "-S",
         "<bounded-ephemeral>/collector.py",
         "--source-root",
         "<bounded-ephemeral>/source",
@@ -182,6 +218,84 @@ def _canonical_sandbox_command(collected_at: str) -> list[str]:
 def _canonical_json_sha256(value: Any) -> str:
     payload = json.dumps(value, ensure_ascii=True, separators=(",", ":")).encode("utf-8")
     return sha256_bytes(payload)
+
+
+def _git_object_oid(object_type: str, payload: bytes) -> str:
+    header = f"{object_type} {len(payload)}\0".encode()
+    # Git's object format mandates SHA-1; this is identity reconstruction, not a safety digest.
+    return hashlib.sha1(header + payload).hexdigest()
+
+
+def _git_tree_oid(source_records: list[dict[str, Any]]) -> str:
+    tree: dict[str, Any] = {}
+    for record in source_records:
+        parts = record["path"].split("/")
+        node = tree
+        for part in parts[:-1]:
+            node = node.setdefault(part, {})
+        node[parts[-1]] = record
+
+    def encode_tree(node: dict[str, Any]) -> str:
+        entries: list[tuple[bytes, bytes]] = []
+        for name, value in node.items():
+            encoded_name = name.encode("utf-8")
+            if isinstance(value, dict) and "git_blob_oid" not in value:
+                oid = encode_tree(value)
+                sort_key = encoded_name + b"/"
+                entry = b"40000 " + encoded_name + b"\0" + bytes.fromhex(oid)
+            else:
+                oid = value["git_blob_oid"]
+                sort_key = encoded_name
+                entry = value["git_mode"].encode("ascii") + b" " + encoded_name + b"\0"
+                entry += bytes.fromhex(oid)
+            entries.append((sort_key, entry))
+        body = b"".join(entry for _key, entry in sorted(entries))
+        return _git_object_oid("tree", body)
+
+    return encode_tree(tree)
+
+
+def _secure_file_record(path: Path) -> dict[str, Any]:
+    resolved = path.resolve(strict=True)
+    metadata = resolved.stat()
+    mode = metadata.st_mode & 0o777
+    if metadata.st_uid != 0 or mode & 0o022:
+        raise CollectionError("interpreter path is not root-owned and non-writable")
+    return {
+        "path": resolved.as_posix(),
+        "sha256": sha256_bytes(resolved.read_bytes()),
+        "owner_uid": metadata.st_uid,
+        "owner_gid": metadata.st_gid,
+        "mode": f"{mode:04o}",
+        "bytes": metadata.st_size,
+    }
+
+
+def _interpreter_record() -> dict[str, Any]:
+    if platform.system() != "Darwin":
+        raise CollectionError("the recorded interpreter boundary is Darwin-only")
+    if not sys.flags.isolated or not sys.flags.no_site or "site" in sys.modules:
+        raise CollectionError("collector requires Python -I -S isolation")
+    launcher = _secure_file_record(PYTHON_LAUNCHER_PATH)
+    resolved = _secure_file_record(Path(sys.executable))
+    if launcher["path"] != PYTHON_LAUNCHER_PATH.as_posix():
+        raise CollectionError("Python launcher path changed")
+    if launcher["sha256"] != EXPECTED_PYTHON_LAUNCHER_SHA256:
+        raise CollectionError("Python launcher digest changed")
+    if resolved["path"] != EXPECTED_RESOLVED_PYTHON_PATH.as_posix():
+        raise CollectionError("resolved Python path changed")
+    if resolved["sha256"] != EXPECTED_RESOLVED_PYTHON_SHA256:
+        raise CollectionError("resolved Python digest changed")
+    if sys.version_info < (3, 9):  # noqa: UP036 - runner intentionally audits system Python.
+        raise CollectionError("root-owned system Python is too old")
+    return {
+        "invoked": launcher,
+        "resolved": resolved,
+        "python_version": platform.python_version(),
+        "isolated_flag": True,
+        "no_site_flag": True,
+        "site_module_loaded": False,
+    }
 
 
 def _regular_files(root: Path) -> list[Path]:
@@ -229,6 +343,26 @@ def _validate_environment() -> tuple[list[str], list[str], Path]:
     return sorted(observed), injected, temp_root
 
 
+def _run_network_positive_control() -> None:
+    listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    accepted: socket.socket | None = None
+    listener.settimeout(1)
+    client.settimeout(1)
+    try:
+        listener.bind(("127.0.0.1", 0))
+        listener.listen(1)
+        client.connect(listener.getsockname())
+        accepted, _address = listener.accept()
+    except OSError as exc:
+        raise CollectionError("IPv4 TCP loopback positive control failed") from exc
+    finally:
+        if accepted is not None:
+            accepted.close()
+        client.close()
+        listener.close()
+
+
 def _require_network_denied() -> dict[str, Any]:
     probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     probe.settimeout(0.25)
@@ -239,17 +373,27 @@ def _require_network_denied() -> dict[str, Any]:
             raise CollectionError("network probe failed for an unexpected reason") from exc
         return {
             "mechanism": "MACOS_SANDBOX_EXEC_DENY_NETWORK_ALL",
-            "scope": "SANDBOXED_COLLECTION_INVOCATION_ONLY",
+            "scope": "LOCAL_DARWIN_SEATBELT_COLLECTION_INVOCATION_ONLY",
             "enforced": True,
+            "enforcement_test_scope": "IPV4_TCP_LOOPBACK_ONLY",
             "sandbox_profile": SANDBOX_PROFILE,
             "sandbox_profile_sha256": sha256_bytes(SANDBOX_PROFILE.encode("utf-8")),
-            "probe_target_class": "LOOPBACK_TCP_DISCARD_PORT",
-            "probe_status": "BLOCKED_EPERM",
-            "probe_errno": errno.EPERM,
+            "positive_control": {
+                "phase": "PRE_SANDBOX_SAME_HOST",
+                "transport": "IPV4_TCP_LOOPBACK",
+                "status": NETWORK_POSITIVE_CONTROL,
+            },
+            "negative_control": {
+                "phase": "IN_SANDBOX_COLLECTOR",
+                "target_class": "LOOPBACK_TCP_DISCARD_PORT",
+                "status": "BLOCKED_EPERM",
+                "errno": errno.EPERM,
+            },
             "external_network_observed": False,
             "observation_semantics": (
-                "Collector and descendants could not connect through network sockets; "
-                "no claim is made about processes outside this sandbox."
+                "A same-host IPv4/TCP positive control succeeded before Seatbelt, then the "
+                "sandboxed IPv4/TCP probe was denied with EPERM. This does not verify other hosts, "
+                "transports, invocations, or filesystem read confinement."
             ),
         }
     except OSError as exc:
@@ -259,7 +403,9 @@ def _require_network_denied() -> dict[str, Any]:
     raise CollectionError("network probe unexpectedly connected")
 
 
-def _source_inventory(source_root: Path) -> tuple[list[dict[str, Any]], str]:
+def _source_inventory(
+    source_root: Path,
+) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]], str]:
     files = _regular_files(source_root)
     paths = [item.relative_to(source_root).as_posix() for item in files]
     if paths != sorted(SOURCE_DIGESTS):
@@ -271,8 +417,23 @@ def _source_inventory(source_root: Path) -> tuple[list[dict[str, Any]], str]:
         digest = sha256_bytes(payload)
         if digest != SOURCE_DIGESTS[relative_path]:
             raise CollectionError("upstream source digest mismatch")
-        records.append({"path": relative_path, "sha256": digest, "bytes": len(payload)})
-    return records, (source_root / "scripts/main.sh").read_text(encoding="utf-8")
+        git_blob_oid = _git_object_oid("blob", payload)
+        if git_blob_oid != SOURCE_GIT_BLOB_OIDS[relative_path]:
+            raise CollectionError("upstream source Git blob OID mismatch")
+        records.append(
+            {
+                "path": relative_path,
+                "sha256": digest,
+                "bytes": len(payload),
+                "git_mode": "100644",
+                "git_object_type": "blob",
+                "git_blob_oid": git_blob_oid,
+            }
+        )
+    if _git_tree_oid(records) != UPSTREAM_SUBTREE_TREE:
+        raise CollectionError("upstream subtree Git OID mismatch")
+    source_map = {record["path"]: record for record in records}
+    return records, source_map, (source_root / "scripts/main.sh").read_text(encoding="utf-8")
 
 
 def _audit_implementation(source_root: Path, main_text: str) -> dict[str, Any]:
@@ -419,13 +580,41 @@ def collect(source_root: Path, skills_root: Path, collected_at: str) -> dict[str
     if timestamp.tzinfo is None:
         raise CollectionError("collected-at must include a timezone")
     environment_names, injected_names, temp_root = _validate_environment()
+    interpreter = _interpreter_record()
     network = _require_network_denied()
     isolated_source = _require_ephemeral_path(source_root, temp_root)
     isolated_skills = _require_ephemeral_path(skills_root, temp_root)
-    source_files, main_text = _source_inventory(isolated_source)
+    source_files, source_map, main_text = _source_inventory(isolated_source)
     implementation = _audit_implementation(isolated_source, main_text)
     skill_inputs, results = _skill_inventory(isolated_skills)
     canonical_command = _canonical_sandbox_command(collected_at)
+    git_object_manifest = {
+        "object_format": "sha1",
+        "tag_ref": f"refs/tags/{UPSTREAM_TAG}",
+        "tag_object_type": "commit",
+        "tag_ref_target": UPSTREAM_COMMIT,
+        "commit": UPSTREAM_COMMIT,
+        "root_tree": UPSTREAM_ROOT_TREE,
+        "subtree_path": UPSTREAM_REPOSITORY_PATH,
+        "subtree_tree": UPSTREAM_SUBTREE_TREE,
+        "entry_source": "official_source.source_files",
+        "entry_count": 8,
+        "vendored_blob_oids_recomputed": True,
+        "subtree_tree_recomputed": True,
+        "tag_to_commit_offline_verified": False,
+        "commit_to_root_tree_offline_verified": False,
+        "provenance_semantics": (
+            "Vendored blob and subtree OIDs are recomputed offline. The lightweight tag target, "
+            "commit, and root tree remain an unsigned point-in-time public Git observation."
+        ),
+    }
+    command_binding = {
+        "canonical_argv_sha256": _canonical_json_sha256(canonical_command),
+        "sandbox_profile_sha256": network["sandbox_profile_sha256"],
+        "interpreter_invoked_sha256": interpreter["invoked"]["sha256"],
+        "interpreter_resolved_sha256": interpreter["resolved"]["sha256"],
+        "source_subtree_tree": git_object_manifest["subtree_tree"],
+    }
     return {
         "$schema": "./aliyun-official-skill-offline-preflight.schema.json",
         "schema_version": SCHEMA_VERSION,
@@ -456,10 +645,11 @@ def collect(source_root: Path, skills_root: Path, collected_at: str) -> dict[str
                 "content_reverified_by_hash_inside_sandbox": True,
             },
             "source_files": source_files,
+            "git_object_manifest": git_object_manifest,
             "license": {
                 "spdx_expression": "MIT",
                 "path": "assets/LICENSE.txt",
-                "sha256": SOURCE_DIGESTS["assets/LICENSE.txt"],
+                "sha256": source_map["assets/LICENSE.txt"]["sha256"],
                 "copyright": "Copyright (c) 2026 AliyunSecAI",
                 "license_text_vendored": True,
             },
@@ -468,7 +658,8 @@ def collect(source_root: Path, skills_root: Path, collected_at: str) -> dict[str
         "execution_boundary": {
             "runner": "PROOFFLOW_INDEPENDENT_OFFLINE_REPLAY_V1",
             "working_copy": "EPHEMERAL_COPY_OF_PINNED_SOURCE_AND_8_PUBLIC_SKILLS",
-            "python_version": platform.python_version(),
+            "python_version": interpreter["python_version"],
+            "interpreter": interpreter,
             "environment_cleared_before_process_start": True,
             "environment_names": environment_names,
             "os_injected_environment_names": injected_names,
@@ -477,20 +668,19 @@ def collect(source_root: Path, skills_root: Path, collected_at: str) -> dict[str
             "home_directory_class": "EMPTY_SENTINEL_DIRECTORY",
             "temporary_directory_class": "BOUNDED_EPHEMERAL_DIRECTORY",
             "network": network,
-            "command_receipt": {
-                "canonicalization": (
-                    "COMPACT_JSON_UTF8_ARGV_WITH_TMP_ROOT_AND_PYTHON_PATH_REDACTED"
-                ),
+            "command_contract": {
+                "canonicalization": "COMPACT_JSON_UTF8_ARGV_WITH_ONLY_TMP_ROOT_REDACTED",
                 "canonical_argv": canonical_command,
                 "canonical_argv_sha256": _canonical_json_sha256(canonical_command),
-                "sandbox_exec_exit_code": 0,
-                "exit_code_semantics": (
-                    "The committed artifact was retained only after the runner observed "
-                    "exit code 0 from sandbox-exec; this is not an upstream main.sh result."
+                "binding_components": command_binding,
+                "binding_sha256": _canonical_json_sha256(command_binding),
+                "sandbox_exec_exit_status": "NOT_VERIFIED_IN_COLLECTOR_ARTIFACT",
+                "exit_status_reason_code": (
+                    "COLLECTOR_CANNOT_OBSERVE_PARENT_SANDBOX_EXEC_PROCESS_EXIT"
                 ),
             },
-            "credential_values_read": False,
-            "standard_openclaw_directories_read": False,
+            "credential_read_status": "NOT_OBSERVED_NOT_OS_ENFORCED",
+            "openclaw_config_read_status": "NOT_OBSERVED_NOT_OS_ENFORCED",
             "real_openclaw_invoked": False,
             "live_agentteams_manager_accessed": False,
             "live_agentteams_worker_accessed": False,
@@ -500,7 +690,7 @@ def collect(source_root: Path, skills_root: Path, collected_at: str) -> dict[str
         "scan": {
             "official_rule_source": {
                 "path": "scripts/main.sh",
-                "sha256": SOURCE_DIGESTS["scripts/main.sh"],
+                "sha256": source_map["scripts/main.sh"]["sha256"],
                 "scenario_count": 12,
                 "pattern_invocation_count": 118,
             },
@@ -538,17 +728,31 @@ def collect(source_root: Path, skills_root: Path, collected_at: str) -> dict[str
             "NO_CLOUD_INTELLIGENCE_OR_DEEP_ANALYSIS",
             "NO_WORKER_SKILL_CONSUMPTION_RECEIPT",
             "UNSIGNED_POINT_IN_TIME_EVIDENCE",
+            "FILESYSTEM_READ_ALLOWLIST_NOT_ENFORCED",
+            "CREDENTIAL_AND_CONFIG_READS_NOT_VERIFIED",
+            "SANDBOX_EXEC_EXIT_NOT_BOUND_TO_ARTIFACT",
+            "NETWORK_ENFORCEMENT_TEST_LIMITED_TO_LOCAL_IPV4_TCP",
         ],
     }
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--source-root", required=True, type=Path)
-    parser.add_argument("--skills-root", required=True, type=Path)
-    parser.add_argument("--collected-at", required=True)
+    parser.add_argument("--positive-control-only", action="store_true")
+    parser.add_argument("--source-root", type=Path)
+    parser.add_argument("--skills-root", type=Path)
+    parser.add_argument("--collected-at")
     arguments = parser.parse_args()
     try:
+        if arguments.positive_control_only:
+            if any((arguments.source_root, arguments.skills_root, arguments.collected_at)):
+                raise CollectionError("positive-control mode rejects collection arguments")
+            _interpreter_record()
+            _run_network_positive_control()
+            print(NETWORK_POSITIVE_CONTROL)
+            return 0
+        if not arguments.source_root or not arguments.skills_root or not arguments.collected_at:
+            raise CollectionError("collection arguments are required")
         document = collect(arguments.source_root, arguments.skills_root, arguments.collected_at)
     except (CollectionError, OSError, UnicodeError) as exc:
         print(f"collection failed: {type(exc).__name__}", file=sys.stderr)

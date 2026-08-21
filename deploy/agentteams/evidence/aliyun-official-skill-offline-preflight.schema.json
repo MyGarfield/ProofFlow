@@ -21,7 +21,7 @@
   ],
   "properties": {
     "$schema": {"const": "./aliyun-official-skill-offline-preflight.schema.json"},
-    "schema_version": {"const": "1.1"},
+    "schema_version": {"const": "1.2"},
     "evidence_id": {"const": "aliyun-official-skill-offline-preflight-2026-08-21"},
     "collected_at": {"type": "string", "format": "date-time"},
     "claim_level": {"const": "OFFLINE_PINNED_SOURCE_AND_STATIC_CONTRACT_REPLAY_ONLY"},
@@ -63,6 +63,7 @@
         "modification_status",
         "acquisition",
         "source_files",
+        "git_object_manifest",
         "license"
       ],
       "properties": {
@@ -97,6 +98,48 @@
           "minItems": 8,
           "maxItems": 8,
           "items": {"$ref": "#/$defs/fileRecord"}
+        },
+        "git_object_manifest": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "object_format",
+            "tag_ref",
+            "tag_object_type",
+            "tag_ref_target",
+            "commit",
+            "root_tree",
+            "subtree_path",
+            "subtree_tree",
+            "entry_source",
+            "entry_count",
+            "vendored_blob_oids_recomputed",
+            "subtree_tree_recomputed",
+            "tag_to_commit_offline_verified",
+            "commit_to_root_tree_offline_verified",
+            "provenance_semantics"
+          ],
+          "properties": {
+            "object_format": {"const": "sha1"},
+            "tag_ref": {
+              "const": "refs/tags/alibabacloud-openclaw-skill-security-scan-0.0.1"
+            },
+            "tag_object_type": {"const": "commit"},
+            "tag_ref_target": {"const": "3cdce6a5ead21b4aec740d97ae30eb0b71c1c786"},
+            "commit": {"const": "3cdce6a5ead21b4aec740d97ae30eb0b71c1c786"},
+            "root_tree": {"const": "c0d8dde900cce28dd7b07321a873cca1efa40d94"},
+            "subtree_path": {
+              "const": "skills/security/riskmanagement/alibabacloud-openclaw-skill-security-scan"
+            },
+            "subtree_tree": {"const": "3f097e3281d89bb59ce9a638e846070d47bcbcdc"},
+            "entry_source": {"const": "official_source.source_files"},
+            "entry_count": {"const": 8},
+            "vendored_blob_oids_recomputed": {"const": true},
+            "subtree_tree_recomputed": {"const": true},
+            "tag_to_commit_offline_verified": {"const": false},
+            "commit_to_root_tree_offline_verified": {"const": false},
+            "provenance_semantics": {"type": "string", "minLength": 100, "maxLength": 400}
+          }
         },
         "license": {
           "type": "object",
@@ -169,6 +212,7 @@
         "runner",
         "working_copy",
         "python_version",
+        "interpreter",
         "environment_cleared_before_process_start",
         "environment_names",
         "os_injected_environment_names",
@@ -177,9 +221,9 @@
         "home_directory_class",
         "temporary_directory_class",
         "network",
-        "command_receipt",
-        "credential_values_read",
-        "standard_openclaw_directories_read",
+        "command_contract",
+        "credential_read_status",
+        "openclaw_config_read_status",
         "real_openclaw_invoked",
         "live_agentteams_manager_accessed",
         "live_agentteams_worker_accessed",
@@ -188,7 +232,55 @@
       "properties": {
         "runner": {"const": "PROOFFLOW_INDEPENDENT_OFFLINE_REPLAY_V1"},
         "working_copy": {"const": "EPHEMERAL_COPY_OF_PINNED_SOURCE_AND_8_PUBLIC_SKILLS"},
-        "python_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+        "python_version": {"const": "3.9.6"},
+        "interpreter": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "invoked",
+            "resolved",
+            "python_version",
+            "isolated_flag",
+            "no_site_flag",
+            "site_module_loaded"
+          ],
+          "properties": {
+            "invoked": {
+              "allOf": [
+                {"$ref": "#/$defs/systemFileRecord"},
+                {
+                  "properties": {
+                    "path": {"const": "/usr/bin/python3"},
+                    "sha256": {
+                      "const": "sha256:179301dcb41ea78accc3fa0048a7e6f6710d891945a751a34addd622020c1818"
+                    },
+                    "bytes": {"const": 118928}
+                  }
+                }
+              ]
+            },
+            "resolved": {
+              "allOf": [
+                {"$ref": "#/$defs/systemFileRecord"},
+                {
+                  "properties": {
+                    "path": {
+                      "const": "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/bin/python3.9"
+                    },
+                    "sha256": {
+                      "const": "sha256:bdea59019a38eb6600cc9e71e984a97fedadc406448431281e7657030f54987e"
+                    },
+                    "bytes": {"const": 102352}
+                  }
+                }
+              ]
+            },
+            "python_version": {"const": "3.9.6"},
+            "isolated_flag": {"const": true},
+            "no_site_flag": {"const": true},
+            "site_module_loaded": {"const": false}
+          }
+        },
         "environment_cleared_before_process_start": {"const": true},
         "environment_names": {"$ref": "#/$defs/stringSet"},
         "os_injected_environment_names": {"$ref": "#/$defs/stringSet"},
@@ -203,54 +295,96 @@
             "mechanism",
             "scope",
             "enforced",
+            "enforcement_test_scope",
             "sandbox_profile",
             "sandbox_profile_sha256",
-            "probe_target_class",
-            "probe_status",
-            "probe_errno",
+            "positive_control",
+            "negative_control",
             "external_network_observed",
             "observation_semantics"
           ],
           "properties": {
             "mechanism": {"const": "MACOS_SANDBOX_EXEC_DENY_NETWORK_ALL"},
-            "scope": {"const": "SANDBOXED_COLLECTION_INVOCATION_ONLY"},
+            "scope": {"const": "LOCAL_DARWIN_SEATBELT_COLLECTION_INVOCATION_ONLY"},
             "enforced": {"const": true},
+            "enforcement_test_scope": {"const": "IPV4_TCP_LOOPBACK_ONLY"},
             "sandbox_profile": {"const": "(version 1) (allow default) (deny network*)"},
             "sandbox_profile_sha256": {"$ref": "#/$defs/sha256"},
-            "probe_target_class": {"const": "LOOPBACK_TCP_DISCARD_PORT"},
-            "probe_status": {"const": "BLOCKED_EPERM"},
-            "probe_errno": {"const": 1},
+            "positive_control": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["phase", "transport", "status"],
+              "properties": {
+                "phase": {"const": "PRE_SANDBOX_SAME_HOST"},
+                "transport": {"const": "IPV4_TCP_LOOPBACK"},
+                "status": {"const": "LOOPBACK_IPV4_TCP_CONNECT_SUCCEEDED"}
+              }
+            },
+            "negative_control": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["phase", "target_class", "status", "errno"],
+              "properties": {
+                "phase": {"const": "IN_SANDBOX_COLLECTOR"},
+                "target_class": {"const": "LOOPBACK_TCP_DISCARD_PORT"},
+                "status": {"const": "BLOCKED_EPERM"},
+                "errno": {"const": 1}
+              }
+            },
             "external_network_observed": {"const": false},
             "observation_semantics": {"type": "string", "minLength": 40, "maxLength": 300}
           }
         },
-        "command_receipt": {
+        "command_contract": {
           "type": "object",
           "additionalProperties": false,
           "required": [
             "canonicalization",
             "canonical_argv",
             "canonical_argv_sha256",
-            "sandbox_exec_exit_code",
-            "exit_code_semantics"
+            "binding_components",
+            "binding_sha256",
+            "sandbox_exec_exit_status",
+            "exit_status_reason_code"
           ],
           "properties": {
             "canonicalization": {
-              "const": "COMPACT_JSON_UTF8_ARGV_WITH_TMP_ROOT_AND_PYTHON_PATH_REDACTED"
+              "const": "COMPACT_JSON_UTF8_ARGV_WITH_ONLY_TMP_ROOT_REDACTED"
             },
             "canonical_argv": {
               "type": "array",
-              "minItems": 23,
-              "maxItems": 23,
+              "minItems": 26,
+              "maxItems": 26,
               "items": {"type": "string", "minLength": 1, "maxLength": 220}
             },
             "canonical_argv_sha256": {"$ref": "#/$defs/sha256"},
-            "sandbox_exec_exit_code": {"const": 0},
-            "exit_code_semantics": {"type": "string", "minLength": 80, "maxLength": 300}
+            "binding_components": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "canonical_argv_sha256",
+                "sandbox_profile_sha256",
+                "interpreter_invoked_sha256",
+                "interpreter_resolved_sha256",
+                "source_subtree_tree"
+              ],
+              "properties": {
+                "canonical_argv_sha256": {"$ref": "#/$defs/sha256"},
+                "sandbox_profile_sha256": {"$ref": "#/$defs/sha256"},
+                "interpreter_invoked_sha256": {"$ref": "#/$defs/sha256"},
+                "interpreter_resolved_sha256": {"$ref": "#/$defs/sha256"},
+                "source_subtree_tree": {"const": "3f097e3281d89bb59ce9a638e846070d47bcbcdc"}
+              }
+            },
+            "binding_sha256": {"$ref": "#/$defs/sha256"},
+            "sandbox_exec_exit_status": {"const": "NOT_VERIFIED_IN_COLLECTOR_ARTIFACT"},
+            "exit_status_reason_code": {
+              "const": "COLLECTOR_CANNOT_OBSERVE_PARENT_SANDBOX_EXEC_PROCESS_EXIT"
+            }
           }
         },
-        "credential_values_read": {"const": false},
-        "standard_openclaw_directories_read": {"const": false},
+        "credential_read_status": {"const": "NOT_OBSERVED_NOT_OS_ENFORCED"},
+        "openclaw_config_read_status": {"const": "NOT_OBSERVED_NOT_OS_ENFORCED"},
         "real_openclaw_invoked": {"const": false},
         "live_agentteams_manager_accessed": {"const": false},
         "live_agentteams_worker_accessed": {"const": false},
@@ -349,15 +483,29 @@
     },
     "limitations": {
       "type": "array",
-      "minItems": 8,
-      "maxItems": 8,
+      "minItems": 12,
+      "maxItems": 12,
       "uniqueItems": true,
       "items": {"type": "string", "pattern": "^[A-Z0-9_]+$"}
     }
   },
   "$defs": {
     "gitCommit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "gitOid": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
     "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "systemFileRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "owner_uid", "owner_gid", "mode", "bytes"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^/(?:usr|Library)/[A-Za-z0-9_./-]+$"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "owner_uid": {"const": 0},
+        "owner_gid": {"const": 0},
+        "mode": {"const": "0755"},
+        "bytes": {"type": "integer", "minimum": 1}
+      }
+    },
     "skillName": {
       "enum": [
         "conflict_detect",
@@ -378,11 +526,21 @@
     "fileRecord": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["path", "sha256", "bytes"],
+      "required": [
+        "path",
+        "sha256",
+        "bytes",
+        "git_mode",
+        "git_object_type",
+        "git_blob_oid"
+      ],
       "properties": {
         "path": {"type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9_./-]+$"},
         "sha256": {"$ref": "#/$defs/sha256"},
-        "bytes": {"type": "integer", "minimum": 1}
+        "bytes": {"type": "integer", "minimum": 1},
+        "git_mode": {"const": "100644"},
+        "git_object_type": {"const": "blob"},
+        "git_blob_oid": {"$ref": "#/$defs/gitOid"}
       }
     },
     "skillInput": {
