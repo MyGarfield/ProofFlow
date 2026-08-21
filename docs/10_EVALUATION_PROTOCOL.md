@@ -21,7 +21,8 @@ Manager 操作员完成，没有 Worker 执行、LLM 推理、Team 任务链或�
   Token、模型或业务成本。
 
 机器可读源与离线门禁位于 [`benchmarks/evaluation/`](../benchmarks/evaluation/)：
-`scenarios.json`、三个 JSON Schema、`suite.py`、CLI 和定向合同测试。它们不启动 Worker、不调用
+`scenarios.json`、公开 `fixtures/manifest.json`、fixture/run-record/verifier schema、`fixture.py`、
+`suite.py`、CLI 和定向合同测试。它们不启动 Worker、不调用
 LLM、不读取 key/help/env、不访问网络。
 
 ## 评分差距矩阵
@@ -161,8 +162,9 @@ false block、重复副作用和 Trace 不完整计数。比例必须带分子�
 
 ## 运行顺序与硬门
 
-1. 冻结公开合成 fixture、规则、公式、scenario manifest、仓库 commit、AgentTeams commit 和模型配置
-   digest；确认没有真实数据、个人信息、key、Cookie 或 env 被采集。
+1. 通过 `benchmarks.evaluation.fixture.validate_fixture_manifest()` 冻结并验证公开合成 fixture、规则、
+   公式、scenario manifest、仓库 commit、AgentTeams commit 和模型配置 digest；确认没有真实数据、
+   个人信息、key、Cookie 或 env 被采集。
 2. 只运行 `deterministic_reference` 的离线合同，作为质量/安全参考；这一步不产生 LLM 或多 Agent
    结果。
 3. 在完成旧 key 撤销和新 key 轮换、并确认不会把 key 暴露在 help/log/env 输出后，采集 one-worker
@@ -171,8 +173,9 @@ false block、重复副作用和 Trace 不完整计数。比例必须带分子�
    `total_worker_containers=6` 以及真实 DAG/Matrix/MCP/Skill/Human receipts；通过后才打开 `six_agent`
    gate。任何一步失败，臂状态保持 `UNKNOWN`。
 5. 运行所有适用场景和故障注入；先写原始 run ledger，再生成汇总，不从汇总反推原始事实。
-6. 用独立 verifier 检查闭集 issue code、对象 hash、Human Gate 对象摘要、跨 tenant、Trace 完整性、
-   duplicate side effects、Token/rate card 和成本完整性。
+6. 用 `benchmarks.evaluation.verifier.verify_run_record` 独立检查闭集 issue code、对象 hash、Human Gate
+   对象摘要、跨 tenant、Trace 完整性、duplicate side effects、Token/rate card 和成本完整性；该 verifier
+   不复用 suite 分类器，避免执行适配器和验收逻辑共享同一错误。
 7. 仅当全部必要字段存在且没有 `UNSAFE_SUCCESS` 时，才允许写该 cell 的 PASS/FAIL；任一安全越界
    立即标记 `UNSAFE_SUCCESS` 并阻断发布。
 
@@ -204,17 +207,20 @@ uv run python -m benchmarks.evaluation.run \
   --output .proofflow/evaluation-protocol-report.json
 
 uv run pytest tests/benchmark/test_evaluation_contracts.py
-uv run ruff format --check benchmarks/evaluation tests/benchmark/test_evaluation_contracts.py
-uv run ruff check benchmarks/evaluation tests/benchmark/test_evaluation_contracts.py
+uv run pytest tests/benchmark/test_evaluation_verifier.py
+uv run ruff format --check benchmarks/evaluation tests/benchmark/test_evaluation_verifier.py
+uv run ruff check benchmarks/evaluation tests/benchmark/test_evaluation_verifier.py
 ```
 
 本次原子交付边界是：
 
 1. `docs/10_EVALUATION_PROTOCOL.md`：评分映射、执行门、失败模式和成本/延迟/可靠性协议；
-2. `benchmarks/evaluation/scenarios.json` + 三个 schema：机器可读场景、Worker evidence 和报告合同；
+2. `benchmarks/evaluation/scenarios.json` + fixture/schema：机器可读场景、公开合成数据和 digest 绑定；
 3. `benchmarks/evaluation/suite.py` + `run.py`：离线 manifest 校验、Worker gate 和四态分类器；
-4. `tests/benchmark/test_evaluation_contracts.py`：定向结构、当前 Stopped 基线阻断、UNKNOWN、
-   UNSAFE_SUCCESS 和闭集 issue code 测试。
+4. `benchmarks/evaluation/run-record.schema.json` + `verifier.py`：独立 run-ledger 合同和 verifier；
+5. `tests/benchmark/test_evaluation_contracts.py` + `test_evaluation_verifier.py`：定向结构、当前 Stopped
+   基线阻断、UNKNOWN、UNSAFE_SUCCESS、闭集 issue code 和 provenance 负例测试。
 
-这些文件不修改 `demo/`、`docs/09`、`tests/e2e/test_demo_server.py`、`deploy/tool-service`、README 或
+这些文件不修改 `demo/`、`docs/09`、`tests/e2e/test_demo_server.py`、`deploy/tool-service`、仓库根
+`README.md` 或
 现有 AgentTeams 资源。
