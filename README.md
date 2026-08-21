@@ -6,6 +6,14 @@ ProofFlow 的目标不是再造一个 Agent Runtime，也不是提供“自动�
 AgentTeams 等协作运行时之上，将 Agent、Skill、证据、规则、确定性计算、审计、人工批准和
 交付物绑定为可复核的证明链。
 
+## 复赛公开材料
+
+- [材料总览与披露边界](submission/public/README.md)
+- [500 字内项目简介](submission/public/PROJECT_SUMMARY_500_CN.md)
+- [答辩方案 PPTX](submission/public/ProofFlow_GOAI_复赛答辩_v2.0.pptx)
+- [答辩方案 PDF](submission/public/ProofFlow_GOAI_复赛答辩_v2.0.pdf)
+- [提交清单与 SHA-256](submission/public/submission-manifest.json)
+
 ## 当前真实状态
 
 状态：`REFERENCE_CORE_VERIFIED / AGENTTEAMS_MANAGER_OPERATOR_SMOKE / EVALUATION_PROTOCOL_VALIDATED_NOT_EXECUTED`
