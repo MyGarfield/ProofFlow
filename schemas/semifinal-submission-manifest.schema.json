@@ -21,13 +21,29 @@
     "demo_url": {"anyOf": [{"$ref": "#/$defs/publicUrl"}, {"type": "null"}]},
     "official": {
       "type": "object",
-      "additionalProperties": true,
+      "additionalProperties": false,
       "required": ["track_url", "handbook_url", "site_config_url", "submission_url"],
       "properties": {
         "track_url": {"$ref": "#/$defs/officialUrl"},
         "handbook_url": {"$ref": "#/$defs/officialUrl"},
         "site_config_url": {"$ref": "#/$defs/officialUrl"},
-        "submission_url": {"$ref": "#/$defs/officialUrl"}
+        "submission_url": {"$ref": "#/$defs/officialUrl"},
+        "snapshot": {
+          "type": "object", "additionalProperties": false,
+          "required": ["opens_at", "closes_at", "zip_max_mib", "cumulative_max_mib", "max_attempts_per_stage", "last_successful_attempt_is_review_version", "preliminary_rejection_locks_stage", "required_fields", "zip_contents", "independent_infra_mp4_upload_slot"],
+          "properties": {
+            "opens_at": {"type": "string", "format": "date-time"},
+            "closes_at": {"type": "string", "format": "date-time"},
+            "zip_max_mib": {"const": 1200},
+            "cumulative_max_mib": {"const": 3600},
+            "max_attempts_per_stage": {"const": 3},
+            "last_successful_attempt_is_review_version": {"const": true},
+            "preliminary_rejection_locks_stage": {"const": true},
+            "required_fields": {"type": "array", "minItems": 4},
+            "zip_contents": {"type": "array", "minItems": 3},
+            "independent_infra_mp4_upload_slot": {"const": false}
+          }
+        }
       }
     },
     "submission_fields": {
@@ -55,7 +71,43 @@
         "evidence_digests": {"type": "object", "minProperties": 1, "additionalProperties": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}}
       }
     },
-    "gate_evidence": {"type": "object", "additionalProperties": true},
+    "gate_evidence": {
+      "type": "object", "additionalProperties": false,
+      "required": ["eligibility", "real_agent_collaboration", "official_config_recheck"],
+      "properties": {
+        "eligibility": {"$ref": "#/$defs/evidenceGate"},
+        "real_agent_collaboration": {
+          "allOf": [
+            {"$ref": "#/$defs/evidenceGate"},
+            {
+              "type": "object",
+              "required": ["counts"],
+              "properties": {
+                "counts": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["worker_execution", "task_event", "matrix_event", "mcp_receipt", "skill_receipt", "trace", "human_gate_receipt"],
+                  "properties": {
+                    "worker_execution": {"type": "integer", "minimum": 0},
+                    "task_event": {"type": "integer", "minimum": 0},
+                    "matrix_event": {"type": "integer", "minimum": 0},
+                    "mcp_receipt": {"type": "integer", "minimum": 0},
+                    "skill_receipt": {"type": "integer", "minimum": 0},
+                    "trace": {"type": "integer", "minimum": 0},
+                    "human_gate_receipt": {"type": "integer", "minimum": 0}
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "official_config_recheck": {
+          "type": "object", "additionalProperties": false,
+          "required": ["observed_at", "max_age_hours"],
+          "properties": {"observed_at": {"anyOf": [{"type": "string", "format": "date-time"}, {"type": "null"}]}, "max_age_hours": {"type": "integer", "minimum": 1, "maximum": 24}}
+        }
+      }
+    },
     "gate": {
       "type": "object", "additionalProperties": false,
       "required": ["status", "reasons", "warnings"],
@@ -82,10 +134,10 @@
     "selection_claim": {"const": false},
     "integrity": {
       "type": "object", "additionalProperties": false,
-      "required": ["algorithm", "manifest_sha256", "attestation", "signature"],
+      "required": ["algorithm", "subject_binding_sha256", "attestation", "signature"],
       "properties": {
         "algorithm": {"const": "SHA-256"},
-        "manifest_sha256": {"pattern": "^sha256:[0-9a-f]{64}$", "type": "string"},
+        "subject_binding_sha256": {"pattern": "^sha256:[0-9a-f]{64}$", "type": "string"},
         "attestation": {"const": "NOT_PROVIDED"},
         "signature": {"const": "NOT_PROVIDED"}
       }
@@ -111,6 +163,11 @@
       "type": "string",
       "pattern": "^https://[^/\\s]+(?:/[^\\s]*)?$",
       "not": {"pattern": "(?:@|localhost|127\\.0\\.0\\.1|#)"}
+    },
+    "evidenceGate": {
+      "type": "object", "additionalProperties": false,
+      "required": ["evidence_refs"],
+      "properties": {"evidence_refs": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["path", "sha256"], "properties": {"path": {"type": "string"}, "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}}}}}
     }
   }
 }

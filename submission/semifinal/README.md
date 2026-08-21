@@ -17,7 +17,7 @@ attestation。
 
 快照是工程输入，不是提交时的权威结论。提交前必须重新读取动态配置、赛道页和手册，核对
 `opensAt`/`closesAt`、字段、ZIP 大小和剩余次数，并把重查时间和原始响应摘要写入本地发布记录；
-没有重查就不能得到 `SUBMIT_READY`。当前快照为动态入口显示的 2026-08-25 23:59（北京时间）开放、
+没有重查就不能得到 `PRE_SUBMIT_READY`。当前快照为动态入口显示的 2026-08-25 23:59（北京时间）开放、
 2026-09-03 23:59（北京时间）截止；若平台返回不同值，以提交前重查结果为准。
 
 提交表单是作品名、代码仓库 URL、Demo URL 和一个必填 ZIP。ZIP 上限为 1200 MiB，赛段累计上限为
@@ -47,9 +47,10 @@ uv run python scripts/build_semifinal_zip.py \
 SHA-256；Identity 与 Skill 仍是单独的必交组件，不冒充上下文选项。无 RAG 或 Agent memory 运行证据。
 
 构建器拒绝：allowlist 外文件、路径穿越、symlink、私密目录/凭据、密钥或 PII 迹象、缓存、未跟踪或
-已修改的 Git 漂移、缺 deck/PDF、Identity/Skill、入口/依赖/样例/证据/披露/许可证，以及超过 1200 MiB
+已修改的 Git 漂移、缺 deck/PDF、Identity/Skill、AgentTeams 资源/Skill/MCP/tool-service、入口/依赖/样例/证据/披露/许可证，以及超过 1200 MiB
 的 ZIP。manifest 还固定 artifact inventory 的每个路径、字节数和 SHA-256；它明确写出
 `portal_receipt: null`、`selection_claim: false`、`attestation/signature: NOT_PROVIDED`。
+正式发布还必须提供公开 Demo URL 或 `demo_offline_fallback` 类别中的离线视频/字幕回放；当前两者均未提供。
 将布尔配置改成 `true` 不足以过门：资格和真实协作必须有 allowlist 内的 schema-bound evidence refs
 及匹配摘要，真实协作还必须同时有 Worker execution、task/Matrix、MCP/Skill、Trace、Human Gate
 receipt 计数；动态配置重查必须有带时区的 `observed_at` 且在 freshness 窗口内。
@@ -61,7 +62,8 @@ receipt 计数；动态配置重查必须有带时区的 `observed_at` 且在 fr
 3. 采集真实 Agent 协作证据（Worker execution、任务/Matrix、MCP/Skill receipt、Trace 和 Human Gate）；
    Manager smoke、CR、健康接口、Skill 文件哈希和 Stopped Worker 不能替代它。
 4. 执行 `uv run pytest tests/submission`，检查 ZIP 和报告的 SHA-256/大小，解压后再验证 manifest。
-5. 仅在报告是 `SUBMIT_READY` 时人工进入 portal。提交后保存平台真实回执；没有回执就保持未知，不得
+5. 仅在报告是 `PRE_SUBMIT_READY` 时人工进入 portal。提交后保存平台真实回执并另行标记
+   `SUBMITTED_RECEIPT_VERIFIED`；没有回执就保持未知，不得
    用邮件或 GitHub 状态补写回执。
 
 决赛出行计划内部写作 9/22–23，并在 9/21 冻结；这是团队日程目标，不是官方已经确认的赛程。

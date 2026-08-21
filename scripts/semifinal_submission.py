@@ -14,6 +14,7 @@ import subprocess
 import zipfile
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from io import BytesIO
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal
 
@@ -110,6 +111,14 @@ def sha256_bytes(data: bytes) -> str:
     return "sha256:" + hashlib.sha256(data).hexdigest()
 
 
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return "sha256:" + digest.hexdigest()
+
+
 def load_config(path: Path) -> dict[str, Any]:
     try:
         config = _strict_load_json(path.read_text(encoding="utf-8"), source=str(path))
@@ -193,6 +202,23 @@ def _scan_bytes(relative: str, data: bytes) -> None:
     # however, are rejected for every file type.
     if _SECRET_RE.search(data):
         raise SubmissionBuildError(f"secret-like material detected in {relative}")
+    if Path(relative).suffix.lower() == ".pptx":
+        try:
+            with zipfile.ZipFile(BytesIO(data)) as office:
+                total = 0
+                for member in office.infolist():
+                    if member.is_dir():
+                        continue
+                    total += member.file_size
+                    if total > 32 * 1024 * 1024 or len(member.filename) > 512:
+                        raise SubmissionBuildError(f"office scan limit exceeded in {relative}")
+                    member_data = office.read(member)
+                    if _SECRET_RE.search(member_data) or _PII_RE.search(member_data):
+                        raise SubmissionBuildError(
+                            f"secret/PII-like material detected in {relative}"
+                        )
+        except zipfile.BadZipFile as exc:
+            raise SubmissionBuildError(f"invalid office container: {relative}") from exc
     if Path(relative).suffix.lower() not in {
         ".pdf",
         ".pptx",
@@ -257,7 +283,11 @@ def _required_artifact_paths(config: dict[str, Any]) -> dict[str, list[str]]:
     for category, values in raw.items():
         if not isinstance(category, str) or not isinstance(values, list):
             raise SubmissionBuildError(f"required_artifacts.{category!r} must be a non-empty list")
-        if not values and category not in {"agent_collaboration_evidence", "eligibility_evidence"}:
+        if not values and category not in {
+            "agent_collaboration_evidence",
+            "eligibility_evidence",
+            "demo_offline_fallback",
+        }:
             raise SubmissionBuildError(f"required_artifacts.{category!r} must be a non-empty list")
         normalized[category] = [
             _safe_relative_path(value, field=f"required_artifacts.{category}") for value in values
@@ -311,8 +341,8 @@ def _validate_gate_evidence(config: dict[str, Any]) -> dict[str, Any]:
         if parsed.tzinfo is None:
             raise SubmissionBuildError("official config observed_at must carry an offset")
     max_age = recheck.get("max_age_hours", 24)
-    if not isinstance(max_age, int) or max_age <= 0:
-        raise SubmissionBuildError("official config max_age_hours must be positive")
+    if not isinstance(max_age, int) or not 0 < max_age <= 24:
+        raise SubmissionBuildError("official config max_age_hours must be between 1 and 24")
     return evidence
 
 
@@ -399,6 +429,28 @@ def _verify_refs(refs: list[dict[str, str]], artifacts: tuple[Artifact, ...]) ->
     )
 
 
+def _validate_evidence_content(
+    root: Path, refs: list[dict[str, str]], expected_type: str, expected_status: str
+) -> bool:
+    for ref in refs:
+        try:
+            payload = _strict_load_json(
+                (root / ref["path"]).read_text(encoding="utf-8"), source=ref["path"]
+            )
+        except (OSError, UnicodeDecodeError, SubmissionBuildError):
+            return False
+        if not isinstance(payload, dict):
+            return False
+        if (
+            payload.get("evidence_type") != expected_type
+            or payload.get("status") != expected_status
+        ):
+            return False
+        if not isinstance(payload.get("schema_version"), str):
+            return False
+    return True
+
+
 def _gate(
     root: Path, config: dict[str, Any], artifacts: tuple[Artifact, ...], mode: str
 ) -> GateReport:
@@ -409,7 +461,9 @@ def _gate(
     if not config.get("demo_url"):
         reasons.append("demo_url_missing")
     eligibility_refs = config["gate_evidence"]["eligibility"]["evidence_refs"]
-    eligibility_valid = _verify_refs(eligibility_refs, artifacts)
+    eligibility_valid = _verify_refs(eligibility_refs, artifacts) and _validate_evidence_content(
+        root, eligibility_refs, "eligibility", "UNLOCKED"
+    )
     if config.get("eligibility_unlocked") is not True or not eligibility_valid:
         reasons.append("eligibility_not_unlocked")
     collaboration = config["gate_evidence"]["real_agent_collaboration"]
@@ -427,7 +481,9 @@ def _gate(
         isinstance(counts.get(key), int) and counts[key] >= 1 for key in required_counts
     )
     collaboration_refs = collaboration["evidence_refs"]
-    collaboration_valid = _verify_refs(collaboration_refs, artifacts)
+    collaboration_valid = _verify_refs(
+        collaboration_refs, artifacts
+    ) and _validate_evidence_content(root, collaboration_refs, "agent_collaboration_v2", "VERIFIED")
     if (
         config.get("real_agent_collaboration_evidence") is not True
         or not counts_valid
@@ -441,6 +497,7 @@ def _gate(
         parsed = datetime.fromisoformat(observed_at.replace("Z", "+00:00"))
         recheck_valid = (
             parsed.tzinfo is not None
+            and parsed <= datetime.now(UTC)
             and (datetime.now(UTC) - parsed).total_seconds() <= recheck["max_age_hours"] * 3600
         )
     if config.get("official_config_rechecked") is not True or not recheck_valid:
@@ -506,7 +563,7 @@ def build_manifest(
         "selection_claim": False,
         "integrity": {
             "algorithm": "SHA-256",
-            "manifest_sha256": sha256_bytes(
+            "subject_binding_sha256": sha256_bytes(
                 _canonical_json({"artifact_inventory": inventory, "gate": gate.as_dict()})
             ),
             "attestation": "NOT_PROVIDED",
@@ -563,7 +620,7 @@ def build_package(
         "artifact_status": gate.status,
         "zip_path": output.name,
         "zip_size_bytes": zip_size,
-        "zip_sha256": sha256_bytes(output.read_bytes()),
+        "zip_sha256": sha256_file(output),
         "manifest_sha256": sha256_bytes(_canonical_json(manifest)),
         "source_commit": source_commit,
         "gate": gate.as_dict(),
@@ -602,6 +659,33 @@ def validate_manifest(path: Path) -> list[str]:
             paths = [item.get("path") for item in inventory if isinstance(item, dict)]
             if len(paths) != len(set(paths)):
                 messages.append("artifact_inventory: duplicate paths")
+            inventory_by_path = {
+                item.get("path"): item for item in inventory if isinstance(item, dict)
+            }
+            for item in inventory:
+                if not isinstance(item, dict) or not isinstance(item.get("size_bytes"), int):
+                    messages.append("artifact_inventory: invalid size")
+                if (
+                    not isinstance(item, dict)
+                    or not isinstance(item.get("sha256"), str)
+                    or not _SHA256_RE.fullmatch(item.get("sha256", ""))
+                ):
+                    messages.append("artifact_inventory: invalid sha256")
+            required = manifest.get("required_components")
+            if isinstance(required, dict):
+                for category, required_paths in required.items():
+                    if not isinstance(required_paths, list):
+                        messages.append(f"required_components.{category}: must be an array")
+                    elif any(path not in inventory_by_path for path in required_paths):
+                        messages.append(f"required_components.{category}: inventory path missing")
+            integrity = manifest.get("integrity")
+            gate = manifest.get("gate")
+            if isinstance(integrity, dict) and isinstance(gate, dict):
+                expected_binding = sha256_bytes(
+                    _canonical_json({"artifact_inventory": inventory, "gate": gate})
+                )
+                if integrity.get("subject_binding_sha256") != expected_binding:
+                    messages.append("integrity: subject binding digest mismatch")
         status = manifest.get("artifact_status")
         receipt = manifest.get("portal_receipt")
         if status == "SUBMITTED_RECEIPT_VERIFIED" and receipt is None:

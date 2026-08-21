@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import zipfile
 from datetime import UTC, datetime, timedelta
+from io import BytesIO
 from pathlib import Path
 
 import pytest
@@ -14,6 +15,7 @@ from scripts.semifinal_submission import (
     _collect_artifacts,
     _gate,
     _normalize_config,
+    _scan_bytes,
     build_package,
     validate_manifest,
 )
@@ -136,6 +138,35 @@ def test_stale_recheck_is_not_fresh(tmp_path: Path) -> None:
     artifacts = _collect_artifacts(ROOT, normalized)
     gate = _gate(ROOT, normalized, artifacts, "submit-ready")
     assert "official_dynamic_config_not_rechecked" in gate.reasons
+
+
+def test_future_and_huge_recheck_values_fail_closed() -> None:
+    config = json.loads(CONFIG.read_text(encoding="utf-8"))
+    config["gate_evidence"]["official_config_recheck"].update(
+        {"observed_at": (datetime.now(UTC) + timedelta(hours=1)).isoformat(), "max_age_hours": 25}
+    )
+    with pytest.raises(SubmissionBuildError, match="between 1 and 24"):
+        _normalize_config(config)
+
+
+def test_pptx_member_pii_is_scanned() -> None:
+    payload = BytesIO()
+    with zipfile.ZipFile(payload, "w") as archive:
+        archive.writestr("ppt/slides/slide1.xml", "synthetic@example.com")
+    with pytest.raises(SubmissionBuildError, match="PII-like"):
+        _scan_bytes("fake.pptx", payload.getvalue())
+
+
+def test_manifest_inventory_tampering_is_rejected(tmp_path: Path) -> None:
+    output, _ = _build(tmp_path)
+    with zipfile.ZipFile(output) as archive:
+        manifest = json.loads(archive.read(MANIFEST_NAME))
+    manifest["artifact_inventory"][0]["sha256"] = "sha256:" + "f" * 64
+    forged = tmp_path / "forged-manifest.json"
+    forged.write_text(json.dumps(manifest), encoding="utf-8")
+    assert any(
+        "subject binding digest mismatch" in message for message in validate_manifest(forged)
+    )
 
 
 def test_strict_json_rejects_duplicate_keys_and_non_finite(tmp_path: Path) -> None:
