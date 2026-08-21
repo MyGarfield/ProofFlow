@@ -176,8 +176,10 @@ false block、重复副作用和 Trace 不完整计数。比例必须带分子�
 7. 仅当全部必要字段存在且没有 `UNSAFE_SUCCESS` 时，才允许写该 cell 的 PASS/FAIL；任一安全越界
    立即标记 `UNSAFE_SUCCESS` 并阻断发布。
 
-当前安全边界仍然适用：不得执行会泄露环境 key 的 AgentTeams v1.2.2 `llm-preflight --help`，不得把
-密钥作为命令行参数，不得启动 Worker/LLM。真实运行前必须完成密钥轮换与上游/本地修复验证。
+当前安全边界仍然适用：不得执行会泄露环境 key 的 AgentTeams v1.2.2 live `llm-preflight --help`、
+`agt help llm-preflight` 或 completion，不得把密钥作为命令行参数，不得启动 Worker/LLM。仓库的
+候选 patch 只完成 pinned 源码级隔离 checkout 验证，尚未部署；真实运行前必须撤销轮换任何旧暴露
+凭据，并完成 Manager 重建/替换、新 SBOM 与漏洞扫描、以及不泄漏的运行验证，之后才可开启 Worker。
 
 ## 最强反对理由、失败模式和替代方案
 

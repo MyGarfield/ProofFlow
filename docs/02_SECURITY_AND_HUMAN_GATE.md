@@ -44,7 +44,7 @@ Manager 操作员工具链；Human/Matrix 的真实身份映射仍未验证。
 | LLM 虚构计算 | 参考核心不使用 LLM；`Decimal` 版本公式 | 公式全域、地区参数来源和专家测试未做 |
 | 越权 Skill | PF-A1–PF-A6 调用 Identity 精确检查；三个 MCP consumer 清单精确；Evidence Worker 对 evidence `tools/list` 实测 200，Calculation Worker 跨角色实测 403 | 尚无运行中 Worker 的完整业务调用、权限变更/撤销、并发与生产身份测试 |
 | 跨租户审批 | tenant/case 精确检查 | 数据库 RLS、网络隔离和生产 RBAC 未做 |
-| 密钥泄漏 | ProofFlow API Token 只从私密环境注入且公开证据不读取其值；公开仓库含 AgentTeams v1.2.2 help 默认值泄漏风险的候选补丁 | 运行中的 v1.2.2 镜像尚未由该候选补丁重建验证；模型 API Key 轮换完成前 Worker/LLM 保持禁用；Secret manager、轮换审计和生产日志扫描未做 |
+| 密钥泄漏 | ProofFlow API Token 只从私密环境注入且公开证据不读取其值；pinned AgentTeams v1.2.2 源码级候选补丁已在隔离 checkout 通过 `git apply --check` 和 sentinel Go tests，且不把 key 放入 Flag 默认值 | 候选 patch 尚未部署；运行中的 v1.2.2 镜像尚未重建/替换验证。任何已暴露旧凭据必须撤销轮换；在新 Manager + 新 SBOM/扫描 + 运行验证完成前 Worker/LLM 保持禁用；Secret manager、轮换审计和生产日志扫描未做 |
 | 审批绕过 | 状态机、Human actor、角色、对象摘要和过期校验 | 生产身份、MFA、撤销与签名未做 |
 | 审批后篡改 | 待批对象摘要变化后批准失败；有 E2E 测试 | 并发数据库事务和跨服务 TOCTOU 未做 |
 | Trace 缺失 | Audit 强制 BLOCK | OTel、append-only ledger、保留策略未做 |

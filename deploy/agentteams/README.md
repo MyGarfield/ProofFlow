@@ -48,6 +48,10 @@ Manager 的脱敏点时证据与 Manager 操作员 MCP 冒烟证据，但尚无 
   未自动应用的 embedded MCP setup 兼容补丁。
 - [patches/v1.2.2-llm-preflight-help-redaction.patch](patches/v1.2.2-llm-preflight-help-redaction.patch)：
   防止 Cobra help 把环境中的 LLM API key 渲染为 flag 默认值的上游候选补丁；
+- [scripts/verify-llm-preflight-patch.sh](scripts/verify-llm-preflight-patch.sh)：
+  在 pinned commit 的隔离临时 checkout 中执行 `git apply --check`、应用补丁和定向 Go tests；
+- [evidence/llm-preflight-patch-verification-2026-08-21.json](evidence/llm-preflight-patch-verification-2026-08-21.json)：
+  只记录源码级补丁验证、哈希和明确的未部署/未运行边界；
 - [patches/README.md](patches/README.md)：补丁来源、Apache-2.0 许可、修改边界与验证说明。
 
 基础设施采集器从不读取 env 文件、完整容器环境、日志、Matrix 消息、MinIO 对象、运行时工作区、密钥或
@@ -189,4 +193,7 @@ Audit 规则和 Package 作废仍由应用层实现，不能归功于 AgentTeams
 
 所有 P0 运行只允许使用公开合成数据。密钥不得进入 YAML、Skill、Matrix、日志或证据包。
 当前 v1.2.2 的 `agt llm-preflight --help` 存在环境密钥进入 Cobra 默认值的泄露风险；在补丁进入
-实际二进制前，不得执行或采集该 help/completion 输出，也不得用 `--api-key` 传递密钥。
+实际二进制前，不得执行或采集该 help/completion 输出，也不得用 `--api-key` 传递密钥。任何
+可能已经进入 help、completion、error、日志或证据的旧凭据必须先撤销并轮换；本候选 patch
+尚未部署。只有重建并替换 Manager、为新镜像生成并核验 SBOM/漏洞扫描、完成不泄漏的运行验证
+后，才可考虑开启 Worker/LLM；本仓库的源码级 PASS 不等于这些运行门已通过。
