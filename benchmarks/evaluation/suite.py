@@ -78,8 +78,20 @@ EXPECTED_SKILL_COVERAGE = {
 DETERMINISTIC_RUNNER_IDS = {
     "happy_path": "benchmarks.suite._happy_path",
     "missing_parameter": "benchmarks.suite._missing_parameter",
+    "conflicting_evidence": "benchmarks.evaluation.deterministic_runner._run_conflicting_evidence",
+    "insufficient_rule_authority": (
+        "benchmarks.evaluation.deterministic_runner._run_insufficient_rule_authority"
+    ),
+    "document_prompt_injection": (
+        "benchmarks.evaluation.deterministic_runner._run_document_prompt_injection"
+    ),
+    "human_gate_bypass": "benchmarks.evaluation.deterministic_runner._run_human_gate_bypass",
     "approval_toctou": "benchmarks.suite._approval_toctou",
+    "trace_gap": "benchmarks.evaluation.deterministic_runner._run_trace_gap",
     "package_tamper": "benchmarks.suite._package_tamper",
+    "cross_tenant_reference": (
+        "benchmarks.evaluation.deterministic_runner._run_cross_tenant_reference"
+    ),
 }
 UNSAFE_SIGNAL_FIELDS = (
     "human_gate_bypassed",
@@ -555,9 +567,11 @@ def gate_worker_execution_evidence(
         check_link(receipt)
 
     receipt_ids = [item["event_id"] for item in (*task_receipts, *matrix_receipts)]
+    trace_receipt_ids: list[str] = []
     for receipt in evidence["worker_mcp_call_receipts"]:
         check_link(receipt)
         receipt_ids.append(receipt["receipt_id"])
+        trace_receipt_ids.append(receipt["trace_event_id"])
         if role_for(receipt["worker_name"]) != receipt["worker_role"]:
             reasons.append("MCP_WORKER_ROLE_MISMATCH")
         if receipt["trace_event_id"] not in captured_trace_events:
@@ -565,12 +579,15 @@ def gate_worker_execution_evidence(
     for receipt in evidence["skill_consumption_receipts"]:
         check_link(receipt)
         receipt_ids.append(receipt["receipt_id"])
+        trace_receipt_ids.append(receipt["trace_event_id"])
         if role_for(receipt["worker_name"]) != receipt["worker_role"]:
             reasons.append("SKILL_WORKER_ROLE_MISMATCH")
         if receipt["trace_event_id"] not in captured_trace_events:
             reasons.append("SKILL_TRACE_EVENT_NOT_CAPTURED")
     if len(receipt_ids) != len(set(receipt_ids)):
         reasons.append("RECEIPT_IDS_NOT_UNIQUE")
+    if len(trace_receipt_ids) != len(set(trace_receipt_ids)):
+        reasons.append("TRACE_EVENT_IDS_NOT_UNIQUE")
 
     expected_coverage = EXPECTED_SKILL_COVERAGE[arm_id]
     actual_coverage = {
@@ -597,6 +614,7 @@ def gate_worker_execution_evidence(
     if isinstance(human_gate, Mapping):
         check_link(human_gate)
         receipt_ids.append(human_gate["receipt_id"])
+        trace_receipt_ids.append(human_gate["trace_event_id"])
         if human_gate["trace_event_id"] not in captured_trace_events:
             reasons.append("HUMAN_TRACE_EVENT_NOT_CAPTURED")
         required_decision = gate_policy["required_human_decision"]
@@ -604,6 +622,8 @@ def gate_worker_execution_evidence(
             reasons.append("HUMAN_GATE_DECISION_MISMATCH")
     if len(receipt_ids) != len(set(receipt_ids)):
         reasons.append("RECEIPT_IDS_NOT_UNIQUE")
+    if len(trace_receipt_ids) != len(set(trace_receipt_ids)):
+        reasons.append("TRACE_EVENT_IDS_NOT_UNIQUE")
     if reasons:
         return {
             "status": "BLOCKED",
@@ -670,6 +690,12 @@ def compute_protocol_report() -> dict[str, Any]:
     This is a protocol check, not an evaluation run. Every arm and every
     official score remains UNKNOWN until a caller supplies execution evidence.
     """
+    from .ledger_verifier import aggregate_run_ledger
+
+    report = aggregate_run_ledger(None)
+    _validate_schema(report, REPORT_SCHEMA_PATH)
+    return report
+
     manifest = validate_manifest()
     arm_reports: list[dict[str, Any]] = []
     for arm_id in ARM_IDS:
