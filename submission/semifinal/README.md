@@ -31,7 +31,7 @@ attestation。
 在干净的 Git worktree 中运行（输出文件放在仓库外，避免污染源树）：
 
 ```bash
-uv run python -m proofflow.semifinal_submission \
+uv run python scripts/build_semifinal_zip.py \
   --config submission/semifinal/submission-config.json \
   --output /tmp/ProofFlow-semifinal-candidate.zip \
   --mode candidate
@@ -40,12 +40,19 @@ uv run python -m proofflow.semifinal_submission \
 候选模式会生成 ZIP 和 `.report.json`，但命令以非零状态结束并标记
 `CANDIDATE_NOT_SUBMIT_READY`。当前配置故意没有公开 Demo URL、资格解锁、真实 Agent 协作证据和动态
 配置重查，因此这是预期结果。只有完成真实证据采集、公开 Demo、资格确认和提交前重查后，才可在隔离
-发布 worktree 中更新配置并请求 `--mode submit-ready`。
+发布 worktree 中更新配置并请求 `--mode submit-ready`；成功状态是 `PRE_SUBMIT_READY`，不是已提交。
+
+上下文四选二固定为 RAG、Agent memory、shared state、trajectory/trace observability。本项目当前选择
+`shared_state + trajectory_observability`，并将它们绑定到 state machine/reference runtime 的源码
+SHA-256；Identity 与 Skill 仍是单独的必交组件，不冒充上下文选项。无 RAG 或 Agent memory 运行证据。
 
 构建器拒绝：allowlist 外文件、路径穿越、symlink、私密目录/凭据、密钥或 PII 迹象、缓存、未跟踪或
 已修改的 Git 漂移、缺 deck/PDF、Identity/Skill、入口/依赖/样例/证据/披露/许可证，以及超过 1200 MiB
 的 ZIP。manifest 还固定 artifact inventory 的每个路径、字节数和 SHA-256；它明确写出
 `portal_receipt: null`、`selection_claim: false`、`attestation/signature: NOT_PROVIDED`。
+将布尔配置改成 `true` 不足以过门：资格和真实协作必须有 allowlist 内的 schema-bound evidence refs
+及匹配摘要，真实协作还必须同时有 Worker execution、task/Matrix、MCP/Skill、Trace、Human Gate
+receipt 计数；动态配置重查必须有带时区的 `observed_at` 且在 freshness 窗口内。
 
 ## 发布前门禁
 

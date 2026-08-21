@@ -27,13 +27,33 @@
   },
   "context_mapping": {
     "options": [
-      "agent_identity_contract",
-      "skill_contract",
-      "runtime_trace_contract",
-      "human_gate_contract"
+      "rag",
+      "agent_memory",
+      "shared_state",
+      "trajectory_observability"
     ],
-    "selected": ["agent_identity_contract", "skill_contract"],
-    "evidence_paths": ["specs/06_AGENT_IDENTITY.yaml", "specs/07_SKILL_SPEC.yaml"]
+    "selected": ["shared_state", "trajectory_observability"],
+    "evidence_paths": ["src/proofflow/state_machine.py", "src/proofflow/reference_runtime.py"],
+    "evidence_digests": {
+      "src/proofflow/state_machine.py": "sha256:079d097adfee4cae7107ad807e85dd36bd5564efc6d87d94a9b4edd0f12e7476",
+      "src/proofflow/reference_runtime.py": "sha256:645e6b4c88e2dd69316af47303b9035d2bb5007fe304159d08ceff8f4c73db41"
+    }
+  },
+  "gate_evidence": {
+    "eligibility": {"evidence_refs": []},
+    "real_agent_collaboration": {
+      "evidence_refs": [],
+      "counts": {
+        "worker_execution": 0,
+        "task_event": 0,
+        "matrix_event": 0,
+        "mcp_receipt": 0,
+        "skill_receipt": 0,
+        "trace": 0,
+        "human_gate_receipt": 0
+      }
+    },
+    "official_config_recheck": {"observed_at": null, "max_age_hours": 24}
   },
   "required_artifacts": {
     "deck_pptx": ["submission/public/ProofFlow_GOAI_复赛答辩_v2.0.pptx"],
@@ -62,7 +82,9 @@
       "submission/public/README.md",
       "SECURITY.md"
     ],
-    "license": ["LICENSE", "NOTICE"]
+    "license": ["LICENSE", "NOTICE"],
+    "agent_collaboration_evidence": [],
+    "eligibility_evidence": []
   },
   "allowlist": [
     ".gitattributes",
@@ -117,6 +139,7 @@
     "schemas/tool-rule-retrieve-result.schema.json",
     "schemas/trace-event.schema.json",
     "scripts/export_schemas.py",
+    "scripts/semifinal_submission.py",
     "scripts/build_semifinal_zip.py",
     "specs/06_AGENT_IDENTITY.yaml",
     "specs/07_SKILL_SPEC.yaml",
@@ -129,7 +152,6 @@
     "src/proofflow/models.py",
     "src/proofflow/py.typed",
     "src/proofflow/reference_runtime.py",
-    "src/proofflow/semifinal_submission.py",
     "src/proofflow/state_machine.py",
     "src/proofflow/strategy.py",
     "src/proofflow/tool_server.py",

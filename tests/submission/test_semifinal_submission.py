@@ -2,14 +2,17 @@ from __future__ import annotations
 
 import json
 import zipfile
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
 
-from proofflow.semifinal_submission import (
+from scripts.semifinal_submission import (
     MANIFEST_NAME,
     STATUS_CANDIDATE,
     SubmissionBuildError,
+    _collect_artifacts,
+    _gate,
     _normalize_config,
     build_package,
     validate_manifest,
@@ -91,3 +94,60 @@ def test_symlink_and_private_allowlist_are_rejected(tmp_path: Path) -> None:
     bad.write_text(json.dumps(config), encoding="utf-8")
     with pytest.raises(SubmissionBuildError, match="private/cache path"):
         _normalize_config(config)
+
+
+def test_context_mapping_must_use_official_four_options(tmp_path: Path) -> None:
+    config = json.loads(CONFIG.read_text(encoding="utf-8"))
+    config["context_mapping"]["selected"] = ["agent_identity_contract", "skill_contract"]
+    with pytest.raises(SubmissionBuildError, match="shared_state"):
+        _normalize_config(config)
+
+
+def test_true_flags_without_bound_evidence_remain_candidate(tmp_path: Path) -> None:
+    config = json.loads(CONFIG.read_text(encoding="utf-8"))
+    config.update(
+        {
+            "demo_url": "https://demo.example.invalid/proofflow",
+            "eligibility_unlocked": True,
+            "real_agent_collaboration_evidence": True,
+            "official_config_rechecked": True,
+        }
+    )
+    config["gate_evidence"]["official_config_recheck"]["observed_at"] = datetime.now(
+        UTC
+    ).isoformat()
+    bad = tmp_path / "config.json"
+    bad.write_text(json.dumps(config), encoding="utf-8")
+    normalized = _normalize_config(config)
+    artifacts = _collect_artifacts(ROOT, normalized)
+    gate = _gate(ROOT, normalized, artifacts, "submit-ready")
+    assert gate.status == STATUS_CANDIDATE
+    assert "eligibility_not_unlocked" in gate.reasons
+    assert "real_agent_collaboration_evidence_missing" in gate.reasons
+
+
+def test_stale_recheck_is_not_fresh(tmp_path: Path) -> None:
+    config = json.loads(CONFIG.read_text(encoding="utf-8"))
+    config["official_config_rechecked"] = True
+    config["gate_evidence"]["official_config_recheck"]["observed_at"] = (
+        datetime.now(UTC) - timedelta(hours=25)
+    ).isoformat()
+    normalized = _normalize_config(config)
+    artifacts = _collect_artifacts(ROOT, normalized)
+    gate = _gate(ROOT, normalized, artifacts, "submit-ready")
+    assert "official_dynamic_config_not_rechecked" in gate.reasons
+
+
+def test_strict_json_rejects_duplicate_keys_and_non_finite(tmp_path: Path) -> None:
+    duplicate = tmp_path / "duplicate.json"
+    duplicate.write_text('{"project":"ProofFlow","project":"forged"}', encoding="utf-8")
+    with pytest.raises(SubmissionBuildError, match="duplicate JSON key"):
+        from scripts.semifinal_submission import load_config
+
+        load_config(duplicate)
+    non_finite = tmp_path / "nan.json"
+    non_finite.write_text('{"value":NaN}', encoding="utf-8")
+    with pytest.raises(SubmissionBuildError, match="non-finite"):
+        from scripts.semifinal_submission import load_config
+
+        load_config(non_finite)
