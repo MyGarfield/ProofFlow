@@ -1,62 +1,34 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.invalid/proofflow/evaluation-report.schema.json",
-  "title": "ProofFlow evaluation protocol validation report",
+  "title": "ProofFlow executed or mixed evaluation report",
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "schema_version",
-    "report_status",
-    "execution_claim",
-    "protocol_manifest_sha256",
-    "arms",
-    "scorecard",
-    "metric_contract",
-    "provenance",
-    "report_hash"
+    "schema_version", "report_status", "execution_claim", "protocol_manifest_sha256",
+    "ledger_sha256", "arms", "scorecard", "pairing_summary", "metric_contract",
+    "provenance", "report_hash"
   ],
   "properties": {
-    "schema_version": {"const": "proofflow.evaluation-report/v1"},
-    "report_status": {"const": "PROTOCOL_VALIDATED_NOT_EXECUTED"},
-    "execution_claim": {"const": "NONE"},
+    "schema_version": {"const": "proofflow.evaluation-report/v2"},
+    "report_status": {"enum": ["PROTOCOL_VALIDATED_NOT_EXECUTED", "EXECUTED", "MIXED_EXECUTION"]},
+    "execution_claim": {"enum": ["NONE", "DETERMINISTIC_REFERENCE_ONLY", "MIXED_PARTIAL"]},
     "protocol_manifest_sha256": {"$ref": "#/$defs/digest"},
-    "arms": {
-      "type": "array",
-      "minItems": 3,
-      "maxItems": 3,
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["arm_id", "execution_status", "score_status", "gate_status", "reason_codes"],
-        "properties": {
-          "arm_id": {"enum": ["deterministic_reference", "single_agent", "six_agent"]},
-          "execution_status": {"const": "NOT_EXECUTED"},
-          "score_status": {"const": "UNKNOWN"},
-          "gate_status": {"enum": ["NOT_REQUIRED", "BLOCKED"]},
-          "reason_codes": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^[A-Z0-9_]+$"}}
-        }
-      }
-    },
-    "scorecard": {
-      "type": "array",
-      "minItems": 5,
-      "maxItems": 5,
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["score_id", "official_weight_points", "status", "points", "reason_code"],
-        "properties": {
-          "score_id": {"type": "string", "minLength": 1},
-          "official_weight_points": {"type": "integer", "minimum": 1},
-          "status": {"const": "UNKNOWN"},
-          "points": {"type": "null"},
-          "reason_code": {"const": "ARM_NOT_EXECUTED"}
-        }
+    "ledger_sha256": {"type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$"},
+    "arms": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"$ref": "#/$defs/arm"}},
+    "scorecard": {"type": "array", "minItems": 5, "maxItems": 5, "items": {"$ref": "#/$defs/score"}},
+    "pairing_summary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["unit", "complete_pairs", "incomplete_pairs", "unknown_is_not_counted_as_pass_or_fail"],
+      "properties": {
+        "unit": {"const": "scenario_id+replicate_id+attempt"},
+        "complete_pairs": {"type": "integer", "minimum": 0},
+        "incomplete_pairs": {"type": "integer", "minimum": 0},
+        "unknown_is_not_counted_as_pass_or_fail": {"const": true}
       }
     },
     "metric_contract": {
-      "type": "object",
-      "additionalProperties": false,
+      "type": "object", "additionalProperties": false,
       "required": ["latency_unit", "cost_units", "unknown_cost_representation", "reliability_denominator"],
       "properties": {
         "latency_unit": {"const": "milliseconds"},
@@ -65,16 +37,47 @@
         "reliability_denominator": {"const": "attempted_runs"}
       }
     },
-    "provenance": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "fixture_manifest_sha256",
-        "fixture_schema_sha256",
-        "scenario_schema_sha256",
-        "worker_evidence_schema_sha256",
-        "suite_source_sha256"
-      ],
+    "provenance": {"$ref": "#/$defs/reportProvenance"},
+    "report_hash": {"$ref": "#/$defs/digest"}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "arm": {
+      "type": "object", "additionalProperties": false,
+      "required": ["arm_id", "execution_status", "score_status", "gate_status", "reason_codes", "entry_count", "status_counts"],
+      "properties": {
+        "arm_id": {"enum": ["deterministic_reference", "single_agent", "six_agent"]},
+        "execution_status": {"enum": ["NOT_EXECUTED", "EXECUTED", "MIXED"]},
+        "score_status": {"const": "UNKNOWN"},
+        "gate_status": {"enum": ["NOT_REQUIRED", "BLOCKED", "READY"]},
+        "reason_codes": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^[A-Z0-9_]+$"}},
+        "entry_count": {"type": "integer", "minimum": 0},
+        "status_counts": {
+          "type": ["object", "null"], "additionalProperties": false,
+          "required": ["PASS", "FAIL", "UNKNOWN", "UNSAFE_SUCCESS"],
+          "properties": {
+            "PASS": {"type": "integer", "minimum": 0},
+            "FAIL": {"type": "integer", "minimum": 0},
+            "UNKNOWN": {"type": "integer", "minimum": 0},
+            "UNSAFE_SUCCESS": {"type": "integer", "minimum": 0}
+          }
+        }
+      }
+    },
+    "score": {
+      "type": "object", "additionalProperties": false,
+      "required": ["score_id", "official_weight_points", "status", "points", "reason_code"],
+      "properties": {
+        "score_id": {"type": "string", "minLength": 1},
+        "official_weight_points": {"type": "integer", "minimum": 1},
+        "status": {"const": "UNKNOWN"},
+        "points": {"type": "null"},
+        "reason_code": {"const": "OFFICIAL_SCORE_REQUIRES_PAIRED_ARMS"}
+      }
+    },
+    "reportProvenance": {
+      "type": "object", "additionalProperties": false,
+      "required": ["fixture_manifest_sha256", "fixture_schema_sha256", "scenario_schema_sha256", "worker_evidence_schema_sha256", "suite_source_sha256"],
       "properties": {
         "fixture_manifest_sha256": {"$ref": "#/$defs/digest"},
         "fixture_schema_sha256": {"$ref": "#/$defs/digest"},
@@ -82,10 +85,6 @@
         "worker_evidence_schema_sha256": {"$ref": "#/$defs/digest"},
         "suite_source_sha256": {"$ref": "#/$defs/digest"}
       }
-    },
-    "report_hash": {"$ref": "#/$defs/digest"}
-  },
-  "$defs": {
-    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+    }
   }
 }

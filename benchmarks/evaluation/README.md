@@ -71,6 +71,13 @@ Leader-only `single_agent` run requires `leader_phase=Running`,
 for the specialist field is rejected as a semantic mismatch.
 
 Each scenario also has a machine-readable `runner_binding`. The four existing
-deterministic handlers are bound by exact IDs; unsupported deterministic cases
-and both Worker arms are explicitly `null` until an adaptor exists. A binding
-is not an execution result.
+deterministic handlers and six exact deterministic adapters are bound by exact
+IDs; both Worker arms are explicitly `null` until an authorized adapter exists.
+A binding is not an execution result. `benchmarks.evaluation.ledger` can run
+the ten deterministic scenarios into the append-only v2 ledger; it records
+single/six as `NOT_EXECUTED`/`UNKNOWN` and leaves cost and unfrozen latency
+measurements `null` with an explicit reason. `ledger_verifier` independently
+checks entry uniqueness, provenance, pairing, and the cost/latency unknown
+contract before `aggregate_run_ledger` emits an `EXECUTED` or `MIXED_EXECUTION`
+report. Official score points remain `UNKNOWN`/`null` until paired arms and
+their required evidence exist.

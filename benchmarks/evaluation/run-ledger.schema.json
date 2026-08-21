@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/proofflow/evaluation-run-ledger.schema.json",
+  "title": "ProofFlow append-only evaluation run ledger v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "ledger_id", "append_only", "entry_key", "entries", "provenance"],
+  "properties": {
+    "schema_version": {"const": "proofflow.evaluation-run-ledger/v2"},
+    "ledger_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"},
+    "append_only": {"const": true},
+    "entry_key": {"const": "arm_id+scenario_id+replicate_id+attempt"},
+    "entries": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": {"$ref": "#/$defs/entry"}
+    },
+    "provenance": {"$ref": "#/$defs/ledgerProvenance"}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "identifier": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"},
+    "scenarioId": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+    "issueCode": {"type": "string", "pattern": "^[A-Z0-9_]+$"},
+    "entry": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "entry_id", "arm_id", "scenario_id", "replicate_id", "attempt", "run_id",
+        "execution_status", "status", "issue_codes", "started_at", "finished_at",
+        "fixture_manifest_sha256", "scenario_manifest_sha256", "repository_commit",
+        "result", "latency", "cost"
+      ],
+      "properties": {
+        "entry_id": {"$ref": "#/$defs/identifier"},
+        "arm_id": {"enum": ["deterministic_reference", "single_agent", "six_agent"]},
+        "scenario_id": {"$ref": "#/$defs/scenarioId"},
+        "replicate_id": {"type": "integer", "minimum": 1},
+        "attempt": {"type": "integer", "minimum": 1},
+        "run_id": {"$ref": "#/$defs/identifier"},
+        "execution_status": {"enum": ["EXECUTED", "NOT_EXECUTED"]},
+        "status": {"enum": ["PASS", "FAIL", "UNKNOWN", "UNSAFE_SUCCESS"]},
+        "issue_codes": {
+          "type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/issueCode"}
+        },
+        "started_at": {"type": "string", "format": "date-time"},
+        "finished_at": {"type": "string", "format": "date-time"},
+        "fixture_manifest_sha256": {"$ref": "#/$defs/digest"},
+        "scenario_manifest_sha256": {"$ref": "#/$defs/digest"},
+        "repository_commit": {"$ref": "#/$defs/commit"},
+        "result": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": [
+            "execution_status", "outcome_class", "terminal_stage", "issue_codes",
+            "approval_required", "external_side_effects_enabled", "value_emitted",
+            "artifact_verification_valid", "trace_events", "unsafe_signals"
+          ],
+          "properties": {
+            "execution_status": {"const": "EXECUTED"},
+            "outcome_class": {"enum": ["PASS", "FAIL"]},
+            "terminal_stage": {"type": "string", "minLength": 1},
+            "issue_codes": {
+              "type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/issueCode"}
+            },
+            "approval_required": {"type": "boolean"},
+            "external_side_effects_enabled": {"const": false},
+            "value_emitted": {"type": "boolean"},
+            "artifact_verification_valid": {"type": ["boolean", "null"]},
+            "trace_events": {
+              "type": "array", "uniqueItems": true,
+              "items": {"type": "string", "pattern": "^[A-Z0-9_]+$"}
+            },
+            "unsafe_signals": {
+              "type": "object", "additionalProperties": false,
+              "required": [
+                "human_gate_bypassed", "cross_tenant_reference_accepted",
+                "forbidden_external_side_effect_observed", "trace_incomplete_with_result"
+              ],
+              "properties": {
+                "human_gate_bypassed": {"type": "boolean"},
+                "cross_tenant_reference_accepted": {"type": "boolean"},
+                "forbidden_external_side_effect_observed": {"type": "boolean"},
+                "trace_incomplete_with_result": {"type": "boolean"}
+              }
+            }
+          }
+        },
+        "latency": {"$ref": "#/$defs/latency"},
+        "cost": {"$ref": "#/$defs/cost"}
+      }
+    },
+    "latency": {
+      "type": "object", "additionalProperties": false,
+      "required": ["unit", "end_to_end_ms", "active_compute_ms", "human_wait_ms", "complete", "unknown_reason"],
+      "properties": {
+        "unit": {"const": "milliseconds"},
+        "end_to_end_ms": {"type": ["number", "null"], "minimum": 0},
+        "active_compute_ms": {"type": ["number", "null"], "minimum": 0},
+        "human_wait_ms": {"type": ["number", "null"], "minimum": 0},
+        "complete": {"type": "boolean"},
+        "unknown_reason": {"type": ["string", "null"], "minLength": 1}
+      }
+    },
+    "cost": {
+      "type": "object", "additionalProperties": false,
+      "required": ["input_tokens", "output_tokens", "total_tokens", "total_cost", "currency", "rate_card_id", "complete", "unknown_reason"],
+      "properties": {
+        "input_tokens": {"type": ["integer", "null"], "minimum": 0},
+        "output_tokens": {"type": ["integer", "null"], "minimum": 0},
+        "total_tokens": {"type": ["integer", "null"], "minimum": 0},
+        "total_cost": {"type": ["number", "null"], "minimum": 0},
+        "currency": {"type": ["string", "null"], "pattern": "^[A-Z]{3}$"},
+        "rate_card_id": {"type": ["string", "null"], "minLength": 1},
+        "complete": {"type": "boolean"},
+        "unknown_reason": {"type": ["string", "null"], "minLength": 1}
+      }
+    },
+    "ledgerProvenance": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "fixture_manifest_sha256", "scenario_manifest_sha256", "repository_commit",
+        "collector_version", "recorded_at"
+      ],
+      "properties": {
+        "fixture_manifest_sha256": {"$ref": "#/$defs/digest"},
+        "scenario_manifest_sha256": {"$ref": "#/$defs/digest"},
+        "repository_commit": {"$ref": "#/$defs/commit"},
+        "collector_version": {"type": "string", "minLength": 1},
+        "recorded_at": {"type": "string", "format": "date-time"}
+      }
+    }
+  }
+}
