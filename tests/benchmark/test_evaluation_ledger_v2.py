@@ -75,3 +75,63 @@ def test_ledger_verifier_rejects_duplicate_pair_and_unknown_cost_as_unknown(tmp_
     result = verify_run_ledger(attacked, expected_repository_commit=TEST_COMMIT)
     assert result["status"] == "UNKNOWN"
     assert "COST_UNKNOWN_SEMANTICS_INVALID" in result["reason_codes"]
+
+    attacked = deepcopy(ledger)
+    unexecuted = next(
+        item for item in attacked["entries"] if item["execution_status"] == "NOT_EXECUTED"
+    )
+    unexecuted["worker_evidence_sha256"] = "sha256:" + "8" * 64
+    result = verify_run_ledger(attacked, expected_repository_commit=TEST_COMMIT)
+    assert result["status"] == "UNKNOWN"
+    assert "UNEXECUTED_WORKER_EVIDENCE_NOT_NULL" in result["reason_codes"]
+
+
+def test_ledger_verifier_rejects_coverage_deletion_reorder_and_hash_attacks(tmp_path) -> None:
+    ledger = build_run_ledger(tmp_path / "runs", repository_commit=TEST_COMMIT)
+
+    deleted_group = deepcopy(ledger)
+    deleted_group["entries"] = [
+        item for item in deleted_group["entries"] if item["scenario_id"] != "happy_path"
+    ]
+    result = verify_run_ledger(deleted_group, expected_repository_commit=TEST_COMMIT)
+    assert result["status"] == "UNKNOWN"
+    assert "LEDGER_RUN_PLAN_COVERAGE_MISSING" in result["reason_codes"]
+
+    deleted_entry = deepcopy(ledger)
+    deleted_entry["entries"].pop()
+    result = verify_run_ledger(deleted_entry, expected_repository_commit=TEST_COMMIT)
+    assert result["status"] == "UNKNOWN"
+    assert "LEDGER_RUN_PLAN_COVERAGE_MISSING" in result["reason_codes"]
+
+    reordered = deepcopy(ledger)
+    reordered["entries"][0], reordered["entries"][1] = (
+        reordered["entries"][1],
+        reordered["entries"][0],
+    )
+    result = verify_run_ledger(reordered, expected_repository_commit=TEST_COMMIT)
+    assert result["status"] == "UNKNOWN"
+    assert "LEDGER_PREVIOUS_HASH_MISMATCH" in result["reason_codes"]
+
+    previous_hash_attack = deepcopy(ledger)
+    previous_hash_attack["entries"][1]["previous_entry_sha256"] = "sha256:" + "9" * 64
+    result = verify_run_ledger(previous_hash_attack, expected_repository_commit=TEST_COMMIT)
+    assert result["status"] == "UNKNOWN"
+    assert "LEDGER_PREVIOUS_HASH_MISMATCH" in result["reason_codes"]
+
+    root_attack = deepcopy(ledger)
+    root_attack["ledger_root_sha256"] = "sha256:" + "9" * 64
+    result = verify_run_ledger(root_attack, expected_repository_commit=TEST_COMMIT)
+    assert result["status"] == "UNKNOWN"
+    assert "LEDGER_ROOT_HASH_MISMATCH" in result["reason_codes"]
+
+
+def test_ledger_plan_and_aggregation_keep_attempt_as_pairing_dimension(tmp_path) -> None:
+    ledger = build_run_ledger(tmp_path / "runs", repository_commit=TEST_COMMIT, attempts=(1, 2))
+
+    result = verify_run_ledger(ledger, expected_repository_commit=TEST_COMMIT)
+    report = aggregate_run_ledger(ledger, expected_repository_commit=TEST_COMMIT)
+
+    assert result["status"] == "VERIFIED"
+    assert result["entries_verified"] == 74
+    assert report["pairing_summary"]["unit"] == "scenario_id+replicate_id+attempt"
+    assert report["pairing_summary"]["incomplete_pairs"] == 28

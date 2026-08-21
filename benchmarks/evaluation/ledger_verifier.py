@@ -1,8 +1,9 @@
-"""Independent verifier and aggregator for append-only evaluation ledgers.
+"""Independent verifier and aggregator for hash-chained evaluation ledgers.
 
 This module intentionally does not import ``suite.classify_scenario_observation``
 or any producer-side runner. It validates the ledger from its serialized public
-contract and computes report status/arm counts independently.
+contract and computes report status/arm counts independently. Hashes are
+unsigned consistency evidence, not an authenticity attestation.
 """
 
 from __future__ import annotations
@@ -25,8 +26,10 @@ SCENARIO_MANIFEST_PATH = EVALUATION_DIR / "scenarios.json"
 SCENARIO_SCHEMA_PATH = EVALUATION_DIR / "scenarios.schema.json"
 LEDGER_SCHEMA_PATH = EVALUATION_DIR / "run-ledger.schema.json"
 REPORT_SCHEMA_PATH = EVALUATION_DIR / "evaluation-report.schema.json"
+WORKER_EVIDENCE_SCHEMA_PATH = EVALUATION_DIR / "worker-run-evidence.schema.json"
 ARMS = ("deterministic_reference", "single_agent", "six_agent")
 VERIFIER_ID = "proofflow.ledger-independent-verifier/v2"
+GENESIS_ENTRY_SHA256 = "sha256:" + "0" * 64
 
 
 def _duplicate_guard(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -191,7 +194,18 @@ def verify_run_ledger(
     seen_entries: set[str] = set()
     seen_runs: set[str] = set()
     pair_groups: defaultdict[tuple[str, int, int], list[Mapping[str, Any]]] = defaultdict(list)
-    for entry in parsed["entries"]:
+    previous_entry_sha256 = GENESIS_ENTRY_SHA256
+    for expected_index, entry in enumerate(parsed["entries"], start=1):
+        if entry["entry_index"] != expected_index:
+            reasons.append("LEDGER_ENTRY_SEQUENCE_INVALID")
+        if entry["previous_entry_sha256"] != previous_entry_sha256:
+            reasons.append("LEDGER_PREVIOUS_HASH_MISMATCH")
+        computed_entry_sha256 = _canonical_digest(
+            {key: value for key, value in entry.items() if key != "entry_sha256"}
+        )
+        if entry["entry_sha256"] != computed_entry_sha256:
+            reasons.append("LEDGER_ENTRY_HASH_MISMATCH")
+        previous_entry_sha256 = entry["entry_sha256"]
         key = (entry["arm_id"], entry["scenario_id"], entry["replicate_id"], entry["attempt"])
         if key in seen_keys:
             reasons.append("LEDGER_ENTRY_KEY_NOT_UNIQUE")
@@ -237,13 +251,70 @@ def verify_run_ledger(
                     reasons.append("RESULT_STATUS_MISMATCH")
         reasons.extend(_measurement_reasons(entry["latency"], kind="latency"))
         reasons.extend(_measurement_reasons(entry["cost"], kind="cost"))
+        worker_evidence = entry["worker_evidence"]
+        worker_evidence_sha256 = entry["worker_evidence_sha256"]
+        requires_worker_evidence = entry["arm_id"] in ("single_agent", "six_agent")
+        if entry["execution_status"] == "NOT_EXECUTED" or not requires_worker_evidence:
+            if worker_evidence is not None or worker_evidence_sha256 is not None:
+                reasons.append("UNEXECUTED_WORKER_EVIDENCE_NOT_NULL")
+        elif not isinstance(worker_evidence, Mapping) or worker_evidence_sha256 is None:
+            reasons.append("EXECUTED_WORKER_EVIDENCE_MISSING")
+        else:
+            if _canonical_digest(worker_evidence) != worker_evidence_sha256:
+                reasons.append("WORKER_EVIDENCE_HASH_MISMATCH")
+            try:
+                worker_schema = _read_json(WORKER_EVIDENCE_SCHEMA_PATH)
+                Draft202012Validator.check_schema(worker_schema)
+                worker_errors = Draft202012Validator(
+                    worker_schema, format_checker=FormatChecker()
+                ).iter_errors(worker_evidence)
+                if next(worker_errors, None) is not None:
+                    reasons.append("WORKER_EVIDENCE_SCHEMA_INVALID")
+            except (TypeError, ValueError, json.JSONDecodeError):
+                reasons.append("WORKER_EVIDENCE_SCHEMA_INVALID")
+            worker_provenance = worker_evidence.get("provenance")
+            worker_repository_commit = (
+                worker_provenance.get("repository_commit")
+                if isinstance(worker_provenance, Mapping)
+                else None
+            )
+            if (
+                worker_evidence.get("arm_id") != entry["arm_id"]
+                or worker_evidence.get("scenario_id") != entry["scenario_id"]
+                or worker_evidence.get("run_id") != entry["run_id"]
+                or worker_repository_commit != entry["repository_commit"]
+            ):
+                reasons.append("WORKER_EVIDENCE_BINDING_MISMATCH")
         pair_groups[(entry["scenario_id"], entry["replicate_id"], entry["attempt"])].append(entry)
 
     applicable = {item["id"]: set(item["arm_ids"]) for item in manifest["scenarios"]}
-    for (scenario_id, _replicate_id, _attempt), entries in pair_groups.items():
-        arms = {item["arm_id"] for item in entries}
-        if arms != applicable[scenario_id]:
-            reasons.append("PAIR_ARM_SET_MISMATCH")
+    planned_replicates = parsed["coverage_plan"]["replicate_ids"]
+    planned_attempts = parsed["coverage_plan"]["attempts"]
+    expected_keys = {
+        (arm_id, scenario["id"], replicate_id, attempt)
+        for scenario in manifest["scenarios"]
+        for arm_id in scenario["arm_ids"]
+        for replicate_id in planned_replicates
+        for attempt in planned_attempts
+    }
+    missing_keys = expected_keys - seen_keys
+    unexpected_keys = seen_keys - expected_keys
+    if missing_keys:
+        reasons.append("LEDGER_RUN_PLAN_COVERAGE_MISSING")
+    if unexpected_keys:
+        reasons.append("LEDGER_RUN_PLAN_ENTRY_UNEXPECTED")
+    for scenario in manifest["scenarios"]:
+        for replicate_id in planned_replicates:
+            for attempt in planned_attempts:
+                entries = pair_groups[(scenario["id"], replicate_id, attempt)]
+                arms = {item["arm_id"] for item in entries}
+                if arms != applicable[scenario["id"]]:
+                    reasons.append("PAIR_ARM_SET_MISMATCH")
+    expected_root = _canonical_digest(
+        {key: value for key, value in parsed.items() if key != "ledger_root_sha256"}
+    )
+    if parsed["ledger_root_sha256"] != expected_root:
+        reasons.append("LEDGER_ROOT_HASH_MISMATCH")
     if reasons:
         return _result("UNKNOWN", *reasons)
     return _result("VERIFIED", entries_verified=len(parsed["entries"]))
@@ -307,22 +378,27 @@ def aggregate_run_ledger(
         )
     complete_pairs = 0
     incomplete_pairs = 0
-    for scenario in manifest["scenarios"]:
-        applicable_arms = set(scenario["arm_ids"])
-        for replicate_id in sorted({item["replicate_id"] for item in entries} or {1}):
-            pair = [
-                item
-                for item in entries
-                if item["scenario_id"] == scenario["id"] and item["replicate_id"] == replicate_id
-            ]
-            if not pair:
-                continue
-            if {item["arm_id"] for item in pair} == applicable_arms and all(
-                item["status"] != "UNKNOWN" for item in pair
-            ):
-                complete_pairs += 1
-            else:
-                incomplete_pairs += 1
+    pairing_keys = {
+        (item["scenario_id"], item["replicate_id"], item["attempt"]) for item in entries
+    }
+    for scenario_id, replicate_id, attempt in sorted(pairing_keys):
+        scenario = next(item for item in manifest["scenarios"] if item["id"] == scenario_id)
+        pair = [
+            item
+            for item in entries
+            if (
+                item["scenario_id"],
+                item["replicate_id"],
+                item["attempt"],
+            )
+            == (scenario_id, replicate_id, attempt)
+        ]
+        if {item["arm_id"] for item in pair} == set(scenario["arm_ids"]) and all(
+            item["status"] != "UNKNOWN" for item in pair
+        ):
+            complete_pairs += 1
+        else:
+            incomplete_pairs += 1
     report = {
         "schema_version": "proofflow.evaluation-report/v2",
         "report_status": ledger_status,

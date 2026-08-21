@@ -1,17 +1,23 @@
 import json
 from copy import deepcopy
+from hashlib import sha256
 from pathlib import Path
 
 from jsonschema import Draft202012Validator, FormatChecker
 
 from benchmarks.evaluation.fixture import fixture_manifest_digest
-from benchmarks.evaluation.suite import file_digest
+from benchmarks.evaluation.suite import (
+    EXPECTED_AGENTTEAMS_COMMIT,
+    EXPECTED_AGENTTEAMS_VERSION,
+    file_digest,
+)
 from benchmarks.evaluation.verifier import (
     RUN_RECORD_SCHEMA_PATH,
     SCENARIO_MANIFEST_PATH,
     VERIFICATION_RESULT_SCHEMA_PATH,
     verify_run_record,
 )
+from tests.benchmark.test_evaluation_contracts import valid_worker_evidence
 
 ROOT = Path(__file__).parents[2]
 EVALUATION_DIR = ROOT / "benchmarks/evaluation"
@@ -24,6 +30,13 @@ def scenarios() -> dict:
 
 def expected_contract(scenario_id: str) -> dict:
     return next(item["expected"] for item in scenarios()["scenarios"] if item["id"] == scenario_id)
+
+
+def canonical_digest(value: object) -> str:
+    payload = json.dumps(
+        value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
+    ).encode("utf-8")
+    return f"sha256:{sha256(payload).hexdigest()}"
 
 
 def valid_run_record(
@@ -53,6 +66,7 @@ def valid_run_record(
             "configuration_digest": "sha256:" + "2" * 64 if is_worker else None,
             "worker_evidence_sha256": "sha256:" + "3" * 64 if is_worker else None,
         },
+        "worker_evidence": None,
         "measurements": {
             "cost": {
                 "input_tokens": None,
@@ -161,6 +175,43 @@ def test_worker_run_requires_model_and_worker_evidence_provenance() -> None:
         "verifier": "proofflow.independent-verifier/v1",
         "status": "UNKNOWN",
         "reason_codes": ["WORKER_EVIDENCE_PROVENANCE_MISSING"],
+    }
+
+
+def test_worker_run_hash_is_recomputed_and_bound_to_the_raw_evidence() -> None:
+    record = valid_run_record("single_agent")
+    worker = valid_worker_evidence("single_agent")
+    worker["run_id"] = record["run_id"]
+    worker["fixture_manifest_sha256"] = record["fixture_manifest_sha256"]
+    worker["scenario_manifest_sha256"] = record["scenario_manifest_sha256"]
+    worker["model"]["configuration_digest"] = record["model"]["configuration_digest"]
+    worker["provenance"]["repository_commit"] = record["provenance"]["repository_commit"]
+    worker["provenance"]["agentteams_version"] = EXPECTED_AGENTTEAMS_VERSION
+    worker["provenance"]["agentteams_commit"] = EXPECTED_AGENTTEAMS_COMMIT
+    record["provenance"]["agentteams_commit"] = EXPECTED_AGENTTEAMS_COMMIT
+    record["worker_evidence"] = worker
+    record["model"]["worker_evidence_sha256"] = canonical_digest(worker)
+
+    result = verify_run_record(
+        record,
+        expected_contract("happy_path"),
+        arm_id="single_agent",
+        scenario_id="happy_path",
+    )
+
+    assert result["status"] == "PASS"
+
+    record["worker_evidence"]["trace_id"] = "forged-trace"
+    result = verify_run_record(
+        record,
+        expected_contract("happy_path"),
+        arm_id="single_agent",
+        scenario_id="happy_path",
+    )
+    assert result == {
+        "verifier": "proofflow.independent-verifier/v1",
+        "status": "UNKNOWN",
+        "reason_codes": ["WORKER_EVIDENCE_HASH_MISMATCH"],
     }
 
 

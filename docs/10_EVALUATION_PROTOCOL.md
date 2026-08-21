@@ -60,18 +60,20 @@ six-agent 必须共享同一冻结输入、规则、公式和模型配置，并�
 
 LLM 臂必须先通过 `worker-run-evidence.schema.json`。最低条件为：
 
-1. `worker_execution_observed=true`、`llm_inference_observed=true`，而不是 CR 存在或 Manager 能调用 MCP；
+1. `worker_execution_observed=true`、`llm_inference_observed=true` 只是 schema 前置字段，不能单独打开 gate；每个预期参与者还必须有 `worker_session_receipts` 和 `llm_inference_receipts`，不能用裸布尔或 Manager smoke 代替；
 2. `team_operational_ready=true`，并按 AgentTeams 的字段语义分别满足：`single_agent` 为
    `leader_phase=Running`、`specialist_ready_workers=0`、`total_worker_containers=1`；`six_agent` 为
    `leader_phase=Running`、`specialist_ready_workers=5`、`total_worker_containers=6`。Leader 单独检查，
    Specialist 通过 `specialist_phases` 检查为 `Running`；不能把 total Worker 数写入 `readyWorkers`；
-3. 至少一个 task event、Matrix event、Worker MCP call receipt 和 Skill consumption receipt，并且都
-   能关联同一个 `trace_id`；
-4. 存在 Human Gate receipt；配置中的合成 Human 资源不能替代真实参与 receipt；
-5. `trace_complete=true`、`external_side_effects_enabled=false`、数据分类为 `PUBLIC_SYNTHETIC`，
+3. task/Matrix receipt 必须覆盖场景声明的 exact participant set、使用闭集 event type；Worker session receipt 必须绑定 worker/session/container/task/run/scenario/trace 和时间/phase/outcome；LLM receipt 必须绑定 participant、run/scenario/trace、模型配置 digest、请求/响应 hash 以及 token/cost completeness；
+4. 场景要求 Human 时，receipt 必须是 `actor_kind=HUMAN`、伪匿名 `actor_id`、role、decision time、method、subject hash，并绑定 task/Matrix/trace；合法的 Human Gate 前阻断场景可不伪造 approval receipt；配置中的合成 Human 资源不能替代真实参与 receipt；
+5. `capture_completeness.harness_capture_complete=true`，并单独记录 `capture_completeness.sut_trace_complete`；`external_side_effects_enabled=false`、数据分类为 `PUBLIC_SYNTHETIC`，
    `secrets_or_personal_data_emitted=false`；
-6. fixture manifest、scenario manifest、模型配置、仓库 commit、AgentTeams 版本/commit 和采集器版本
-   都有 digest 或稳定标识。
+6. fixture manifest、scenario manifest、模型配置、仓库 commit、固定 AgentTeams `v1.2.2` / commit
+   `849182af8e017168a5a200a87b1062142caf462d` 和采集器版本都有 digest 或稳定标识。
+
+这些 receipts 仍是未签名的来源/一致性声明。schema/semantic gate 只能证明字段、链接、覆盖和 digest
+一致，不能证明真实执行真实性；真实性还需要公开原始 AgentTeams/Task/Matrix/MCP receipts 或签名/attestation。
 
 当前 Manager smoke 只有 `scope.worker_execution=false`、`llm_inference=false`，Team 的
 `operational_ready=false`，Leader 为 Stopped、`readyWorkers=0`（specialist 数）、total Worker containers
@@ -170,7 +172,7 @@ false block、重复副作用和 Trace 不完整计数。比例必须带分子�
 3. 在完成旧 key 撤销和新 key 轮换、并确认不会把 key 暴露在 help/log/env 输出后，采集 one-worker
    运行证据；先验证 `worker-run-evidence.schema.json`，再打开 `single_agent` gate。
 4. 采集六 Worker Running、`leader_phase=Running`、`specialist_ready_workers=5`、
-   `total_worker_containers=6` 以及真实 DAG/Matrix/MCP/Skill/Human receipts；通过后才打开 `six_agent`
+   `total_worker_containers=6` 以及真实 DAG/Matrix/MCP/Skill/Human、Worker session 和 LLM inference receipts；通过后才打开 `six_agent`
    gate。任何一步失败，臂状态保持 `UNKNOWN`。
 5. 运行所有适用场景和故障注入；先写原始 run ledger，再生成汇总，不从汇总反推原始事实。
 6. 用 `benchmarks.evaluation.verifier.verify_run_record` 独立检查闭集 issue code、对象 hash、Human Gate
