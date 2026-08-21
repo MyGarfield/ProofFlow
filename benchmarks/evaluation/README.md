@@ -60,9 +60,13 @@ Future adapters must emit a `run-record.schema.json` record with fixture and
 scenario manifest digests, model/Worker provenance, and explicit cost/latency
 unknowns. `benchmarks.evaluation.verifier.verify_run_record` is an independent
 verifier: it does not import the suite classifier, accepts only an expected
-scenario contract, and returns the closed statuses `PASS`, `FAIL`, `UNKNOWN`,
-or `UNSAFE_SUCCESS`. It never converts missing provenance or missing cost into
-a score. The Worker-evidence and ledger verifiers are structural/semantic
+scenario contract from the checked-in manifest, and only accepts a caller-
+supplied compatibility contract when it is deeply equal to that manifest truth.
+It requires an explicit expected repository commit and runs the complete Worker
+semantic evidence gate after recomputing the raw evidence hash. It returns the
+closed statuses `PASS`, `FAIL`, `UNKNOWN`, or `UNSAFE_SUCCESS`; missing
+provenance, missing cost, or an absent commit expectation never becomes a
+score. The Worker-evidence and ledger verifiers are structural/semantic
 consistency gates over unsigned declarations; they do not prove execution
 authenticity. Authenticity requires public raw AgentTeams/Task/Matrix/MCP
 receipts or a signed/attested evidence package.

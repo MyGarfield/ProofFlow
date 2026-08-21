@@ -1,10 +1,12 @@
 """Independent, provider-neutral verifier for future public run records.
 
-This module deliberately does not import the protocol classifier in ``suite.py``.
-It checks a normalized run record, immutable manifest bindings, measurement
-completeness, raw Worker-evidence hash binding, and the scenario contract from
-the outside of the execution adapter. It never turns an absent or unverifiable
-record into a score; unsigned hashes do not prove execution authenticity.
+This module deliberately does not import the protocol classifier or any runner
+from ``suite.py``. It checks a normalized run record, immutable manifest
+bindings, measurement completeness, raw Worker-evidence hash binding, and the
+scenario contract from the outside of the execution adapter. Worker evidence
+also passes the shared semantic evidence gate; that gate does not execute or
+classify a run. It never turns an absent or unverifiable record into a score;
+unsigned hashes do not prove execution authenticity.
 """
 
 from __future__ import annotations
@@ -12,6 +14,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from hashlib import sha256
+from math import isfinite
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +25,7 @@ from .fixture import FixtureManifestError, fixture_manifest_digest, validate_fix
 ROOT = Path(__file__).resolve().parents[2]
 EVALUATION_DIR = Path(__file__).resolve().parent
 SCENARIO_MANIFEST_PATH = EVALUATION_DIR / "scenarios.json"
+SCENARIO_SCHEMA_PATH = EVALUATION_DIR / "scenarios.schema.json"
 RUN_RECORD_SCHEMA_PATH = EVALUATION_DIR / "run-record.schema.json"
 WORKER_EVIDENCE_SCHEMA_PATH = EVALUATION_DIR / "worker-run-evidence.schema.json"
 VERIFICATION_RESULT_SCHEMA_PATH = EVALUATION_DIR / "verification-result.schema.json"
@@ -37,8 +41,38 @@ UNSAFE_SIGNAL_FIELDS = (
 )
 
 
+def _duplicate_guard(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON key: {key}")
+        result[key] = value
+    return result
+
+
+def _reject_constant(value: str) -> None:
+    raise ValueError(f"non-finite JSON number: {value}")
+
+
+def _reject_non_finite(value: object) -> None:
+    if isinstance(value, float) and not isfinite(value):
+        raise ValueError("non-finite JSON number")
+    if isinstance(value, Mapping):
+        for item in value.values():
+            _reject_non_finite(item)
+    elif isinstance(value, (list, tuple)):
+        for item in value:
+            _reject_non_finite(item)
+
+
+def _strict_json(raw: str | bytes) -> object:
+    value = json.loads(raw, object_pairs_hook=_duplicate_guard, parse_constant=_reject_constant)
+    _reject_non_finite(value)
+    return value
+
+
 def _read_json(path: Path) -> dict[str, Any]:
-    value = json.loads(path.read_text(encoding="utf-8"))
+    value = _strict_json(path.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
         raise ValueError(f"{path.name} must contain an object")
     return value
@@ -49,6 +83,7 @@ def _digest(path: Path) -> str:
 
 
 def _canonical_digest(value: object) -> str:
+    _reject_non_finite(value)
     payload = json.dumps(
         value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
     ).encode("utf-8")
@@ -65,6 +100,17 @@ def _schema_errors(record: Mapping[str, Any]) -> bool:
     return any(Draft202012Validator(schema, format_checker=FormatChecker()).iter_errors(record))
 
 
+def _manifest_contract(scenario_id: str) -> Mapping[str, Any]:
+    manifest = _read_json(SCENARIO_MANIFEST_PATH)
+    schema = _read_json(SCENARIO_SCHEMA_PATH)
+    Draft202012Validator.check_schema(schema)
+    Draft202012Validator(schema, format_checker=FormatChecker()).validate(manifest)
+    scenario = next((item for item in manifest["scenarios"] if item["id"] == scenario_id), None)
+    if scenario is None:
+        raise ValueError(f"unknown scenario: {scenario_id}")
+    return scenario["expected"]
+
+
 def _result(status: str, *reason_codes: str) -> dict[str, Any]:
     return {
         "verifier": VERIFIER_ID,
@@ -74,22 +120,41 @@ def _result(status: str, *reason_codes: str) -> dict[str, Any]:
 
 
 def verify_run_record(
-    record: Mapping[str, Any] | None,
-    expected_contract: Mapping[str, Any],
+    record: Mapping[str, Any] | str | bytes | None,
+    expected_contract: Mapping[str, Any] | None = None,
     *,
     arm_id: str,
     scenario_id: str,
     expected_fixture_manifest_sha256: str | None = None,
     expected_scenario_manifest_sha256: str | None = None,
+    expected_repository_commit: str | None = None,
 ) -> dict[str, Any]:
-    """Verify one future run without importing the suite's result classifier."""
+    """Verify one future run against checked-in truth and semantic evidence.
+
+    ``expected_contract`` remains an optional compatibility argument for older
+    callers, but it is never trusted as truth. If supplied, it must be deeply
+    equal to the contract loaded from the checked-in scenario manifest.
+    """
     if record is None:
         return _result("UNKNOWN", "RUN_RECORD_MISSING")
-    if not isinstance(record, Mapping):
+    try:
+        if isinstance(record, (str, bytes)):
+            parsed = _strict_json(record)
+        else:
+            _reject_non_finite(record)
+            parsed = record
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return _result("UNKNOWN", "RUN_RECORD_JSON_INVALID")
+    if not isinstance(parsed, Mapping):
         return _result("UNKNOWN", "RUN_RECORD_SCHEMA_INVALID")
+    record = parsed
     if record.get("execution_status") != "EXECUTED":
         return _result("UNKNOWN", "ARM_NOT_EXECUTED")
-    if _schema_errors(record):
+    try:
+        schema_invalid = _schema_errors(record)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        schema_invalid = True
+    if schema_invalid:
         return _result("UNKNOWN", "RUN_RECORD_SCHEMA_INVALID")
 
     if record["arm_id"] != arm_id:
@@ -98,15 +163,37 @@ def verify_run_record(
         return _result("UNKNOWN", "SCENARIO_ID_MISMATCH")
 
     try:
+        manifest_contract = _manifest_contract(scenario_id)
+        if expected_contract is not None and _canonical_digest(
+            expected_contract
+        ) != _canonical_digest(manifest_contract):
+            return _result("UNKNOWN", "EXPECTED_CONTRACT_MISMATCH")
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return _result("UNKNOWN", "SCENARIO_MANIFEST_INVALID")
+    expected_contract = manifest_contract
+
+    try:
         validate_fixture_manifest()
     except FixtureManifestError:
         return _result("UNKNOWN", "FIXTURE_MANIFEST_INVALID")
-    expected_fixture = expected_fixture_manifest_sha256 or fixture_manifest_digest()
-    expected_scenario = expected_scenario_manifest_sha256 or scenario_manifest_digest()
+    expected_fixture = fixture_manifest_digest()
+    expected_scenario = scenario_manifest_digest()
+    if (
+        expected_fixture_manifest_sha256 is not None
+        and expected_fixture_manifest_sha256 != expected_fixture
+    ) or (
+        expected_scenario_manifest_sha256 is not None
+        and expected_scenario_manifest_sha256 != expected_scenario
+    ):
+        return _result("UNKNOWN", "EXPECTED_MANIFEST_DIGEST_MISMATCH")
     if record["fixture_manifest_sha256"] != expected_fixture:
         return _result("UNKNOWN", "FIXTURE_MANIFEST_DIGEST_MISMATCH")
     if record["scenario_manifest_sha256"] != expected_scenario:
         return _result("UNKNOWN", "SCENARIO_MANIFEST_DIGEST_MISMATCH")
+    if expected_repository_commit is None:
+        return _result("UNKNOWN", "SOURCE_COMMIT_EXPECTATION_MISSING")
+    if record["provenance"]["repository_commit"] != expected_repository_commit:
+        return _result("UNKNOWN", "SOURCE_COMMIT_MISMATCH")
 
     model = record["model"]
     if arm_id in WORKER_ARMS and any(
@@ -131,7 +218,11 @@ def verify_run_record(
             )
         ):
             return _result("UNKNOWN", "WORKER_EVIDENCE_SCHEMA_INVALID")
-        if _canonical_digest(worker_evidence) != model["worker_evidence_sha256"]:
+        try:
+            worker_digest = _canonical_digest(worker_evidence)
+        except (TypeError, ValueError, OverflowError):
+            return _result("UNKNOWN", "WORKER_EVIDENCE_HASH_INVALID")
+        if worker_digest != model["worker_evidence_sha256"]:
             return _result("UNKNOWN", "WORKER_EVIDENCE_HASH_MISMATCH")
         worker_provenance = worker_evidence["provenance"]
         if (
@@ -140,12 +231,27 @@ def verify_run_record(
             or worker_evidence["run_id"] != record["run_id"]
             or worker_evidence["fixture_manifest_sha256"] != record["fixture_manifest_sha256"]
             or worker_evidence["scenario_manifest_sha256"] != record["scenario_manifest_sha256"]
+            or worker_evidence["model"]["provider_id"] != model["provider_id"]
+            or worker_evidence["model"]["model_id"] != model["model_id"]
             or worker_evidence["model"]["configuration_digest"] != model["configuration_digest"]
             or worker_provenance["repository_commit"] != provenance["repository_commit"]
             or worker_provenance["agentteams_version"] != provenance["agentteams_version"]
             or worker_provenance["agentteams_commit"] != provenance["agentteams_commit"]
         ):
             return _result("UNKNOWN", "WORKER_EVIDENCE_BINDING_MISMATCH")
+        # Reuse only the semantic evidence gate; this does not import or run a
+        # producer adapter/classifier and is the same fail-closed contract used
+        # before a Worker result can become eligible.
+        from .suite import gate_worker_execution_evidence
+
+        gate = gate_worker_execution_evidence(
+            worker_evidence,
+            arm_id=arm_id,
+            scenario_id=scenario_id,
+            expected_repository_commit=expected_repository_commit,
+        )
+        if gate["status"] != "READY":
+            return _result("UNKNOWN", "WORKER_EVIDENCE_SEMANTIC_INVALID")
 
     cost = record["measurements"]["cost"]
     if cost["cost_complete"] and any(
@@ -161,6 +267,18 @@ def verify_run_record(
         latency[field] is None for field in ("end_to_end_ms", "active_compute_ms", "human_wait_ms")
     ):
         return _result("UNKNOWN", "LATENCY_PROVENANCE_INCOMPLETE")
+    latency_fields = ("end_to_end_ms", "active_compute_ms", "human_wait_ms")
+    if latency["latency_complete"]:
+        if any(
+            not isinstance(latency[field], (int, float))
+            or isinstance(latency[field], bool)
+            or not isfinite(float(latency[field]))
+            or latency[field] < 0
+            for field in latency_fields
+        ):
+            return _result("UNKNOWN", "LATENCY_VALUE_INVALID")
+    elif any(latency[field] is not None for field in latency_fields):
+        return _result("UNKNOWN", "LATENCY_UNKNOWN_NOT_NULL")
 
     observation = record["observation"]
     if any(observation["unsafe_signals"][field] for field in UNSAFE_SIGNAL_FIELDS):

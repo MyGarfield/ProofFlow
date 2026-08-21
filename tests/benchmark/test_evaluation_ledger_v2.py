@@ -1,5 +1,6 @@
 import json
 from copy import deepcopy
+from hashlib import sha256
 
 from jsonschema import Draft202012Validator, FormatChecker
 
@@ -10,8 +11,79 @@ from benchmarks.evaluation.ledger_verifier import (
     aggregate_run_ledger,
     verify_run_ledger,
 )
+from benchmarks.evaluation.suite import EXPECTED_AGENTTEAMS_COMMIT, EXPECTED_AGENTTEAMS_VERSION
+from tests.benchmark.test_evaluation_contracts import valid_worker_evidence
 
 TEST_COMMIT = "f3dc335" + "0" * 33
+
+
+def canonical_digest(value: object) -> str:
+    payload = json.dumps(
+        value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
+    ).encode("utf-8")
+    return f"sha256:{sha256(payload).hexdigest()}"
+
+
+def reseal_ledger(ledger: dict) -> None:
+    previous = "sha256:" + "0" * 64
+    for index, entry in enumerate(ledger["entries"], start=1):
+        entry["entry_index"] = index
+        entry["previous_entry_sha256"] = previous
+        entry["entry_sha256"] = canonical_digest(
+            {key: value for key, value in entry.items() if key != "entry_sha256"}
+        )
+        previous = entry["entry_sha256"]
+    ledger["ledger_root_sha256"] = canonical_digest(
+        {key: value for key, value in ledger.items() if key != "ledger_root_sha256"}
+    )
+
+
+def ledger_with_executed_worker(tmp_path) -> dict:
+    ledger = build_run_ledger(tmp_path / "runs", repository_commit=TEST_COMMIT)
+    entry = next(
+        item
+        for item in ledger["entries"]
+        if item["arm_id"] == "single_agent" and item["scenario_id"] == "happy_path"
+    )
+    worker = valid_worker_evidence("single_agent")
+    worker["run_id"] = entry["run_id"]
+    for receipt_group in (
+        "task_event_receipts",
+        "matrix_event_receipts",
+        "worker_session_receipts",
+        "llm_inference_receipts",
+        "worker_mcp_call_receipts",
+        "skill_consumption_receipts",
+    ):
+        for receipt in worker[receipt_group]:
+            receipt["run_id"] = entry["run_id"]
+    if "human_gate_receipt" in worker:
+        worker["human_gate_receipt"]["run_id"] = entry["run_id"]
+    worker["fixture_manifest_sha256"] = entry["fixture_manifest_sha256"]
+    worker["scenario_manifest_sha256"] = entry["scenario_manifest_sha256"]
+    worker["provenance"]["repository_commit"] = TEST_COMMIT
+    worker["provenance"]["agentteams_version"] = EXPECTED_AGENTTEAMS_VERSION
+    worker["provenance"]["agentteams_commit"] = EXPECTED_AGENTTEAMS_COMMIT
+    entry["model_provider_id"] = worker["model"]["provider_id"]
+    entry["model_id"] = worker["model"]["model_id"]
+    entry["model_configuration_digest"] = worker["model"]["configuration_digest"]
+    for receipt in worker["llm_inference_receipts"]:
+        receipt["model_configuration_digest"] = entry["model_configuration_digest"]
+    entry["agentteams_version"] = EXPECTED_AGENTTEAMS_VERSION
+    entry["agentteams_commit"] = EXPECTED_AGENTTEAMS_COMMIT
+    entry["worker_evidence"] = worker
+    entry["worker_evidence_sha256"] = canonical_digest(worker)
+    entry["execution_status"] = "EXECUTED"
+    reference_result = next(
+        item["result"]
+        for item in ledger["entries"]
+        if item["arm_id"] == "deterministic_reference" and item["scenario_id"] == "happy_path"
+    )
+    entry["result"] = deepcopy(reference_result)
+    entry["status"] = "PASS"
+    entry["issue_codes"] = []
+    reseal_ledger(ledger)
+    return ledger
 
 
 def test_v2_ledger_executes_all_ten_deterministic_scenarios_and_keeps_workers_unknown(
@@ -135,3 +207,69 @@ def test_ledger_plan_and_aggregation_keep_attempt_as_pairing_dimension(tmp_path)
     assert result["entries_verified"] == 74
     assert report["pairing_summary"]["unit"] == "scenario_id+replicate_id+attempt"
     assert report["pairing_summary"]["incomplete_pairs"] == 28
+
+
+def test_ledger_worker_entry_reuses_full_semantic_gate(tmp_path) -> None:
+    ledger = ledger_with_executed_worker(tmp_path)
+    result = verify_run_ledger(ledger, expected_repository_commit=TEST_COMMIT)
+    assert result["status"] == "VERIFIED"
+    assert result["entries_verified"] == 37
+
+    for attack in ("skill", "mcp", "task_participant"):
+        attacked = deepcopy(ledger)
+        entry = next(
+            item
+            for item in attacked["entries"]
+            if item["arm_id"] == "single_agent" and item["scenario_id"] == "happy_path"
+        )
+        worker = entry["worker_evidence"]
+        if attack == "skill":
+            worker["skill_consumption_receipts"][0]["skill_sha256"] = "sha256:" + "f" * 64
+        elif attack == "mcp":
+            worker["worker_mcp_call_receipts"] = worker["worker_mcp_call_receipts"][:1]
+        else:
+            worker["task_event_receipts"][0]["worker_name"] = "evidence-agent"
+        entry["worker_evidence_sha256"] = canonical_digest(worker)
+        reseal_ledger(attacked)
+        result = verify_run_ledger(attacked, expected_repository_commit=TEST_COMMIT)
+        assert result["status"] == "UNKNOWN"
+        assert "WORKER_EVIDENCE_SEMANTIC_INVALID" in result["reason_codes"]
+
+
+def test_ledger_worker_entry_binds_manifest_model_and_agentteams_provenance(tmp_path) -> None:
+    ledger = ledger_with_executed_worker(tmp_path)
+    entry = next(
+        item
+        for item in ledger["entries"]
+        if item["arm_id"] == "single_agent" and item["scenario_id"] == "happy_path"
+    )
+
+    attacked = deepcopy(ledger)
+    attacked_entry = next(
+        item
+        for item in attacked["entries"]
+        if item["arm_id"] == "single_agent" and item["scenario_id"] == "happy_path"
+    )
+    attacked_entry["worker_evidence"]["fixture_manifest_sha256"] = "sha256:" + "9" * 64
+    attacked_entry["worker_evidence_sha256"] = canonical_digest(attacked_entry["worker_evidence"])
+    reseal_ledger(attacked)
+    result = verify_run_ledger(attacked, expected_repository_commit=TEST_COMMIT)
+    assert result["status"] == "UNKNOWN"
+    assert "WORKER_EVIDENCE_BINDING_MISMATCH" in result["reason_codes"]
+
+    attacked = deepcopy(ledger)
+    attacked_entry = next(
+        item
+        for item in attacked["entries"]
+        if item["arm_id"] == "single_agent" and item["scenario_id"] == "happy_path"
+    )
+    attacked_entry["agentteams_commit"] = "b" * 40
+    attacked_entry["worker_evidence"]["provenance"]["agentteams_commit"] = "b" * 40
+    attacked_entry["worker_evidence_sha256"] = canonical_digest(attacked_entry["worker_evidence"])
+    reseal_ledger(attacked)
+    result = verify_run_ledger(attacked, expected_repository_commit=TEST_COMMIT)
+    assert result["status"] == "UNKNOWN"
+    assert "AGENTTEAMS_COMMIT_MISMATCH" in result["reason_codes"]
+    assert "WORKER_EVIDENCE_SEMANTIC_INVALID" in result["reason_codes"]
+
+    assert entry["model_provider_id"] == entry["worker_evidence"]["model"]["provider_id"]
