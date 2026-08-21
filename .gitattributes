@@ -1,2 +1,4 @@
 *.pdf binary
 *.pptx binary
+# This audited upstream snapshot must remain byte-identical to its recorded SHA-256 values.
+third_party/aliyun/alibabacloud-openclaw-skill-security-scan/upstream/** -whitespace
