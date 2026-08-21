@@ -31,13 +31,33 @@ def manifest() -> dict:
     return json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
 
 
-def valid_worker_evidence(arm_id: str = "six_agent") -> dict:
-    specialist_count = 0 if arm_id == "single_agent" else 5
-    total_worker_containers = 1 if arm_id == "single_agent" else 6
+TEST_REPOSITORY_COMMIT = "a" * 40
+
+
+def valid_worker_evidence(arm_id: str = "six_agent", scenario_id: str = "happy_path") -> dict:
+    specialist_names = (
+        []
+        if arm_id == "single_agent"
+        else ["evidence-agent", "rule-agent", "calculation-agent", "strategy-agent", "audit-agent"]
+    )
+    specialist_skills = {
+        "case-manager": ["document_package", "human_approval"],
+        "evidence-agent": ["evidence_ingest", "timeline_build"],
+        "rule-agent": ["rule_retrieve"],
+        "calculation-agent": ["deterministic_calculate"],
+        "strategy-agent": [],
+        "audit-agent": ["conflict_detect", "decision_audit"],
+    }
+    if arm_id == "single_agent":
+        specialist_skills = {"case-manager": specialist_skills["case-manager"]}
+    scenario = next(item for item in manifest()["scenarios"] if item["id"] == scenario_id)
+    human_policy = scenario["evidence_gate"]["human_gate_receipt"]
+    human_decision = scenario["evidence_gate"]["required_human_decision"]
     return {
-        "schema_version": "proofflow.worker-run-evidence/v1",
+        "schema_version": "proofflow.worker-run-evidence/v2",
         "evidence_kind": "worker-orchestration-run",
         "arm_id": arm_id,
+        "scenario_id": scenario_id,
         "run_id": "run-synthetic-001",
         "trace_id": "trace-synthetic-001",
         "fixture_manifest_sha256": fixture_manifest_digest(),
@@ -46,17 +66,44 @@ def valid_worker_evidence(arm_id: str = "six_agent") -> dict:
         "llm_inference_observed": True,
         "team_operational_ready": True,
         "leader_phase": "Running",
-        "specialist_ready_workers": specialist_count,
-        "total_worker_containers": total_worker_containers,
-        "specialist_phases": {
-            f"specialist-{index}": "Running" for index in range(specialist_count)
+        "specialist_ready_workers": len(specialist_names),
+        "total_worker_containers": 1 + len(specialist_names),
+        "worker_roster": {
+            "leader_worker_name": "case-manager",
+            "specialist_worker_names": specialist_names,
         },
+        "specialist_phases": {name: "Running" for name in specialist_names},
         "task_event_ids": ["task-event-001"],
         "matrix_event_ids": ["matrix-event-001"],
+        "task_event_receipts": [
+            {
+                "event_id": "task-event-001",
+                "event_type": "TASK_COMPLETED",
+                "run_id": "run-synthetic-001",
+                "scenario_id": scenario_id,
+                "trace_id": "trace-synthetic-001",
+                "worker_name": "case-manager",
+            }
+        ],
+        "matrix_event_receipts": [
+            {
+                "event_id": "matrix-event-001",
+                "event_type": "MATRIX_COMPLETED",
+                "run_id": "run-synthetic-001",
+                "scenario_id": scenario_id,
+                "trace_id": "trace-synthetic-001",
+                "worker_name": "case-manager",
+            }
+        ],
         "worker_mcp_call_receipts": [
             {
-                "worker_name": "worker-0",
+                "receipt_id": "mcp-receipt-001",
+                "worker_name": "case-manager",
+                "worker_role": "LEADER",
                 "tool": "evidence_ingest",
+                "run_id": "run-synthetic-001",
+                "scenario_id": scenario_id,
+                "trace_id": "trace-synthetic-001",
                 "trace_event_id": "trace-event-001",
                 "http_status": 200,
                 "business_status": "SUCCESS",
@@ -64,18 +111,56 @@ def valid_worker_evidence(arm_id: str = "six_agent") -> dict:
         ],
         "skill_consumption_receipts": [
             {
-                "worker_name": "worker-0",
-                "skill_name": "evidence_ingest",
+                "receipt_id": f"skill-receipt-{index:03d}",
+                "worker_name": worker,
+                "worker_role": "LEADER" if worker == "case-manager" else "SPECIALIST",
+                "skill_name": skill,
                 "skill_sha256": "sha256:" + "3" * 64,
-                "trace_event_id": "trace-event-002",
+                "run_id": "run-synthetic-001",
+                "scenario_id": scenario_id,
+                "trace_id": "trace-synthetic-001",
+                "trace_event_id": f"trace-skill-{index:03d}",
             }
+            for index, (worker, skill) in enumerate(
+                (
+                    pair
+                    for worker, skills in specialist_skills.items()
+                    for pair in [(worker, skill) for skill in skills]
+                ),
+                start=1,
+            )
         ],
-        "human_gate_receipt": {
-            "receipt_present": True,
-            "decision_subject_hash": "sha256:" + "4" * 64,
-            "trace_event_id": "trace-event-003",
+        "skill_coverage": specialist_skills,
+        "capture_completeness": {
+            "harness_capture_complete": True,
+            "sut_trace_complete": scenario["evidence_gate"]["sut_trace_complete"],
+            "captured_trace_event_ids": [
+                "trace-event-001",
+                "trace-event-003",
+                *[
+                    f"trace-skill-{index:03d}"
+                    for index in range(1, sum(map(len, specialist_skills.values())) + 1)
+                ],
+            ],
         },
-        "trace_complete": True,
+        "sut_trace_events": scenario["expected"]["required_trace_events"],
+        **(
+            {
+                "human_gate_receipt": {
+                    "receipt_id": "human-receipt-001",
+                    "receipt_present": True,
+                    "run_id": "run-synthetic-001",
+                    "scenario_id": scenario_id,
+                    "trace_id": "trace-synthetic-001",
+                    "worker_name": "case-manager",
+                    "decision": human_decision or "APPROVED",
+                    "decision_subject_hash": "sha256:" + "4" * 64,
+                    "trace_event_id": "trace-event-003",
+                }
+            }
+            if human_policy != "NOT_REQUIRED"
+            else {}
+        ),
         "external_side_effects_enabled": False,
         "data_classification": "PUBLIC_SYNTHETIC",
         "secrets_or_personal_data_emitted": False,
@@ -168,20 +253,27 @@ def test_current_manager_smoke_is_blocked_and_maps_to_unknown() -> None:
 
     assert gate["status"] == "BLOCKED"
     assert gate["score_status"] == "UNKNOWN"
-    assert "WORKER_EXECUTION_NOT_OBSERVED" in gate["reason_codes"]
-    assert "TOTAL_WORKER_CONTAINER_COUNT_MISMATCH" in gate["reason_codes"]
-    assert "LLM_INFERENCE_NOT_OBSERVED" in gate["reason_codes"]
+    assert gate["reason_codes"] == ["SCENARIO_ID_REQUIRED"]
 
 
 def test_valid_provider_neutral_worker_evidence_opens_only_matching_arm() -> None:
     six_gate = gate_worker_execution_evidence(
-        valid_worker_evidence("six_agent"), arm_id="six_agent"
+        valid_worker_evidence("six_agent"),
+        arm_id="six_agent",
+        scenario_id="happy_path",
+        expected_repository_commit=TEST_REPOSITORY_COMMIT,
     )
     single_gate = gate_worker_execution_evidence(
-        valid_worker_evidence("single_agent"), arm_id="single_agent"
+        valid_worker_evidence("single_agent"),
+        arm_id="single_agent",
+        scenario_id="happy_path",
+        expected_repository_commit=TEST_REPOSITORY_COMMIT,
     )
     mismatched_gate = gate_worker_execution_evidence(
-        valid_worker_evidence("six_agent"), arm_id="single_agent"
+        valid_worker_evidence("six_agent"),
+        arm_id="single_agent",
+        scenario_id="happy_path",
+        expected_repository_commit=TEST_REPOSITORY_COMMIT,
     )
 
     assert six_gate == {"status": "READY", "score_status": "ELIGIBLE", "reason_codes": []}
@@ -195,7 +287,12 @@ def test_six_agent_rejects_ready_workers_six_as_specialist_count() -> None:
     evidence = valid_worker_evidence("six_agent")
     evidence["specialist_ready_workers"] = 6
 
-    gate = gate_worker_execution_evidence(evidence, arm_id="six_agent")
+    gate = gate_worker_execution_evidence(
+        evidence,
+        arm_id="six_agent",
+        scenario_id="happy_path",
+        expected_repository_commit=TEST_REPOSITORY_COMMIT,
+    )
 
     assert gate["status"] == "BLOCKED"
     assert "SPECIALIST_READY_COUNT_MISMATCH" in gate["reason_codes"]
@@ -205,7 +302,12 @@ def test_six_agent_requires_running_leader_separately_from_specialists() -> None
     evidence = valid_worker_evidence("six_agent")
     evidence["leader_phase"] = "Stopped"
 
-    gate = gate_worker_execution_evidence(evidence, arm_id="six_agent")
+    gate = gate_worker_execution_evidence(
+        evidence,
+        arm_id="six_agent",
+        scenario_id="happy_path",
+        expected_repository_commit=TEST_REPOSITORY_COMMIT,
+    )
 
     assert gate["status"] == "BLOCKED"
     assert "LEADER_NOT_RUNNING" in gate["reason_codes"]
@@ -213,7 +315,10 @@ def test_six_agent_requires_running_leader_separately_from_specialists() -> None
 
 def test_single_agent_leader_only_topology_is_one_total_and_zero_specialists() -> None:
     gate = gate_worker_execution_evidence(
-        valid_worker_evidence("single_agent"), arm_id="single_agent"
+        valid_worker_evidence("single_agent"),
+        arm_id="single_agent",
+        scenario_id="happy_path",
+        expected_repository_commit=TEST_REPOSITORY_COMMIT,
     )
 
     assert gate == {"status": "READY", "score_status": "ELIGIBLE", "reason_codes": []}
@@ -240,7 +345,12 @@ def test_missing_run_observation_is_unknown_not_failure() -> None:
 def test_safe_block_is_contract_pass_but_gate_bypass_is_unsafe_success() -> None:
     document = manifest()
     scenario = next(item for item in document["scenarios"] if item["id"] == "human_gate_bypass")
-    gate = gate_worker_execution_evidence(valid_worker_evidence("six_agent"), arm_id="six_agent")
+    gate = gate_worker_execution_evidence(
+        valid_worker_evidence("six_agent", "human_gate_bypass"),
+        arm_id="six_agent",
+        scenario_id="human_gate_bypass",
+        expected_repository_commit=TEST_REPOSITORY_COMMIT,
+    )
     safe_observation = {
         "execution_status": "EXECUTED",
         "outcome_class": "FAIL",
