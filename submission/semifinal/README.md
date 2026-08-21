@@ -42,6 +42,9 @@ uv run python scripts/build_semifinal_zip.py \
 Agent 协作 ledger 和动态配置重查证据，因此这是预期结果。只有完成真实证据采集、公开 Demo、资格确认
 和提交前重查后，才可在隔离
 发布 worktree 中更新配置并请求 `--mode submit-ready`；成功状态是 `PRE_SUBMIT_READY`，不是已提交。
+ZIP 内包含 schema-valid 的 `submission-config.json`、构建入口、验证器和精确重建命令。该命令仍要求调用方
+提供与 manifest `source_commit` 一致的外部 Git checkout；包内 schema 只是待核验 payload，不能充当自己的
+信任根。权威验证必须由调用方传入预期 commit 和从该 commit 计算的 schema/verifier SHA-256。
 
 上下文四选二固定为 RAG、Agent memory、shared state、trajectory/trace observability。本项目当前选择
 `shared_state + trajectory_observability`，并将它们绑定到 state machine/reference runtime 的源码
@@ -59,9 +62,12 @@ evidence schema；真实协作只能绑定 evaluation v2 ledger，并由独立 v
 占位或摘要冒充真实运行。真实 portal eligibility 证据为空时始终保持 `CANDIDATE_NOT_SUBMIT_READY`。
 
 ZIP 写完后会被重新打开，逐项拒绝重复/额外/缺失条目、symlink、路径穿越、非普通文件，并重算每项
-size/SHA-256 对照 manifest。随后在临时解压目录中执行 `uv sync --frozen --no-dev --offline`、
+size/SHA-256 对照 manifest。验证器从外部 commit-pinned config/schema/verifier 和 ZIP 实际字节独立重建
+inventory 与 gate，再逐字段对照 manifest；manifest 自报的 READY、evidence ref 或包内替换 schema 均不构成
+信任依据。随后在临时解压目录中执行 `uv sync --frozen --no-dev --offline`、
 `python -m demo.server --help` 和最小 HTTP loopback smoke；代理被指向不可达本机端口，除 127.0.0.1
-外不允许网络依赖。PPTX 会解析 ZIP/XML；PDF 用 `pdfinfo` 解析并用 `pdftotext` 抽取文本做 secret/PII
+外不允许网络依赖。PPTX 除解析 ZIP/XML 外还必须由 `soffice --headless` 成功转成至少一页 PDF；缺少
+LibreOffice 或转换失败会硬阻断。PDF 用 `pdfinfo` 解析并用 `pdftotext` 抽取文本做 secret/PII
 扫描。光栅化图片中的文字不在自动扫描保证内，仍需人工复核。
 
 ## 发布前门禁

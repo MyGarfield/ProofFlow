@@ -8,10 +8,10 @@
     "schema_version", "manifest_type", "artifact_status", "project", "track",
     "source_commit", "repository_url", "demo_url", "official", "submission_fields",
     "limits", "required_components", "context_mapping", "gate_evidence", "gate",
-    "artifact_inventory", "portal_receipt", "selection_claim", "integrity", "build"
+    "artifact_inventory", "portal_receipt", "selection_claim", "trust", "integrity", "build"
   ],
   "properties": {
-    "schema_version": {"const": "proofflow.goai.semifinal.manifest/v2"},
+    "schema_version": {"const": "proofflow.goai.semifinal.manifest/v3"},
     "manifest_type": {"const": "single_semifinal_zip"},
     "artifact_status": {"enum": ["CANDIDATE_NOT_SUBMIT_READY", "PRE_SUBMIT_READY", "SUBMITTED_RECEIPT_VERIFIED"]},
     "project": {"const": "ProofFlow"},
@@ -96,6 +96,20 @@
     },
     "portal_receipt": {"type": "null"},
     "selection_claim": {"const": false},
+    "trust": {
+      "type": "object", "additionalProperties": false,
+      "required": ["expected_repository_commit", "root_kind", "trusted_file_digests", "evaluation_verifier_status"],
+      "properties": {
+        "expected_repository_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "root_kind": {"const": "EXTERNAL_GIT_COMMIT"},
+        "trusted_file_digests": {
+          "type": "object", "minProperties": 7,
+          "propertyNames": {"$ref": "#/$defs/safePath"},
+          "additionalProperties": {"$ref": "#/$defs/digest"}
+        },
+        "evaluation_verifier_status": {"enum": ["AVAILABLE", "MISSING"]}
+      }
+    },
     "integrity": {
       "type": "object", "additionalProperties": false,
       "required": ["algorithm", "subject_binding_sha256", "attestation", "signature"],
@@ -108,12 +122,25 @@
     },
     "build": {
       "type": "object", "additionalProperties": false,
-      "required": ["tool", "reproducible", "timestamp", "source_root"],
+      "required": ["tool", "mode", "reproducible", "timestamp", "source_root", "config_path", "command"],
       "properties": {
         "tool": {"const": "scripts.semifinal_submission"},
+        "mode": {"enum": ["candidate", "submit-ready"]},
         "reproducible": {"const": true},
         "timestamp": {"type": "null"},
-        "source_root": {"const": "."}
+        "source_root": {"const": "."},
+        "config_path": {"const": "submission/semifinal/submission-config.json"},
+        "command": {
+          "type": "array", "minItems": 10, "maxItems": 10,
+          "prefixItems": [
+            {"const": "uv"}, {"const": "run"}, {"const": "python"},
+            {"const": "scripts/build_semifinal_zip.py"}, {"const": "--config"},
+            {"const": "submission/semifinal/submission-config.json"}, {"const": "--output"},
+            {"const": "<OUTPUT_OUTSIDE_REPOSITORY>.zip"}, {"const": "--mode"},
+            {"enum": ["candidate", "submit-ready"]}
+          ],
+          "items": false
+        }
       }
     }
   },
@@ -167,7 +194,7 @@
         "deck_pptx", "deck_pdf", "identity", "skill_spec", "runtime_source", "runtime_entry",
         "dependencies", "demo_assets", "demo_benchmarks", "examples", "evidence",
         "agentteams_workers", "agentteams_team", "agentteams_humans", "agentteams_mcp",
-        "agentteams_skills", "tool_service", "reproduction_tests", "disclosure", "license",
+        "agentteams_skills", "tool_service", "reproduction_tests", "rebuild_inputs", "disclosure", "license",
         "agent_collaboration_evidence", "eligibility_evidence", "official_recheck_evidence",
         "demo_access_evidence", "demo_offline_fallback"
       ],
@@ -190,6 +217,7 @@
         "agentteams_skills": {"$ref": "#/$defs/nonEmptyPaths"},
         "tool_service": {"$ref": "#/$defs/nonEmptyPaths"},
         "reproduction_tests": {"$ref": "#/$defs/nonEmptyPaths"},
+        "rebuild_inputs": {"$ref": "#/$defs/nonEmptyPaths"},
         "disclosure": {"$ref": "#/$defs/nonEmptyPaths"},
         "license": {"$ref": "#/$defs/nonEmptyPaths"},
         "agent_collaboration_evidence": {"$ref": "#/$defs/paths"},

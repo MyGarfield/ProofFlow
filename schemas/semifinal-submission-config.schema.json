@@ -17,7 +17,7 @@
     "allowlist"
   ],
   "properties": {
-    "schema_version": {"const": "proofflow.goai.semifinal.config/v2"},
+    "schema_version": {"const": "proofflow.goai.semifinal.config/v3"},
     "project": {"const": "ProofFlow"},
     "track": {"const": "GOAI Agent Infra / 新智基座"},
     "repository_url": {"$ref": "#/$defs/publicUrl"},
@@ -158,6 +158,7 @@
         "agentteams_skills",
         "tool_service",
         "reproduction_tests",
+        "rebuild_inputs",
         "disclosure",
         "license",
         "agent_collaboration_evidence",
@@ -185,6 +186,7 @@
         "agentteams_skills": {"$ref": "#/$defs/nonEmptyPaths"},
         "tool_service": {"$ref": "#/$defs/nonEmptyPaths"},
         "reproduction_tests": {"$ref": "#/$defs/nonEmptyPaths"},
+        "rebuild_inputs": {"$ref": "#/$defs/nonEmptyPaths"},
         "disclosure": {"$ref": "#/$defs/nonEmptyPaths"},
         "license": {"$ref": "#/$defs/nonEmptyPaths"},
         "agent_collaboration_evidence": {"$ref": "#/$defs/paths"},

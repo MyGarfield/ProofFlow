@@ -1,5 +1,5 @@
 {
-  "schema_version": "proofflow.goai.semifinal.config/v2",
+  "schema_version": "proofflow.goai.semifinal.config/v3",
   "project": "ProofFlow",
   "track": "GOAI Agent Infra / 新智基座",
   "repository_url": "https://github.com/MyGarfield/ProofFlow",
@@ -128,6 +128,16 @@
       "tests/benchmark/conftest.py",
       "tests/benchmark/test_public_contract_suite.py",
       "tests/e2e/test_demo_server.py"
+    ],
+    "rebuild_inputs": [
+      "submission/semifinal/submission-config.json",
+      "schemas/semifinal-demo-access-evidence.schema.json",
+      "schemas/semifinal-eligibility-evidence.schema.json",
+      "schemas/semifinal-official-recheck-evidence.schema.json",
+      "schemas/semifinal-submission-config.schema.json",
+      "schemas/semifinal-submission-manifest.schema.json",
+      "scripts/build_semifinal_zip.py",
+      "scripts/semifinal_submission.py"
     ],
     "disclosure": [
       "submission/public/DISCLOSURE_BOUNDARY.md",
