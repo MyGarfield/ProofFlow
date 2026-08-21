@@ -5,6 +5,10 @@
   "suite_version": "0.1.0",
   "data_classification": "PUBLIC_SYNTHETIC",
   "provider_neutral": true,
+  "fixture_manifest": {
+    "path": "benchmarks/evaluation/fixtures/manifest.json",
+    "sha256": "sha256:809ab5e46ec69e196b9e19c96a1508db484736eee65988932f4c317bc56295cf"
+  },
   "execution_policy": {
     "deterministic_reference": {
       "requires_worker_execution_evidence": false,

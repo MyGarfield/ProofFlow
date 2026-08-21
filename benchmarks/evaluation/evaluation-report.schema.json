@@ -68,8 +68,16 @@
     "provenance": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["scenario_schema_sha256", "worker_evidence_schema_sha256", "suite_source_sha256"],
+      "required": [
+        "fixture_manifest_sha256",
+        "fixture_schema_sha256",
+        "scenario_schema_sha256",
+        "worker_evidence_schema_sha256",
+        "suite_source_sha256"
+      ],
       "properties": {
+        "fixture_manifest_sha256": {"$ref": "#/$defs/digest"},
+        "fixture_schema_sha256": {"$ref": "#/$defs/digest"},
         "scenario_schema_sha256": {"$ref": "#/$defs/digest"},
         "worker_evidence_schema_sha256": {"$ref": "#/$defs/digest"},
         "suite_source_sha256": {"$ref": "#/$defs/digest"}
