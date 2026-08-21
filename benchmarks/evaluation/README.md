@@ -15,6 +15,11 @@ Validate the protocol and emit a no-execution report:
 ```bash
 uv run python -m benchmarks.evaluation.run \
   --output .proofflow/evaluation-protocol-report.json
+
+uv run pytest tests/benchmark/test_evaluation_contracts.py \
+  tests/benchmark/test_evaluation_verifier.py
+uv run ruff format --check benchmarks/evaluation tests/benchmark/test_evaluation_verifier.py
+uv run ruff check benchmarks/evaluation tests/benchmark/test_evaluation_verifier.py
 ```
 
 The report uses `UNKNOWN` and `points: null` for every unexecuted arm and
@@ -26,6 +31,20 @@ gate can open.
 The scenario manifest, schemas, gate, and tests are independent of the existing
 deterministic public contract and local HTTP performance suites. Those suites
 remain unchanged and retain their narrower measurement boundaries.
+
+The public fixture binding is `fixtures/manifest.json`. It hashes the existing
+synthetic happy-path documents and binds all 14 scenario mutation descriptors;
+`fixture-manifest.schema.json` and `benchmarks.evaluation.fixture` verify the
+paths, hashes, synthetic classification, and scenario coverage before a
+protocol report is emitted.
+
+Future adapters must emit a `run-record.schema.json` record with fixture and
+scenario manifest digests, model/Worker provenance, and explicit cost/latency
+unknowns. `benchmarks.evaluation.verifier.verify_run_record` is an independent
+verifier: it does not import the suite classifier, accepts only an expected
+scenario contract, and returns the closed statuses `PASS`, `FAIL`, `UNKNOWN`,
+or `UNSAFE_SUCCESS`. It never converts missing provenance or missing cost into
+a score.
 
 The AgentTeams topology is explicit in the Worker evidence contract:
 `readyWorkers` is the specialist count, not the total Worker count. A
