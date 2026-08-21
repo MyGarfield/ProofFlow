@@ -25,6 +25,20 @@ SKILLS_ROOT = ROOT / "deploy/agentteams/skills"
 PROOFLOW_BASE_COMMIT = "b63eeb60d1072c73d2d0d1d6061b3c8f800487a4"
 SANDBOX_PROFILE = "(version 1) (allow default) (deny network*)"
 OFFICIAL_EMPTY_TARGET_REASON = "OFFICIAL_TARGET_POLICY_EXCLUDES_SKILL_MD_ONLY_INPUTS"
+NETWORK_POSITIVE_CONTROL = "LOOPBACK_IPV4_TCP_CONNECT_SUCCEEDED"
+UPSTREAM_TAG = "alibabacloud-openclaw-skill-security-scan-0.0.1"
+UPSTREAM_COMMIT = "3cdce6a5ead21b4aec740d97ae30eb0b71c1c786"
+UPSTREAM_REPOSITORY_PATH = (
+    "skills/security/riskmanagement/alibabacloud-openclaw-skill-security-scan"
+)
+UPSTREAM_ROOT_TREE = "c0d8dde900cce28dd7b07321a873cca1efa40d94"
+UPSTREAM_SUBTREE_TREE = "3f097e3281d89bb59ce9a638e846070d47bcbcdc"
+EXPECTED_PYTHON_LAUNCHER_SHA256 = (
+    "sha256:179301dcb41ea78accc3fa0048a7e6f6710d891945a751a34addd622020c1818"
+)
+EXPECTED_RESOLVED_PYTHON_SHA256 = (
+    "sha256:bdea59019a38eb6600cc9e71e984a97fedadc406448431281e7657030f54987e"
+)
 SOURCE_DIGESTS = {
     "SKILL.md": "sha256:d5df78b1d78361596b626fb129567e2fb69eb65002de7545e451b1f648311e80",
     "assets/LICENSE.txt": (
@@ -46,6 +60,16 @@ SOURCE_DIGESTS = {
     "scripts/skill_zip_packager.sh": (
         "sha256:f61362ef8c2a3ba6ecf7e4f34740757dfb35b017def5e5bd5378818583824a47"
     ),
+}
+SOURCE_GIT_BLOB_OIDS = {
+    "SKILL.md": "2a30f79d7ec60fd6e54b3a6ecf6d72a1e54ce435",
+    "assets/LICENSE.txt": "80e4229339bf299202b1246d82d1d83174617b93",
+    "references/baseline.md": "075624512c0cc00ffe89527c5e39d94fc299370f",
+    "references/report_template.md": "1d4c3f14ee400b589cc0c961614ad3e492ad417e",
+    "references/skillaudit.md": "3f254b6e1ac435d74b3faaf3a4ebfb18531af188",
+    "scripts/basic_udf.sh": "9b4c85153c448c9b858aba4e410059fba1db7afa",
+    "scripts/main.sh": "ee8070ae54d9039a930f489b8f85f2de3c22ce9c",
+    "scripts/skill_zip_packager.sh": "f4cd0fdc47dfd8fe0d0c43e9e524a3a4cf59781d",
 }
 EXPECTED_SKILLS = (
     "conflict_detect",
@@ -109,6 +133,10 @@ EXPECTED_LIMITATIONS = {
     "NO_CLOUD_INTELLIGENCE_OR_DEEP_ANALYSIS",
     "NO_WORKER_SKILL_CONSUMPTION_RECEIPT",
     "UNSIGNED_POINT_IN_TIME_EVIDENCE",
+    "FILESYSTEM_READ_ALLOWLIST_NOT_ENFORCED",
+    "CREDENTIAL_AND_CONFIG_READS_NOT_VERIFIED",
+    "SANDBOX_EXEC_EXIT_NOT_BOUND_TO_ARTIFACT",
+    "NETWORK_ENFORCEMENT_TEST_LIMITED_TO_LOCAL_IPV4_TCP",
 }
 EXPECTED_ENVIRONMENT = {
     "ALIYUN_SKILL_SEC_CLOUD",
@@ -116,11 +144,19 @@ EXPECTED_ENVIRONMENT = {
     "LANG",
     "LC_ALL",
     "PATH",
+    "PROOFFLOW_NETWORK_POSITIVE_CONTROL",
     "PROOFFLOW_NETWORK_SANDBOX",
     "PYTHONDONTWRITEBYTECODE",
     "PYTHONHASHSEED",
     "REPORT_LANG",
     "TMPDIR",
+}
+EXPECTED_OS_INJECTED_ENVIRONMENT = {
+    "CPATH",
+    "LIBRARY_PATH",
+    "MANPATH",
+    "SDKROOT",
+    "__CF_USER_TEXT_ENCODING",
 }
 SECRET_LITERAL = re.compile(
     r"(?:AKIA[0-9A-Z]{16}|LTAI[0-9A-Za-z]{20}|gh[op]_[0-9A-Za-z]{36}|"
@@ -214,11 +250,14 @@ def _canonical_sandbox_command(collected_at: str) -> list[str]:
         "REPORT_LANG=zh",
         "PYTHONDONTWRITEBYTECODE=1",
         "PYTHONHASHSEED=0",
+        f"PROOFFLOW_NETWORK_POSITIVE_CONTROL={NETWORK_POSITIVE_CONTROL}",
         "PROOFFLOW_NETWORK_SANDBOX=macos-sandbox-exec-deny-network-v1",
         "/usr/bin/sandbox-exec",
         "-p",
         SANDBOX_PROFILE,
-        "<python3>",
+        "/usr/bin/python3",
+        "-I",
+        "-S",
         "<bounded-ephemeral>/collector.py",
         "--source-root",
         "<bounded-ephemeral>/source",
@@ -232,6 +271,41 @@ def _canonical_sandbox_command(collected_at: str) -> list[str]:
 def _canonical_json_sha256(value: Any) -> str:
     payload = json.dumps(value, ensure_ascii=True, separators=(",", ":")).encode("utf-8")
     return _sha256(payload)
+
+
+def _git_object_oid(object_type: str, payload: bytes) -> str:
+    header = f"{object_type} {len(payload)}\0".encode()
+    # Git's object format mandates SHA-1; this is identity reconstruction, not a safety digest.
+    return hashlib.sha1(header + payload).hexdigest()
+
+
+def _git_tree_oid(source_records: list[dict[str, Any]]) -> str:
+    tree: dict[str, Any] = {}
+    for record in source_records:
+        parts = record["path"].split("/")
+        node = tree
+        for part in parts[:-1]:
+            node = node.setdefault(part, {})
+        node[parts[-1]] = record
+
+    def encode_tree(node: dict[str, Any]) -> str:
+        entries: list[tuple[bytes, bytes]] = []
+        for name, value in node.items():
+            encoded_name = name.encode("utf-8")
+            if isinstance(value, dict) and "git_blob_oid" not in value:
+                oid = encode_tree(value)
+                sort_key = encoded_name + b"/"
+                entry = b"40000 " + encoded_name + b"\0" + bytes.fromhex(oid)
+            else:
+                oid = value["git_blob_oid"]
+                sort_key = encoded_name
+                entry = value["git_mode"].encode("ascii") + b" " + encoded_name + b"\0"
+                entry += bytes.fromhex(oid)
+            entries.append((sort_key, entry))
+        body = b"".join(entry for _key, entry in sorted(entries))
+        return _git_object_oid("tree", body)
+
+    return encode_tree(tree)
 
 
 def _files(root: Path) -> list[Path]:
@@ -260,7 +334,7 @@ def _records_by_key(records: Any, key: str) -> dict[str, dict[str, Any]]:
     return {str(item[key]): item for item in records}
 
 
-def _validate_pinned_source(document: dict[str, Any]) -> None:
+def _validate_pinned_source(document: dict[str, Any]) -> dict[str, dict[str, Any]]:
     source = document["official_source"]
     if source["acquisition"] != {
         "mode": "PUBLIC_GIT_HTTPS_WITH_CLEAN_ENVIRONMENT",
@@ -273,6 +347,8 @@ def _validate_pinned_source(document: dict[str, Any]) -> None:
     records = _records_by_key(source["source_files"], "path")
     if set(records) != set(SOURCE_DIGESTS):
         raise EvidenceValidationError("pinned source inventory is not exact")
+    if [record["path"] for record in source["source_files"]] != sorted(SOURCE_DIGESTS):
+        raise EvidenceValidationError("pinned source inventory order changed")
     actual_files = _files(VENDORED_ROOT)
     actual_paths = {item.relative_to(VENDORED_ROOT).as_posix() for item in actual_files}
     if actual_paths != set(SOURCE_DIGESTS):
@@ -285,12 +361,54 @@ def _validate_pinned_source(document: dict[str, Any]) -> None:
             "path": relative_path,
             "sha256": SOURCE_DIGESTS[relative_path],
             "bytes": len(payload),
+            "git_mode": "100644",
+            "git_object_type": "blob",
+            "git_blob_oid": SOURCE_GIT_BLOB_OIDS[relative_path],
         }:
             raise EvidenceValidationError("pinned source record mismatch")
         if _sha256(payload) != SOURCE_DIGESTS[relative_path]:
             raise EvidenceValidationError("vendored source digest mismatch")
-    if source["license"]["sha256"] != SOURCE_DIGESTS["assets/LICENSE.txt"]:
-        raise EvidenceValidationError("license digest mismatch")
+        if _git_object_oid("blob", payload) != SOURCE_GIT_BLOB_OIDS[relative_path]:
+            raise EvidenceValidationError("vendored source Git blob OID mismatch")
+
+    expected_manifest = {
+        "object_format": "sha1",
+        "tag_ref": f"refs/tags/{UPSTREAM_TAG}",
+        "tag_object_type": "commit",
+        "tag_ref_target": UPSTREAM_COMMIT,
+        "commit": UPSTREAM_COMMIT,
+        "root_tree": UPSTREAM_ROOT_TREE,
+        "subtree_path": UPSTREAM_REPOSITORY_PATH,
+        "subtree_tree": UPSTREAM_SUBTREE_TREE,
+        "entry_source": "official_source.source_files",
+        "entry_count": 8,
+        "vendored_blob_oids_recomputed": True,
+        "subtree_tree_recomputed": True,
+        "tag_to_commit_offline_verified": False,
+        "commit_to_root_tree_offline_verified": False,
+        "provenance_semantics": (
+            "Vendored blob and subtree OIDs are recomputed offline. The lightweight tag target, "
+            "commit, and root tree remain an unsigned point-in-time public Git observation."
+        ),
+    }
+    if source["git_object_manifest"] != expected_manifest:
+        raise EvidenceValidationError("Git object provenance manifest mismatch")
+    if _git_tree_oid(source["source_files"]) != UPSTREAM_SUBTREE_TREE:
+        raise EvidenceValidationError("vendored source subtree Git OID mismatch")
+
+    license_record = records["assets/LICENSE.txt"]
+    if source["license"]["sha256"] != license_record["sha256"]:
+        raise EvidenceValidationError("license digest is not bound to the canonical source map")
+    rule_record = records["scripts/main.sh"]
+    expected_rule_source = {
+        "path": "scripts/main.sh",
+        "sha256": rule_record["sha256"],
+        "scenario_count": 12,
+        "pattern_invocation_count": 118,
+    }
+    if document["scan"]["official_rule_source"] != expected_rule_source:
+        raise EvidenceValidationError("official rule source is not bound to canonical main.sh")
+    return records
 
 
 def _validate_skill_inputs(document: dict[str, Any]) -> None:
@@ -353,10 +471,11 @@ def _walk_strings(value: Any) -> list[str]:
     return []
 
 
-def validate_semantics(document: dict[str, Any], *, strict: bool = False) -> None:
+def validate_semantics(document: dict[str, Any]) -> None:
     validate_schema(document)
     if document["subject"]["proof_flow_base_commit"] != PROOFLOW_BASE_COMMIT:
         raise EvidenceValidationError("ProofFlow base commit changed")
+    _validate_pinned_source(document)
 
     implementation = document["implementation_audit"]
     expected_sets = {
@@ -382,45 +501,91 @@ def validate_semantics(document: dict[str, Any], *, strict: bool = False) -> Non
     environment = set(execution["environment_names"])
     if not EXPECTED_ENVIRONMENT.issubset(environment):
         raise EvidenceValidationError("sanitized environment names are incomplete")
-    if environment - EXPECTED_ENVIRONMENT - {"__CF_USER_TEXT_ENCODING"}:
+    if environment - EXPECTED_ENVIRONMENT - EXPECTED_OS_INJECTED_ENVIRONMENT:
         raise EvidenceValidationError("unexpected environment name was published")
-    if set(execution["os_injected_environment_names"]) not in (
-        set(),
-        {"__CF_USER_TEXT_ENCODING"},
-    ):
+    if set(execution["os_injected_environment_names"]) != EXPECTED_OS_INJECTED_ENVIRONMENT:
         raise EvidenceValidationError("unexpected OS-injected environment name")
+    expected_interpreter = {
+        "invoked": {
+            "path": "/usr/bin/python3",
+            "sha256": EXPECTED_PYTHON_LAUNCHER_SHA256,
+            "owner_uid": 0,
+            "owner_gid": 0,
+            "mode": "0755",
+            "bytes": 118928,
+        },
+        "resolved": {
+            "path": (
+                "/Library/Developer/CommandLineTools/Library/Frameworks/"
+                "Python3.framework/Versions/3.9/bin/python3.9"
+            ),
+            "sha256": EXPECTED_RESOLVED_PYTHON_SHA256,
+            "owner_uid": 0,
+            "owner_gid": 0,
+            "mode": "0755",
+            "bytes": 102352,
+        },
+        "python_version": "3.9.6",
+        "isolated_flag": True,
+        "no_site_flag": True,
+        "site_module_loaded": False,
+    }
+    if execution["interpreter"] != expected_interpreter:
+        raise EvidenceValidationError("root-owned isolated interpreter record mismatch")
+    if execution["python_version"] != execution["interpreter"]["python_version"]:
+        raise EvidenceValidationError("python_version is not bound to the actual interpreter")
     network = execution["network"]
     expected_network = {
         "mechanism": "MACOS_SANDBOX_EXEC_DENY_NETWORK_ALL",
-        "scope": "SANDBOXED_COLLECTION_INVOCATION_ONLY",
+        "scope": "LOCAL_DARWIN_SEATBELT_COLLECTION_INVOCATION_ONLY",
         "enforced": True,
+        "enforcement_test_scope": "IPV4_TCP_LOOPBACK_ONLY",
         "sandbox_profile": SANDBOX_PROFILE,
         "sandbox_profile_sha256": _sha256(SANDBOX_PROFILE.encode("utf-8")),
-        "probe_target_class": "LOOPBACK_TCP_DISCARD_PORT",
-        "probe_status": "BLOCKED_EPERM",
-        "probe_errno": 1,
+        "positive_control": {
+            "phase": "PRE_SANDBOX_SAME_HOST",
+            "transport": "IPV4_TCP_LOOPBACK",
+            "status": NETWORK_POSITIVE_CONTROL,
+        },
+        "negative_control": {
+            "phase": "IN_SANDBOX_COLLECTOR",
+            "target_class": "LOOPBACK_TCP_DISCARD_PORT",
+            "status": "BLOCKED_EPERM",
+            "errno": 1,
+        },
         "external_network_observed": False,
         "observation_semantics": (
-            "Collector and descendants could not connect through network sockets; "
-            "no claim is made about processes outside this sandbox."
+            "A same-host IPv4/TCP positive control succeeded before Seatbelt, then the "
+            "sandboxed IPv4/TCP probe was denied with EPERM. This does not verify other hosts, "
+            "transports, invocations, or filesystem read confinement."
         ),
     }
     if network != expected_network:
         raise EvidenceValidationError("network boundary is not fail-closed")
 
     canonical_command = _canonical_sandbox_command(document["collected_at"])
-    expected_receipt = {
-        "canonicalization": "COMPACT_JSON_UTF8_ARGV_WITH_TMP_ROOT_AND_PYTHON_PATH_REDACTED",
+    binding_components = {
+        "canonical_argv_sha256": _canonical_json_sha256(canonical_command),
+        "sandbox_profile_sha256": network["sandbox_profile_sha256"],
+        "interpreter_invoked_sha256": expected_interpreter["invoked"]["sha256"],
+        "interpreter_resolved_sha256": expected_interpreter["resolved"]["sha256"],
+        "source_subtree_tree": document["official_source"]["git_object_manifest"]["subtree_tree"],
+    }
+    expected_contract = {
+        "canonicalization": "COMPACT_JSON_UTF8_ARGV_WITH_ONLY_TMP_ROOT_REDACTED",
         "canonical_argv": canonical_command,
         "canonical_argv_sha256": _canonical_json_sha256(canonical_command),
-        "sandbox_exec_exit_code": 0,
-        "exit_code_semantics": (
-            "The committed artifact was retained only after the runner observed exit code 0 "
-            "from sandbox-exec; this is not an upstream main.sh result."
-        ),
+        "binding_components": binding_components,
+        "binding_sha256": _canonical_json_sha256(binding_components),
+        "sandbox_exec_exit_status": "NOT_VERIFIED_IN_COLLECTOR_ARTIFACT",
+        "exit_status_reason_code": ("COLLECTOR_CANNOT_OBSERVE_PARENT_SANDBOX_EXEC_PROCESS_EXIT"),
     }
-    if execution["command_receipt"] != expected_receipt:
-        raise EvidenceValidationError("sandbox command receipt mismatch")
+    if execution["command_contract"] != expected_contract:
+        raise EvidenceValidationError("sandbox command contract mismatch")
+    if execution["credential_read_status"] != "NOT_OBSERVED_NOT_OS_ENFORCED":
+        raise EvidenceValidationError("credential read boundary is overstated")
+    if execution["openclaw_config_read_status"] != "NOT_OBSERVED_NOT_OS_ENFORCED":
+        raise EvidenceValidationError("OpenClaw read boundary is overstated")
 
     if set(document["scan"]["supplemental_check_ids"]) != set(SUPPLEMENTAL_CHECKS):
         raise EvidenceValidationError("supplemental check inventory mismatch")
@@ -448,18 +613,19 @@ def validate_semantics(document: dict[str, Any], *, strict: bool = False) -> Non
         raise EvidenceValidationError("offline preflight overclaims runtime or mutation")
 
     _validate_skill_inputs(document)
-    if strict:
-        _validate_pinned_source(document)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--strict", action="store_true")
+    parser.add_argument("--schema-only", action="store_true")
     parser.add_argument("evidence")
     arguments = parser.parse_args()
     try:
         document = load_evidence(arguments.evidence)
-        validate_semantics(document, strict=arguments.strict)
+        if arguments.schema_only:
+            validate_schema(document)
+        else:
+            validate_semantics(document)
     except EvidenceValidationError:
         print("ALIYUN_OFFICIAL_SKILL_EVIDENCE_INVALID", file=sys.stderr)
         return 1
