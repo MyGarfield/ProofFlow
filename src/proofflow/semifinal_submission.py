@@ -24,7 +24,7 @@ STATUS_CANDIDATE = "CANDIDATE_NOT_SUBMIT_READY"
 STATUS_READY = "SUBMIT_READY"
 
 _SHA256_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
-_PUBLIC_URL_RE = re.compile(r"^https://[^/\\s]+(?:/[^\\s]*)?$")
+_PUBLIC_URL_RE = re.compile(r"^https://[^/\s]+(?:/[^\s]*)?$")
 _SECRET_RE = re.compile(
     rb"(?:-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|"
     rb"(?:api[_-]?key|secret|access[_-]?token|private[_-]?key)\s*[:=]\s*[\"']?[A-Za-z0-9_./+=-]{16,})",
