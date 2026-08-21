@@ -168,6 +168,42 @@ canonical source 和每条 assignment 对应 MinIO Worker storage `SKILL.md` 的
 容器为 0，因此没有任何 Skill 被 Worker 加载、发现、同步到运行时或执行的证据；公开 JSON 也不是
 签名 attestation，不能单独证明底层点时观察的真实性或新鲜度。
 
+## 阿里云官方 Skill 离线预部署证据
+
+为降低 GOAI 手册中“建议合理使用”与 FAQ“使用阿里云官方用云 Skills”之间的合规歧义，仓库固定了
+官方 `alibabacloud-openclaw-skill-security-scan-0.0.1`，commit
+`3cdce6a5ead21b4aec740d97ae30eb0b71c1c786`。八个上游文件按原字节保存在
+[`third_party/aliyun/alibabacloud-openclaw-skill-security-scan/upstream/`](../../third_party/aliyun/alibabacloud-openclaw-skill-security-scan/upstream/)，
+MIT 许可原文一并保留。
+
+完整机器证据位于
+[`evidence/aliyun-official-skill-offline-preflight-2026-08-21.json`](evidence/aliyun-official-skill-offline-preflight-2026-08-21.json)，
+并由 Draft 2020-12 schema 与独立语义 validator 重新核对：固定官方 source/tag/commit、精确文件集与
+SHA-256、八个 ProofFlow Skill 输入哈希、环境变量白名单、OS 级禁网探针、十二类规则台账、补充
+Markdown 指标检查以及所有负向运行声明。
+
+该证据**不是官方主脚本成功运行**。源码审计确认 `ALIYUN_SKILL_SEC_CLOUD=false` 会跳过情报查询与
+Skill ZIP 上传，但 `main.sh` 仍会无条件运行 `openclaw security audit --deep`，可能读取真实 OpenClaw
+配置；脚本还要求 Bash 4+，而采集主机只有 Bash 3.2。因此本次没有执行官方 `main.sh`、真实
+OpenClaw、AgentTeams Manager/Worker、LLM 或云服务。采集只在临时副本上运行独立 collector，并由
+macOS `sandbox-exec deny network*` 阻断网络；同一进程的 loopback connect 必须以 `EPERM` 失败，否则
+不产生证据。
+固定源码此前从公开 GitHub 以清空 Git 环境的 HTTPS 读取，使用了网络但没有凭据；证据中的
+`external_network_observed=false` 只描述随后受沙箱约束的 collector 及其子进程，不描述源码获取阶段。
+证据同时记录精确 sandbox profile 及其 SHA-256、去除随机临时根目录与 Python 路径后的规范命令及
+SHA-256，以及生成已保留工件时 runner 观察到的 `sandbox-exec` exit code；这些字段不得解释为官方
+`main.sh` 的执行回执。
+
+官方静态策略只扫描 `package.json`、`src/` 和部分 `scripts/`，显式排除 `SKILL.md`。当前八个 Skill
+均只有 `SKILL.md`，所以官方兼容目标集为 0，结论必须是
+`INCONCLUSIVE_NO_ANALYZABLE_TARGETS`，不能写成安全或 PASS。独立补充扫描覆盖八份 Markdown 合同的
+九类高风险指示器且未命中，也不构成安全认证。
+
+后续推荐把该官方 Skill 作为 `audit-agent` 的 deployment preflight；在真实 Worker receipt 出现前，
+`official_skill_assigned_to_worker=false`、`runtime_consumption=false`、
+`live_worker_execution=false`。当前 YAML、Stopped Worker 与其他 AgentTeams 资源没有因本次预检发生
+任何修改。
+
 ## 固定源码
 
 ```bash
