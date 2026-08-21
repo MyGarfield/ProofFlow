@@ -69,7 +69,7 @@
         "type": "object", "additionalProperties": false,
         "required": ["path", "category", "size_bytes", "sha256"],
         "properties": {
-          "path": {"type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\.\.?/)(?!.*(?:^|/)(?:private|\.git|\.venv|__pycache__|\.pytest_cache|\.mypy_cache|\.ruff_cache)(?:/|$)).+"},
+          "path": {"type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.?/)(?!.*(?:^|/)(?:private|\\.git|\\.venv|__pycache__|\\.pytest_cache|\\.mypy_cache|\\.ruff_cache)(?:/|$)).+"},
           "category": {"type": "string", "minLength": 1},
           "size_bytes": {"type": "integer", "minimum": 0},
           "sha256": {"pattern": "^sha256:[0-9a-f]{64}$", "type": "string"}
