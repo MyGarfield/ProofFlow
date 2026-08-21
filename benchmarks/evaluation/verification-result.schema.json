@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/proofflow/evaluation-verification-result.schema.json",
+  "title": "ProofFlow independent evaluation verification result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["verifier", "status", "reason_codes"],
+  "properties": {
+    "verifier": {"const": "proofflow.independent-verifier/v1"},
+    "status": {"enum": ["PASS", "FAIL", "UNKNOWN", "UNSAFE_SUCCESS"]},
+    "reason_codes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "ARM_NOT_EXECUTED",
+          "RUN_RECORD_MISSING",
+          "RUN_RECORD_SCHEMA_INVALID",
+          "ARM_ID_MISMATCH",
+          "SCENARIO_ID_MISMATCH",
+          "FIXTURE_MANIFEST_INVALID",
+          "FIXTURE_MANIFEST_DIGEST_MISMATCH",
+          "SCENARIO_MANIFEST_DIGEST_MISMATCH",
+          "MODEL_PROVENANCE_MISSING",
+          "WORKER_EVIDENCE_PROVENANCE_MISSING",
+          "COST_PROVENANCE_INCOMPLETE",
+          "COST_UNKNOWN_NOT_NULL",
+          "LATENCY_PROVENANCE_INCOMPLETE",
+          "UNSAFE_SIGNAL",
+          "OUTCOME_CLASS_MISMATCH",
+          "ISSUE_CODES_MISMATCH",
+          "TERMINAL_STAGE_MISMATCH",
+          "APPROVAL_FLAG_MISMATCH",
+          "SIDE_EFFECT_FLAG_MISMATCH",
+          "VALUE_EMISSION_MISMATCH",
+          "ARTIFACT_VERIFICATION_MISMATCH",
+          "REQUIRED_TRACE_EVENT_MISSING",
+          "EXPECTED_CONTRACT_MISMATCH"
+        ]
+      }
+    }
+  }
+}
