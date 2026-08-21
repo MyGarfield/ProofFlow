@@ -98,7 +98,7 @@ def test_symlink_and_private_allowlist_are_rejected(tmp_path: Path) -> None:
 
 def test_context_mapping_must_use_official_four_options(tmp_path: Path) -> None:
     config = json.loads(CONFIG.read_text(encoding="utf-8"))
-    config["context_mapping"]["selected"] = ["agent_identity_contract", "skill_contract"]
+    config["context_mapping"]["selected"] = ["rag", "agent_memory"]
     with pytest.raises(SubmissionBuildError, match="shared_state"):
         _normalize_config(config)
 
