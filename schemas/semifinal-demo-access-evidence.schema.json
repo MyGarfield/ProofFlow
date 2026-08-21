@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/MyGarfield/ProofFlow/schemas/semifinal-demo-access-evidence.schema.json",
+  "title": "Public Demo access evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "evidence_type",
+    "status",
+    "url",
+    "observed_at",
+    "http_status",
+    "tls_verified",
+    "response_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "proofflow.goai.demo-access-evidence/v1"},
+    "evidence_type": {"const": "public_demo_access"},
+    "status": {"const": "REACHABLE"},
+    "url": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://[^/\\s]+(?:/[^\\s]*)?$",
+      "not": {"pattern": "(?:@|localhost|127\\.0\\.0\\.1|\\.invalid(?:[:/]|$)|[?#])"}
+    },
+    "observed_at": {"type": "string", "format": "date-time"},
+    "http_status": {"type": "integer", "minimum": 200, "maximum": 299},
+    "tls_verified": {"const": true},
+    "response_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  }
+}

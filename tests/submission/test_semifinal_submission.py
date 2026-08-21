@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
+import stat
 import zipfile
-from datetime import UTC, datetime, timedelta
+from copy import deepcopy
 from io import BytesIO
 from pathlib import Path
 
@@ -11,17 +12,27 @@ import pytest
 from scripts.semifinal_submission import (
     MANIFEST_NAME,
     STATUS_CANDIDATE,
+    Artifact,
     SubmissionBuildError,
     _collect_artifacts,
     _gate,
+    _load_bound_evidence,
     _normalize_config,
     _scan_bytes,
     build_package,
+    load_config,
+    sha256_bytes,
     validate_manifest,
+    validate_zip,
 )
 
 ROOT = Path(__file__).resolve().parents[2]
 CONFIG = ROOT / "submission/semifinal/submission-config.json"
+ELIGIBILITY_SCHEMA = ROOT / "schemas/semifinal-eligibility-evidence.schema.json"
+
+
+def _config() -> dict:
+    return json.loads(CONFIG.read_text(encoding="utf-8"))
 
 
 def _build(tmp_path: Path, *, mode: str = "candidate") -> tuple[Path, dict]:
@@ -30,52 +41,174 @@ def _build(tmp_path: Path, *, mode: str = "candidate") -> tuple[Path, dict]:
     return output, report
 
 
-def test_candidate_build_is_deterministic_and_manifest_valid(tmp_path: Path) -> None:
-    first, first_report = _build(tmp_path / "one")
+@pytest.fixture(scope="module")
+def candidate_package(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, dict]:
+    return _build(tmp_path_factory.mktemp("semifinal-candidate"))
+
+
+def _zip_info(name: str, *, symlink: bool = False) -> zipfile.ZipInfo:
+    info = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
+    info.compress_type = zipfile.ZIP_DEFLATED
+    info.create_system = 3
+    mode = (stat.S_IFLNK | 0o777) if symlink else (stat.S_IFREG | 0o644)
+    info.external_attr = mode << 16
+    info.flag_bits = 0x800
+    return info
+
+
+def _mutate_zip(
+    source: Path,
+    destination: Path,
+    *,
+    replace: dict[str, bytes] | None = None,
+    omit: set[str] | None = None,
+    extras: list[tuple[str, bytes, bool]] | None = None,
+) -> None:
+    replace = replace or {}
+    omit = omit or set()
+    extras = extras or []
+    with (
+        zipfile.ZipFile(source) as original,
+        zipfile.ZipFile(destination, "w", compression=zipfile.ZIP_DEFLATED) as forged,
+    ):
+        for name in original.namelist():
+            if name in omit:
+                continue
+            forged.writestr(_zip_info(name), replace.get(name, original.read(name)))
+        for name, data, symlink in extras:
+            forged.writestr(_zip_info(name, symlink=symlink), data)
+
+
+def test_candidate_build_is_deterministic_and_full_zip_valid(
+    tmp_path: Path, candidate_package: tuple[Path, dict]
+) -> None:
+    first, first_report = candidate_package
     second, second_report = _build(tmp_path / "two")
     assert first.read_bytes() == second.read_bytes()
     assert first_report["artifact_status"] == STATUS_CANDIDATE
     assert second_report["zip_sha256"] == first_report["zip_sha256"]
+    assert validate_zip(first, run_extracted_smoke=True) == []
     with zipfile.ZipFile(first) as archive:
         names = archive.namelist()
         assert names == sorted(names)
-        assert MANIFEST_NAME in names
         manifest_path = tmp_path / "manifest.json"
         manifest_path.write_bytes(archive.read(MANIFEST_NAME))
+        assert "benchmarks/suite.py" in names
+        assert "tests/e2e/test_demo_server.py" in names
+        assert "deploy/tool-service/README.md" in names
     assert validate_manifest(manifest_path) == []
 
 
-def test_candidate_gate_lists_all_current_missing_proofs(tmp_path: Path) -> None:
-    _, report = _build(tmp_path)
+def test_candidate_gate_discloses_every_real_submission_blocker(
+    candidate_package: tuple[Path, dict],
+) -> None:
+    _, report = candidate_package
     assert report["artifact_status"] == STATUS_CANDIDATE
     assert {
         "demo_url_missing",
-        "eligibility_not_unlocked",
+        "eligibility_evidence_missing_or_stale",
+        "official_dynamic_config_evidence_missing_stale_or_mismatched",
+        "public_demo_access_evidence_missing_stale_or_mismatched",
         "real_agent_collaboration_evidence_missing",
-        "official_dynamic_config_not_rechecked",
+        "evaluation_v2_verifier_missing",
         "agent_collaboration_evidence_artifact_missing",
     }.issubset(report["gate"]["reasons"])
 
 
-def test_submit_ready_never_passes_without_gates(tmp_path: Path) -> None:
+def test_submit_ready_mode_remains_candidate_without_portal_evidence(tmp_path: Path) -> None:
     output = tmp_path / "submit-ready.zip"
     report = build_package(config_path=CONFIG, output=output, mode="submit-ready")
     assert report["artifact_status"] == STATUS_CANDIDATE
+    assert "eligibility_evidence_missing_or_stale" in report["gate"]["reasons"]
 
 
 @pytest.mark.parametrize(
-    ("key", "value", "message"),
+    ("key", "value"),
     [
-        ("demo_url", "", "public HTTPS URL"),
-        ("repository_url", "http://example.com", "public HTTPS URL"),
+        ("demo_url", ""),
+        ("repository_url", "http://example.com"),
+        ("demo_url", "https://demo.example.invalid/proofflow"),
     ],
 )
-def test_bad_public_urls_fail_closed(tmp_path: Path, key: str, value: str, message: str) -> None:
-    config = json.loads(CONFIG.read_text(encoding="utf-8"))
+def test_bad_or_reserved_public_urls_fail_closed(key: str, value: str) -> None:
+    config = _config()
     config[key] = value
-    bad = tmp_path / "config.json"
-    bad.write_text(json.dumps(config), encoding="utf-8")
-    with pytest.raises(SubmissionBuildError, match=message):
+    with pytest.raises(SubmissionBuildError, match=r"schema validation|public HTTPS URL"):
+        _normalize_config(config)
+
+
+def test_legacy_self_declared_flags_and_counts_are_schema_rejected() -> None:
+    config = _config()
+    config["eligibility_unlocked"] = True
+    config["real_agent_collaboration_evidence"] = True
+    config["official_config_rechecked"] = True
+    config["gate_evidence"]["real_agent_collaboration"]["counts"] = {
+        "worker_execution": 999,
+        "task_event": 999,
+    }
+    with pytest.raises(SubmissionBuildError, match="schema validation"):
+        _normalize_config(config)
+
+
+def test_three_field_fake_evidence_cannot_satisfy_dedicated_schema(tmp_path: Path) -> None:
+    evidence = tmp_path / "fake.json"
+    data = json.dumps(
+        {
+            "schema_version": "forged/v1",
+            "evidence_type": "authenticated_portal_eligibility",
+            "status": "UNLOCKED",
+        }
+    ).encode()
+    evidence.write_bytes(data)
+    ref = {"path": "fake.json", "sha256": sha256_bytes(data)}
+    artifacts = (
+        Artifact(
+            path="fake.json",
+            category="eligibility_evidence",
+            size_bytes=len(data),
+            sha256=sha256_bytes(data),
+        ),
+    )
+    with pytest.raises(SubmissionBuildError, match="schema validation"):
+        _load_bound_evidence(
+            tmp_path,
+            ref,
+            category="eligibility_evidence",
+            artifacts=artifacts,
+            schema_path=ELIGIBILITY_SCHEMA,
+        )
+
+
+@pytest.mark.parametrize(
+    ("category", "target"),
+    [
+        ("agentteams_workers", "deploy/agentteams/01-workers-stopped.yaml"),
+        ("agentteams_mcp", "deploy/agentteams/mcp/mcp-proof-calc.yaml"),
+        ("agentteams_skills", "deploy/agentteams/skills/conflict_detect/SKILL.md"),
+        ("tool_service", "deploy/tool-service/Dockerfile"),
+        ("demo_benchmarks", "benchmarks/suite.py"),
+    ],
+)
+def test_deleting_fixed_runtime_artifact_is_rejected(category: str, target: str) -> None:
+    config = _config()
+    config["required_artifacts"][category].remove(target)
+    config["allowlist"].remove(target)
+    with pytest.raises(SubmissionBuildError, match=r"schema validation|fixed release contract"):
+        _normalize_config(config)
+
+
+def test_deck_categories_require_real_extensions() -> None:
+    config = _config()
+    config["required_artifacts"]["deck_pptx"] = ["submission/public/README.md"]
+    config["required_artifacts"]["deck_pdf"] = ["NOTICE"]
+    with pytest.raises(SubmissionBuildError, match=r"exactly one \.pptx"):
+        _normalize_config(config)
+
+
+def test_invalid_official_date_is_rejected_by_format_checker() -> None:
+    config = _config()
+    config["official"]["snapshot"]["opens_at"] = "NOT-A-DATE"
+    with pytest.raises(SubmissionBuildError, match="date-time"):
         _normalize_config(config)
 
 
@@ -89,96 +222,151 @@ def test_modified_or_untracked_drift_is_rejected(tmp_path: Path) -> None:
         drift.unlink(missing_ok=True)
 
 
-def test_symlink_and_private_allowlist_are_rejected(tmp_path: Path) -> None:
-    config = json.loads(CONFIG.read_text(encoding="utf-8"))
+def test_generated_invalid_manifest_aborts_before_writing_zip(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import scripts.semifinal_submission as semifinal
+
+    original = semifinal.build_manifest
+
+    def forged_manifest(**kwargs: object) -> dict:
+        manifest = original(**kwargs)  # type: ignore[arg-type]
+        manifest["unexpected"] = True
+        return manifest
+
+    monkeypatch.setattr(semifinal, "build_manifest", forged_manifest)
+    output = tmp_path / "must-not-exist.zip"
+    with pytest.raises(SubmissionBuildError, match="generated manifest failed validation"):
+        build_package(config_path=CONFIG, output=output)
+    assert not output.exists()
+
+
+def test_private_allowlist_is_rejected() -> None:
+    config = _config()
     config["allowlist"] = ["submission/private/nope.txt"]
-    bad = tmp_path / "config.json"
-    bad.write_text(json.dumps(config), encoding="utf-8")
-    with pytest.raises(SubmissionBuildError, match="private/cache path"):
+    with pytest.raises(SubmissionBuildError, match=r"schema validation|private/cache path"):
         _normalize_config(config)
 
 
-def test_context_mapping_must_use_official_four_options(tmp_path: Path) -> None:
-    config = json.loads(CONFIG.read_text(encoding="utf-8"))
+def test_context_mapping_must_use_official_four_options() -> None:
+    config = _config()
     config["context_mapping"]["selected"] = ["rag", "agent_memory"]
-    with pytest.raises(SubmissionBuildError, match="shared_state"):
+    with pytest.raises(SubmissionBuildError, match=r"schema validation|shared_state"):
         _normalize_config(config)
 
 
-def test_true_flags_without_bound_evidence_remain_candidate(tmp_path: Path) -> None:
-    config = json.loads(CONFIG.read_text(encoding="utf-8"))
-    config.update(
-        {
-            "demo_url": "https://demo.example.invalid/proofflow",
-            "eligibility_unlocked": True,
-            "real_agent_collaboration_evidence": True,
-            "official_config_rechecked": True,
-        }
-    )
-    config["gate_evidence"]["official_config_recheck"]["observed_at"] = datetime.now(
-        UTC
-    ).isoformat()
-    bad = tmp_path / "config.json"
-    bad.write_text(json.dumps(config), encoding="utf-8")
-    normalized = _normalize_config(config)
-    artifacts = _collect_artifacts(ROOT, normalized)
-    gate = _gate(ROOT, normalized, artifacts, "submit-ready")
-    assert gate.status == STATUS_CANDIDATE
-    assert "eligibility_not_unlocked" in gate.reasons
-    assert "real_agent_collaboration_evidence_missing" in gate.reasons
-
-
-def test_stale_recheck_is_not_fresh(tmp_path: Path) -> None:
-    config = json.loads(CONFIG.read_text(encoding="utf-8"))
-    config["official_config_rechecked"] = True
-    config["gate_evidence"]["official_config_recheck"]["observed_at"] = (
-        datetime.now(UTC) - timedelta(hours=25)
-    ).isoformat()
-    normalized = _normalize_config(config)
-    artifacts = _collect_artifacts(ROOT, normalized)
-    gate = _gate(ROOT, normalized, artifacts, "submit-ready")
-    assert "official_dynamic_config_not_rechecked" in gate.reasons
-
-
-def test_future_and_huge_recheck_values_fail_closed() -> None:
-    config = json.loads(CONFIG.read_text(encoding="utf-8"))
-    config["gate_evidence"]["official_config_recheck"].update(
-        {"observed_at": (datetime.now(UTC) + timedelta(hours=1)).isoformat(), "max_age_hours": 25}
-    )
-    with pytest.raises(SubmissionBuildError, match="between 1 and 24"):
-        _normalize_config(config)
-
-
-def test_pptx_member_pii_is_scanned() -> None:
+def test_pptx_xml_member_pii_and_fake_documents_are_rejected() -> None:
     payload = BytesIO()
     with zipfile.ZipFile(payload, "w") as archive:
-        archive.writestr("ppt/slides/slide1.xml", "synthetic@example.com")
+        archive.writestr("[Content_Types].xml", "<Types/>")
+        archive.writestr("_rels/.rels", "<Relationships/>")
+        archive.writestr("ppt/presentation.xml", "<presentation/>")
+        archive.writestr("ppt/slides/slide1.xml", "<text>synthetic@example.com</text>")
     with pytest.raises(SubmissionBuildError, match="PII-like"):
         _scan_bytes("fake.pptx", payload.getvalue())
+    with pytest.raises(SubmissionBuildError, match="invalid office container"):
+        _scan_bytes("renamed.pptx", b"not a presentation")
+    with pytest.raises(SubmissionBuildError, match="invalid PDF"):
+        _scan_bytes("renamed.pdf", b"not a PDF")
 
 
-def test_manifest_inventory_tampering_is_rejected(tmp_path: Path) -> None:
-    output, _ = _build(tmp_path)
+def test_manifest_inventory_tampering_is_rejected(
+    tmp_path: Path, candidate_package: tuple[Path, dict]
+) -> None:
+    output, _ = candidate_package
     with zipfile.ZipFile(output) as archive:
         manifest = json.loads(archive.read(MANIFEST_NAME))
     manifest["artifact_inventory"][0]["sha256"] = "sha256:" + "f" * 64
     forged = tmp_path / "forged-manifest.json"
     forged.write_text(json.dumps(manifest), encoding="utf-8")
-    assert any(
-        "subject binding digest mismatch" in message for message in validate_manifest(forged)
+    assert any("subject binding digest mismatch" in item for item in validate_manifest(forged))
+
+
+def test_forged_pre_submit_ready_manifest_without_evidence_is_rejected(
+    tmp_path: Path, candidate_package: tuple[Path, dict]
+) -> None:
+    output, _ = candidate_package
+    with zipfile.ZipFile(output) as archive:
+        manifest = json.loads(archive.read(MANIFEST_NAME))
+    manifest["artifact_status"] = "PRE_SUBMIT_READY"
+    manifest["gate"]["status"] = "PRE_SUBMIT_READY"
+    manifest["gate"]["reasons"] = []
+    forged = tmp_path / "forged-ready-manifest.json"
+    forged.write_text(json.dumps(manifest), encoding="utf-8")
+    errors = validate_manifest(forged)
+    assert "gate_evidence: PRE_SUBMIT_READY requires every evidence ref" in errors
+    assert "demo_url: PRE_SUBMIT_READY requires a public Demo URL" in errors
+
+
+@pytest.mark.parametrize("attack", ["payload", "extra", "missing", "traversal", "symlink"])
+def test_final_zip_reopen_rejects_archive_mutations(
+    tmp_path: Path, attack: str, candidate_package: tuple[Path, dict]
+) -> None:
+    original, _ = candidate_package
+    forged = tmp_path / f"{attack}.zip"
+    kwargs: dict = {}
+    if attack == "payload":
+        kwargs["replace"] = {"README.md": b"mutated\n"}
+    elif attack == "extra":
+        kwargs["extras"] = [("EXTRA.txt", b"extra", False)]
+    elif attack == "missing":
+        kwargs["omit"] = {"README.md"}
+    elif attack == "traversal":
+        kwargs["extras"] = [("../escape.txt", b"escape", False)]
+    else:
+        kwargs["extras"] = [("unsafe-link", b"README.md", True)]
+    _mutate_zip(original, forged, **kwargs)
+    assert validate_zip(forged)
+
+
+def test_final_zip_reopen_rejects_duplicate_member(
+    tmp_path: Path, candidate_package: tuple[Path, dict]
+) -> None:
+    original, _ = candidate_package
+    forged = tmp_path / "duplicate.zip"
+    with pytest.warns(UserWarning, match="Duplicate name"):
+        _mutate_zip(original, forged, extras=[("README.md", b"duplicate", False)])
+    assert "ZIP contains duplicate entry names" in validate_zip(forged)
+
+
+def test_final_zip_without_decks_is_rejected(
+    tmp_path: Path, candidate_package: tuple[Path, dict]
+) -> None:
+    original, _ = candidate_package
+    forged = tmp_path / "no-decks.zip"
+    _mutate_zip(
+        original,
+        forged,
+        omit={
+            "submission/public/ProofFlow_GOAI_复赛答辩_v2.0.pptx",
+            "submission/public/ProofFlow_GOAI_复赛答辩_v2.0.pdf",
+        },
     )
+    errors = validate_zip(forged)
+    assert any("exact inventory mismatch" in item for item in errors)
 
 
 def test_strict_json_rejects_duplicate_keys_and_non_finite(tmp_path: Path) -> None:
     duplicate = tmp_path / "duplicate.json"
     duplicate.write_text('{"project":"ProofFlow","project":"forged"}', encoding="utf-8")
     with pytest.raises(SubmissionBuildError, match="duplicate JSON key"):
-        from scripts.semifinal_submission import load_config
-
         load_config(duplicate)
     non_finite = tmp_path / "nan.json"
     non_finite.write_text('{"value":NaN}', encoding="utf-8")
     with pytest.raises(SubmissionBuildError, match="non-finite"):
-        from scripts.semifinal_submission import load_config
-
         load_config(non_finite)
+
+
+def test_current_gate_cannot_import_unmerged_evaluation_v2() -> None:
+    config = _normalize_config(_config())
+    artifacts = _collect_artifacts(ROOT, config)
+    gate = _gate(ROOT, config, artifacts, "submit-ready")
+    assert gate.status == STATUS_CANDIDATE
+    assert "evaluation_v2_verifier_missing" in gate.reasons
+
+
+def test_config_copy_does_not_hide_required_categories() -> None:
+    config = deepcopy(_config())
+    del config["required_artifacts"]["agentteams_skills"]
+    with pytest.raises(SubmissionBuildError, match="schema validation"):
+        _normalize_config(config)

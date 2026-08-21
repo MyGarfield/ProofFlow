@@ -1,0 +1,250 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/MyGarfield/ProofFlow/schemas/semifinal-submission-config.schema.json",
+  "title": "ProofFlow GOAI semifinal package configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "project",
+    "track",
+    "repository_url",
+    "demo_url",
+    "official",
+    "context_mapping",
+    "gate_evidence",
+    "required_artifacts",
+    "allowlist"
+  ],
+  "properties": {
+    "schema_version": {"const": "proofflow.goai.semifinal.config/v2"},
+    "project": {"const": "ProofFlow"},
+    "track": {"const": "GOAI Agent Infra / 新智基座"},
+    "repository_url": {"$ref": "#/$defs/publicUrl"},
+    "demo_url": {
+      "anyOf": [
+        {"$ref": "#/$defs/publicUrl"},
+        {"type": "null"}
+      ]
+    },
+    "official": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["track_url", "handbook_url", "site_config_url", "submission_url", "snapshot"],
+      "properties": {
+        "track_url": {"$ref": "#/$defs/officialUrl"},
+        "handbook_url": {"$ref": "#/$defs/officialUrl"},
+        "site_config_url": {"$ref": "#/$defs/officialUrl"},
+        "submission_url": {"$ref": "#/$defs/officialUrl"},
+        "snapshot": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "opens_at",
+            "closes_at",
+            "zip_max_mib",
+            "cumulative_max_mib",
+            "max_attempts_per_stage",
+            "last_successful_attempt_is_review_version",
+            "preliminary_rejection_locks_stage",
+            "required_fields",
+            "zip_contents",
+            "independent_infra_mp4_upload_slot"
+          ],
+          "properties": {
+            "opens_at": {"type": "string", "format": "date-time"},
+            "closes_at": {"type": "string", "format": "date-time"},
+            "zip_max_mib": {"const": 1200},
+            "cumulative_max_mib": {"const": 3600},
+            "max_attempts_per_stage": {"const": 3},
+            "last_successful_attempt_is_review_version": {"const": true},
+            "preliminary_rejection_locks_stage": {"const": true},
+            "required_fields": {
+              "const": ["作品名", "代码仓库URL", "Demo URL", "ZIP"]
+            },
+            "zip_contents": {
+              "const": ["更新 PPT/PDF", "可执行 AgentTeams 代码包", "可运行 Demo 或视频"]
+            },
+            "independent_infra_mp4_upload_slot": {"const": false}
+          }
+        }
+      }
+    },
+    "context_mapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["options", "selected", "evidence_paths", "evidence_digests"],
+      "properties": {
+        "options": {
+          "const": ["rag", "agent_memory", "shared_state", "trajectory_observability"]
+        },
+        "selected": {"const": ["shared_state", "trajectory_observability"]},
+        "evidence_paths": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/safePath"}
+        },
+        "evidence_digests": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {"$ref": "#/$defs/digest"}
+        }
+      }
+    },
+    "gate_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "eligibility",
+        "official_config_recheck",
+        "real_agent_collaboration",
+        "demo_access"
+      ],
+      "properties": {
+        "eligibility": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["evidence_ref"],
+          "properties": {"evidence_ref": {"$ref": "#/$defs/nullableEvidenceRef"}}
+        },
+        "official_config_recheck": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["evidence_ref", "max_age_hours"],
+          "properties": {
+            "evidence_ref": {"$ref": "#/$defs/nullableEvidenceRef"},
+            "max_age_hours": {"type": "integer", "minimum": 1, "maximum": 24}
+          }
+        },
+        "real_agent_collaboration": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["evaluation_ledger_ref"],
+          "properties": {
+            "evaluation_ledger_ref": {"$ref": "#/$defs/nullableEvidenceRef"}
+          }
+        },
+        "demo_access": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["evidence_ref", "max_age_hours"],
+          "properties": {
+            "evidence_ref": {"$ref": "#/$defs/nullableEvidenceRef"},
+            "max_age_hours": {"type": "integer", "minimum": 1, "maximum": 24}
+          }
+        }
+      }
+    },
+    "required_artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "deck_pptx",
+        "deck_pdf",
+        "identity",
+        "skill_spec",
+        "runtime_source",
+        "runtime_entry",
+        "dependencies",
+        "demo_assets",
+        "demo_benchmarks",
+        "examples",
+        "evidence",
+        "agentteams_workers",
+        "agentteams_team",
+        "agentteams_humans",
+        "agentteams_mcp",
+        "agentteams_skills",
+        "tool_service",
+        "reproduction_tests",
+        "disclosure",
+        "license",
+        "agent_collaboration_evidence",
+        "eligibility_evidence",
+        "official_recheck_evidence",
+        "demo_access_evidence",
+        "demo_offline_fallback"
+      ],
+      "properties": {
+        "deck_pptx": {"$ref": "#/$defs/nonEmptyPaths"},
+        "deck_pdf": {"$ref": "#/$defs/nonEmptyPaths"},
+        "identity": {"$ref": "#/$defs/nonEmptyPaths"},
+        "skill_spec": {"$ref": "#/$defs/nonEmptyPaths"},
+        "runtime_source": {"$ref": "#/$defs/nonEmptyPaths"},
+        "runtime_entry": {"$ref": "#/$defs/nonEmptyPaths"},
+        "dependencies": {"$ref": "#/$defs/nonEmptyPaths"},
+        "demo_assets": {"$ref": "#/$defs/nonEmptyPaths"},
+        "demo_benchmarks": {"$ref": "#/$defs/nonEmptyPaths"},
+        "examples": {"$ref": "#/$defs/nonEmptyPaths"},
+        "evidence": {"$ref": "#/$defs/nonEmptyPaths"},
+        "agentteams_workers": {"$ref": "#/$defs/nonEmptyPaths"},
+        "agentteams_team": {"$ref": "#/$defs/nonEmptyPaths"},
+        "agentteams_humans": {"$ref": "#/$defs/nonEmptyPaths"},
+        "agentteams_mcp": {"$ref": "#/$defs/nonEmptyPaths"},
+        "agentteams_skills": {"$ref": "#/$defs/nonEmptyPaths"},
+        "tool_service": {"$ref": "#/$defs/nonEmptyPaths"},
+        "reproduction_tests": {"$ref": "#/$defs/nonEmptyPaths"},
+        "disclosure": {"$ref": "#/$defs/nonEmptyPaths"},
+        "license": {"$ref": "#/$defs/nonEmptyPaths"},
+        "agent_collaboration_evidence": {"$ref": "#/$defs/paths"},
+        "eligibility_evidence": {"$ref": "#/$defs/paths"},
+        "official_recheck_evidence": {"$ref": "#/$defs/paths"},
+        "demo_access_evidence": {"$ref": "#/$defs/paths"},
+        "demo_offline_fallback": {"$ref": "#/$defs/paths"}
+      }
+    },
+    "allowlist": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/safePath"}
+    }
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "safePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*\\\\)(?!.*(?:^|/)\\.\\.?(?:/|$)).+$"
+    },
+    "publicUrl": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://[^/\\s]+(?:/[^\\s]*)?$",
+      "not": {"pattern": "(?:@|localhost|127\\.0\\.0\\.1|\\.invalid(?:[:/]|$)|[?#])"}
+    },
+    "officialUrl": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://[^/\\s]+(?:/[^\\s]*)?$",
+      "not": {"pattern": "(?:@|localhost|127\\.0\\.0\\.1|\\.invalid(?:[:/]|$)|#)"}
+    },
+    "evidenceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"$ref": "#/$defs/safePath"},
+        "sha256": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "nullableEvidenceRef": {
+      "anyOf": [
+        {"$ref": "#/$defs/evidenceRef"},
+        {"type": "null"}
+      ]
+    },
+    "paths": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/safePath"}
+    },
+    "nonEmptyPaths": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/safePath"}
+    }
+  }
+}

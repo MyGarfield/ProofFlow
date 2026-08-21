@@ -38,8 +38,9 @@ uv run python scripts/build_semifinal_zip.py \
 ```
 
 候选模式会生成 ZIP 和 `.report.json`，但命令以非零状态结束并标记
-`CANDIDATE_NOT_SUBMIT_READY`。当前配置故意没有公开 Demo URL、资格解锁、真实 Agent 协作证据和动态
-配置重查，因此这是预期结果。只有完成真实证据采集、公开 Demo、资格确认和提交前重查后，才可在隔离
+`CANDIDATE_NOT_SUBMIT_READY`。当前配置故意没有公开 Demo URL/可访问性证据、资格解锁证据、真实
+Agent 协作 ledger 和动态配置重查证据，因此这是预期结果。只有完成真实证据采集、公开 Demo、资格确认
+和提交前重查后，才可在隔离
 发布 worktree 中更新配置并请求 `--mode submit-ready`；成功状态是 `PRE_SUBMIT_READY`，不是已提交。
 
 上下文四选二固定为 RAG、Agent memory、shared state、trajectory/trace observability。本项目当前选择
@@ -47,13 +48,21 @@ uv run python scripts/build_semifinal_zip.py \
 SHA-256；Identity 与 Skill 仍是单独的必交组件，不冒充上下文选项。无 RAG 或 Agent memory 运行证据。
 
 构建器拒绝：allowlist 外文件、路径穿越、symlink、私密目录/凭据、密钥或 PII 迹象、缓存、未跟踪或
-已修改的 Git 漂移、缺 deck/PDF、Identity/Skill、AgentTeams 资源/Skill/MCP/tool-service、入口/依赖/样例/证据/披露/许可证，以及超过 1200 MiB
+已修改的 Git 漂移、缺 deck/PDF、Identity/Skill、6 Worker/1 Team/2 Human、8 个 Skill、3 个 MCP、
+tool-service Dockerfile/README/lock/notices、Demo 源码/benchmark/复现测试、入口/依赖/样例/证据/披露/许可证，以及超过 1200 MiB
 的 ZIP。manifest 还固定 artifact inventory 的每个路径、字节数和 SHA-256；它明确写出
 `portal_receipt: null`、`selection_claim: false`、`attestation/signature: NOT_PROVIDED`。
-正式发布还必须提供公开 Demo URL 或 `demo_offline_fallback` 类别中的离线视频/字幕回放；当前两者均未提供。
-将布尔配置改成 `true` 不足以过门：资格和真实协作必须有 allowlist 内的 schema-bound evidence refs
-及匹配摘要，真实协作还必须同时有 Worker execution、task/Matrix、MCP/Skill、Trace、Human Gate
-receipt 计数；动态配置重查必须有带时区的 `observed_at` 且在 freshness 窗口内。
+正式发布必须提供公开 Demo URL 及其新鲜可访问性证据；可再用 `demo_offline_fallback` 中的离线视频作备份。
+配置不再接受自声明布尔值或手填计数：资格、动态配置和 Demo 可访问性分别使用专用 Draft 2020-12
+evidence schema；真实协作只能绑定 evaluation v2 ledger，并由独立 verifier 在构建时重新验证。
+本分支尚未集成 evaluation v2 verifier，因此门禁明确返回 `evaluation_v2_verifier_missing`，不会用 adapter
+占位或摘要冒充真实运行。真实 portal eligibility 证据为空时始终保持 `CANDIDATE_NOT_SUBMIT_READY`。
+
+ZIP 写完后会被重新打开，逐项拒绝重复/额外/缺失条目、symlink、路径穿越、非普通文件，并重算每项
+size/SHA-256 对照 manifest。随后在临时解压目录中执行 `uv sync --frozen --no-dev --offline`、
+`python -m demo.server --help` 和最小 HTTP loopback smoke；代理被指向不可达本机端口，除 127.0.0.1
+外不允许网络依赖。PPTX 会解析 ZIP/XML；PDF 用 `pdfinfo` 解析并用 `pdftotext` 抽取文本做 secret/PII
+扫描。光栅化图片中的文字不在自动扫描保证内，仍需人工复核。
 
 ## 发布前门禁
 
@@ -61,7 +70,7 @@ receipt 计数；动态配置重查必须有带时区的 `observed_at` 且在 fr
 2. 确认公开仓库 URL、可访问 Demo URL、最终 deck/PDF、可执行 AgentTeams 包和可运行 Demo/视频。
 3. 采集真实 Agent 协作证据（Worker execution、任务/Matrix、MCP/Skill receipt、Trace 和 Human Gate）；
    Manager smoke、CR、健康接口、Skill 文件哈希和 Stopped Worker 不能替代它。
-4. 执行 `uv run pytest tests/submission`，检查 ZIP 和报告的 SHA-256/大小，解压后再验证 manifest。
+4. 执行 `uv run pytest tests/submission`，检查 ZIP/报告 SHA-256、exact inventory 和离线解压运行门禁。
 5. 仅在报告是 `PRE_SUBMIT_READY` 时人工进入 portal。提交后保存平台真实回执并另行标记
    `SUBMITTED_RECEIPT_VERIFIED`；没有回执就保持未知，不得
    用邮件或 GitHub 状态补写回执。

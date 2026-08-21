@@ -1,12 +1,9 @@
 {
-  "schema_version": "proofflow.goai.semifinal.config/v1",
+  "schema_version": "proofflow.goai.semifinal.config/v2",
   "project": "ProofFlow",
   "track": "GOAI Agent Infra / 新智基座",
   "repository_url": "https://github.com/MyGarfield/ProofFlow",
   "demo_url": null,
-  "eligibility_unlocked": false,
-  "real_agent_collaboration_evidence": false,
-  "official_config_rechecked": false,
   "official": {
     "track_url": "https://www.goaihz.com/tracks?track=infra",
     "handbook_url": "https://oss.goaihz.com/prod/20260720/6e21b053-f18b-4857-83e2-835bd96d5434.pdf",
@@ -40,28 +37,55 @@
     }
   },
   "gate_evidence": {
-    "eligibility": {"evidence_refs": []},
+    "eligibility": {"evidence_ref": null},
+    "official_config_recheck": {"evidence_ref": null, "max_age_hours": 24},
     "real_agent_collaboration": {
-      "evidence_refs": [],
-      "counts": {
-        "worker_execution": 0,
-        "task_event": 0,
-        "matrix_event": 0,
-        "mcp_receipt": 0,
-        "skill_receipt": 0,
-        "trace": 0,
-        "human_gate_receipt": 0
-      }
+      "evaluation_ledger_ref": null
     },
-    "official_config_recheck": {"observed_at": null, "max_age_hours": 24}
+    "demo_access": {"evidence_ref": null, "max_age_hours": 24}
   },
   "required_artifacts": {
     "deck_pptx": ["submission/public/ProofFlow_GOAI_复赛答辩_v2.0.pptx"],
     "deck_pdf": ["submission/public/ProofFlow_GOAI_复赛答辩_v2.0.pdf"],
     "identity": ["specs/06_AGENT_IDENTITY.yaml"],
-    "skill": ["specs/07_SKILL_SPEC.yaml"],
+    "skill_spec": ["specs/07_SKILL_SPEC.yaml"],
+    "runtime_source": [
+      "src/proofflow/__init__.py",
+      "src/proofflow/canonical.py",
+      "src/proofflow/cli.py",
+      "src/proofflow/contracts.py",
+      "src/proofflow/factories.py",
+      "src/proofflow/models.py",
+      "src/proofflow/py.typed",
+      "src/proofflow/reference_runtime.py",
+      "src/proofflow/state_machine.py",
+      "src/proofflow/strategy.py",
+      "src/proofflow/tool_server.py",
+      "src/proofflow/trusted_store.py",
+      "src/proofflow/skills/__init__.py",
+      "src/proofflow/skills/approval.py",
+      "src/proofflow/skills/audit.py",
+      "src/proofflow/skills/calculation.py",
+      "src/proofflow/skills/common.py",
+      "src/proofflow/skills/evidence.py",
+      "src/proofflow/skills/packaging.py",
+      "src/proofflow/skills/rules.py"
+    ],
     "runtime_entry": ["pyproject.toml", "src/proofflow/cli.py", "demo/server.py"],
     "dependencies": ["pyproject.toml", "uv.lock"],
+    "demo_assets": [
+      "demo/__init__.py",
+      "demo/app.js",
+      "demo/index.html",
+      "demo/server.py",
+      "demo/styles.css",
+      "scripts/semifinal_extracted_smoke.py"
+    ],
+    "demo_benchmarks": [
+      "benchmarks/__init__.py",
+      "benchmarks/scenarios.json",
+      "benchmarks/suite.py"
+    ],
     "examples": [
       "examples/cases/happy_path/contract.json",
       "examples/cases/happy_path/manifest.json",
@@ -76,12 +100,10 @@
       "deploy/agentteams/evidence/local-infra-smoke-2026-08-20.json",
       "deploy/agentteams/evidence/mcp-manager-operator-smoke-2026-08-20.json"
     ],
-    "agentteams_resources": [
-      "deploy/agentteams/01-workers-stopped.yaml",
-      "deploy/agentteams/02-team.yaml",
-      "deploy/agentteams/03-humans.yaml",
-      "deploy/agentteams/baseline.json",
-      "deploy/agentteams/images.local-observed.json",
+    "agentteams_workers": ["deploy/agentteams/01-workers-stopped.yaml"],
+    "agentteams_team": ["deploy/agentteams/02-team.yaml"],
+    "agentteams_humans": ["deploy/agentteams/03-humans.yaml"],
+    "agentteams_mcp": [
       "deploy/agentteams/mcp/mcp-proof-calc.yaml",
       "deploy/agentteams/mcp/mcp-proof-evidence.yaml",
       "deploy/agentteams/mcp/mcp-proof-rules.yaml"
@@ -98,8 +120,14 @@
     ],
     "tool_service": [
       "deploy/tool-service/Dockerfile",
+      "deploy/tool-service/README.md",
       "deploy/tool-service/requirements.lock",
       "deploy/tool-service/THIRD_PARTY_NOTICES.md"
+    ],
+    "reproduction_tests": [
+      "tests/benchmark/conftest.py",
+      "tests/benchmark/test_public_contract_suite.py",
+      "tests/e2e/test_demo_server.py"
     ],
     "disclosure": [
       "submission/public/DISCLOSURE_BOUNDARY.md",
@@ -110,6 +138,8 @@
     "license": ["LICENSE", "NOTICE"],
     "agent_collaboration_evidence": [],
     "eligibility_evidence": [],
+    "official_recheck_evidence": [],
+    "demo_access_evidence": [],
     "demo_offline_fallback": []
   },
   "allowlist": [
@@ -121,6 +151,9 @@
     "SECURITY.md",
     "pyproject.toml",
     "uv.lock",
+    "benchmarks/__init__.py",
+    "benchmarks/scenarios.json",
+    "benchmarks/suite.py",
     "data/rules/cn_labor_contract_law.catalog.json",
     "demo/__init__.py",
     "demo/app.js",
@@ -155,6 +188,7 @@
     "deploy/agentteams/skills/rule_retrieve/SKILL.md",
     "deploy/agentteams/skills/timeline_build/SKILL.md",
     "deploy/tool-service/Dockerfile",
+    "deploy/tool-service/README.md",
     "deploy/tool-service/requirements.lock",
     "deploy/tool-service/THIRD_PARTY_NOTICES.md",
     "docs/00_STATUS_AND_SCOPE.md",
@@ -177,6 +211,10 @@
     "schemas/package-manifest.schema.json",
     "schemas/proposal.schema.json",
     "schemas/rule-citation.schema.json",
+    "schemas/semifinal-demo-access-evidence.schema.json",
+    "schemas/semifinal-eligibility-evidence.schema.json",
+    "schemas/semifinal-official-recheck-evidence.schema.json",
+    "schemas/semifinal-submission-config.schema.json",
     "schemas/semifinal-submission-manifest.schema.json",
     "schemas/skill-context.schema.json",
     "schemas/skill-result.schema.json",
@@ -190,6 +228,7 @@
     "schemas/trace-event.schema.json",
     "scripts/export_schemas.py",
     "scripts/__init__.py",
+    "scripts/semifinal_extracted_smoke.py",
     "scripts/semifinal_submission.py",
     "scripts/build_semifinal_zip.py",
     "specs/06_AGENT_IDENTITY.yaml",
@@ -215,6 +254,9 @@
     "src/proofflow/skills/evidence.py",
     "src/proofflow/skills/packaging.py",
     "src/proofflow/skills/rules.py",
+    "tests/benchmark/conftest.py",
+    "tests/benchmark/test_public_contract_suite.py",
+    "tests/e2e/test_demo_server.py",
     "submission/public/DISCLOSURE_BOUNDARY.md",
     "submission/public/PROJECT_SUMMARY_500_CN.md",
     "submission/public/ProofFlow_GOAI_复赛答辩_v2.0.pdf",

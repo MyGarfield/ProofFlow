@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/MyGarfield/ProofFlow/schemas/semifinal-eligibility-evidence.schema.json",
+  "title": "Authenticated GOAI semifinal eligibility evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "evidence_type",
+    "status",
+    "stage",
+    "source_url",
+    "observed_at",
+    "account_subject_sha256",
+    "response_sha256",
+    "selection_claim"
+  ],
+  "properties": {
+    "schema_version": {"const": "proofflow.goai.eligibility-evidence/v1"},
+    "evidence_type": {"const": "authenticated_portal_eligibility"},
+    "status": {"const": "UNLOCKED"},
+    "stage": {"const": "semifinal"},
+    "source_url": {"const": "https://www.goaihz.com/submission"},
+    "observed_at": {"type": "string", "format": "date-time"},
+    "account_subject_sha256": {"$ref": "#/$defs/digest"},
+    "response_sha256": {"$ref": "#/$defs/digest"},
+    "selection_claim": {"const": false}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  }
+}

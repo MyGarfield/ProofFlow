@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/MyGarfield/ProofFlow/schemas/semifinal-official-recheck-evidence.schema.json",
+  "title": "GOAI official dynamic configuration recheck evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "evidence_type",
+    "status",
+    "source_url",
+    "observed_at",
+    "opens_at",
+    "closes_at",
+    "zip_max_mib",
+    "cumulative_max_mib",
+    "max_attempts_per_stage",
+    "required_fields",
+    "response_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "proofflow.goai.official-recheck-evidence/v1"},
+    "evidence_type": {"const": "official_dynamic_config_recheck"},
+    "status": {"const": "VERIFIED"},
+    "source_url": {"const": "https://www.goaihz.com/api/cms/site-config"},
+    "observed_at": {"type": "string", "format": "date-time"},
+    "opens_at": {"type": "string", "format": "date-time"},
+    "closes_at": {"type": "string", "format": "date-time"},
+    "zip_max_mib": {"const": 1200},
+    "cumulative_max_mib": {"const": 3600},
+    "max_attempts_per_stage": {"const": 3},
+    "required_fields": {"const": ["作品名", "代码仓库URL", "Demo URL", "ZIP"]},
+    "response_sha256": {"$ref": "#/$defs/digest"}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  }
+}
