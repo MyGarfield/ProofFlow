@@ -77,13 +77,11 @@
       "properties": {
         "eligibility": {"$ref": "#/$defs/evidenceGate"},
         "real_agent_collaboration": {
-          "allOf": [
-            {"$ref": "#/$defs/evidenceGate"},
-            {
-              "type": "object",
-              "required": ["counts"],
-              "properties": {
-                "counts": {
+          "type": "object", "additionalProperties": false,
+          "required": ["evidence_refs", "counts"],
+          "properties": {
+            "evidence_refs": {"$ref": "#/$defs/evidenceGate/properties/evidence_refs"},
+            "counts": {
                   "type": "object",
                   "additionalProperties": false,
                   "required": ["worker_execution", "task_event", "matrix_event", "mcp_receipt", "skill_receipt", "trace", "human_gate_receipt"],
@@ -96,10 +94,8 @@
                     "trace": {"type": "integer", "minimum": 0},
                     "human_gate_receipt": {"type": "integer", "minimum": 0}
                   }
-                }
-              }
             }
-          ]
+          }
         },
         "official_config_recheck": {
           "type": "object", "additionalProperties": false,
