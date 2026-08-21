@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="ProofFlow 复赛本地证明链控制台">
+  <title>ProofFlow / Local Proof Console</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#workflow">跳到证明链</a>
+
+  <header class="mast grid12">
+    <div class="brand" aria-label="ProofFlow">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span>PROOF<span class="signal">FLOW</span></span>
+    </div>
+    <div class="edition mono">GOAI / SEMIFINAL / LOCAL PROOF CONSOLE / V0.1</div>
+    <div class="clock-block">
+      <span class="mono">FIXTURE CLOCK</span>
+      <strong>2026—08—20<br>04:00 UTC</strong>
+    </div>
+  </header>
+
+  <div class="boundary-banner" role="note">
+    <span>PUBLIC SYNTHETIC</span>
+    <span>NO LLM</span>
+    <span>LOCAL ONLY</span>
+    <span>NO EXTERNAL SIDE EFFECTS</span>
+  </div>
+
+  <main class="console grid12">
+    <aside class="index-rail" aria-label="运行索引">
+      <span class="vertical mono">EVIDENCE BEFORE ACTION / 01—06</span>
+      <span class="sheet mono">PF—S01</span>
+    </aside>
+
+    <section class="workflow" id="workflow" aria-labelledby="workflow-title">
+      <div class="section-head">
+        <div>
+          <span class="kicker mono">01 / CONTROLLED USER JOURNEY</span>
+          <h1 id="workflow-title">证明先于行动<span class="signal">.</span></h1>
+        </div>
+        <p class="lead">固定公开合成案例，从证据与规则进入 Human Gate；未审批打包必须失败，审批后才允许封装与独立校验。</p>
+      </div>
+
+      <ol class="chain" aria-label="ProofFlow 核心证明链">
+        <li class="chain-step" data-step="prepare">
+          <span class="step-no mono">01</span>
+          <div>
+            <strong>PREPARE</strong>
+            <small>固定 fixture + rules</small>
+          </div>
+          <output class="step-state mono" id="step-prepare">READY</output>
+        </li>
+        <li class="chain-step gate-step" data-step="gate">
+          <span class="step-no mono">02</span>
+          <div>
+            <strong>HUMAN GATE</strong>
+            <small>package-before-approval → 409</small>
+          </div>
+          <output class="step-state mono" id="step-gate">LOCKED</output>
+        </li>
+        <li class="chain-step" data-step="approve">
+          <span class="step-no mono">03</span>
+          <div>
+            <strong>APPROVE</strong>
+            <small>reason + LOCAL_DEMO</small>
+          </div>
+          <output class="step-state mono" id="step-approve">WAIT</output>
+        </li>
+        <li class="chain-step" data-step="package">
+          <span class="step-no mono">04</span>
+          <div>
+            <strong>PACKAGE</strong>
+            <small>approval-bound manifest</small>
+          </div>
+          <output class="step-state mono" id="step-package">WAIT</output>
+        </li>
+        <li class="chain-step" data-step="verify">
+          <span class="step-no mono">05</span>
+          <div>
+            <strong>VERIFY</strong>
+            <small>hash + trace + files</small>
+          </div>
+          <output class="step-state mono" id="step-verify">WAIT</output>
+        </li>
+      </ol>
+
+      <div class="controls">
+        <div class="button-row">
+          <button type="button" id="prepare-button" data-action="prepare">
+            <span class="mono">01</span> PREPARE → GATE
+          </button>
+          <button type="button" class="danger-action" id="probe-button" data-action="package" disabled>
+            <span class="mono">02</span> TRY PACKAGE / EXPECT 409
+          </button>
+        </div>
+
+        <label class="approval-field" for="approval-reason">
+          <span class="mono">HUMAN APPROVAL REASON / REQUIRED</span>
+          <textarea id="approval-reason" maxlength="300" rows="2" disabled>已核验公开合成证据、规则时效、确定性计算、风险与不确定项，同意仅生成本地评审包。</textarea>
+        </label>
+
+        <div class="button-row three">
+          <button type="button" class="approval-action" id="approve-button" data-action="approve" disabled>
+            <span class="mono">03</span> APPROVE / LOCAL_DEMO
+          </button>
+          <button type="button" id="package-button" data-action="package" disabled>
+            <span class="mono">04</span> PACKAGE
+          </button>
+          <button type="button" class="verify-action" id="verify-button" data-action="verify" disabled>
+            <span class="mono">05</span> VERIFY
+          </button>
+        </div>
+      </div>
+
+      <div class="response-strip" id="response-strip" role="status" aria-live="polite">
+        <span class="response-code mono" id="response-code">LOCAL / READY</span>
+        <span id="response-message">等待执行固定证明链；所有运行产物只存在于本进程临时目录。</span>
+      </div>
+    </section>
+
+    <aside class="proof-panel" aria-label="证明与边界">
+      <section class="boundary-card" aria-labelledby="runtime-title">
+        <div class="panel-head">
+          <span class="mono">02 / RUNTIME TRUTH</span>
+          <span class="status-square" aria-hidden="true"></span>
+        </div>
+        <h2 id="runtime-title">REFERENCE<br>RUNTIME</h2>
+        <dl class="truth-table">
+          <div><dt>STAGE</dt><dd id="stage-value">NOT_PREPARED</dd></div>
+          <div><dt>WORKERS</dt><dd class="blocked">Stopped</dd></div>
+          <div><dt>readyWorkers</dt><dd class="blocked">0</dd></div>
+          <div><dt>LIVE AGENTTEAMS</dt><dd>NO</dd></div>
+          <div><dt>LLM</dt><dd>OFF</dd></div>
+          <div><dt>NETWORK</dt><dd>127.0.0.1</dd></div>
+        </dl>
+        <p class="boundary-copy">PF-A1…PF-A6 是确定性角色身份与 trace actor；本页不把它们表述为已运行的多 Agent Worker。</p>
+      </section>
+
+      <section class="metrics" aria-labelledby="metrics-title">
+        <div class="panel-head">
+          <span class="mono" id="metrics-title">03 / SEALED FACTS</span>
+        </div>
+        <div class="metric-grid">
+          <div><strong id="evidence-count">0</strong><span>EVIDENCE</span></div>
+          <div><strong id="rule-count">0</strong><span>RULES</span></div>
+          <div><strong id="calculation-total">—</strong><span>CNY REF.</span></div>
+          <div><strong id="package-files">0</strong><span>PKG FILES</span></div>
+        </div>
+        <div class="hash-block">
+          <span class="mono">APPROVAL SUBJECT / SHA—256</span>
+          <code id="subject-hash">not prepared</code>
+        </div>
+      </section>
+
+      <section class="benchmark-card" aria-labelledby="benchmark-title">
+        <div class="panel-head">
+          <span class="mono">04 / PUBLIC CONTRACT SUITE</span>
+          <span class="benchmark-score" id="benchmark-score">—/11</span>
+        </div>
+        <h2 id="benchmark-title">RED-TEAM<br>FOCUS</h2>
+        <button type="button" class="benchmark-action" id="benchmark-button" data-action="benchmark">
+          RUN 11 CONTRACT SCENARIOS
+        </button>
+        <ol class="benchmark-results" id="benchmark-results" aria-live="polite">
+          <li><span>INDEPENDENT TEMP WORKSPACE</span><b>READY</b></li>
+          <li><span>STRICT CLOSED-SET COMPARISON</span><b>READY</b></li>
+          <li><span>LEGAL ACCURACY / PERFORMANCE</span><b>NOT MEASURED</b></li>
+        </ol>
+      </section>
+    </aside>
+  </main>
+
+  <section class="trace-band grid12" aria-labelledby="trace-title">
+    <div class="trace-title">
+      <span class="mono">05 / APPEND-ONLY VIEW</span>
+      <h2 id="trace-title">TRACE</h2>
+    </div>
+    <ol class="trace-list" id="trace-list">
+      <li><span class="mono">000</span><b>SYSTEM</b><span>WAITING_FOR_PREPARE</span><em>LOCAL</em></li>
+    </ol>
+    <div class="trace-note">
+      <span class="mono">PINNED INPUTS</span>
+      <code id="fixture-pin">fixture / loading</code>
+      <code id="rule-pin">rules / loading</code>
+    </div>
+  </section>
+
+  <footer class="footer grid12">
+    <div class="footer-mark">PF<span class="signal">—</span>01</div>
+    <p>结构完整性演示，不衡量法律正确性，不构成法律意见，不连接 LLM、AgentTeams Worker、HR 或外部提交系统。</p>
+    <button type="button" class="reset-action" id="reset-button" data-action="reset">RESET TEMP RUN</button>
+  </footer>
+</body>
+</html>

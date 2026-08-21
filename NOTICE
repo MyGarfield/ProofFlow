@@ -1,0 +1,15 @@
+ProofFlow
+Copyright 2026 VeriAgent contributors
+
+This product includes software developed by ProofFlow contributors and distributed under Apache License 2.0.
+
+The repository references, but does not vendor or relicense:
+
+- AgentTeams by the AgentScope team: https://github.com/agentscope-ai/AgentTeams
+- Pydantic: https://github.com/pydantic/pydantic
+- uv and Ruff by Astral: https://github.com/astral-sh/uv and https://github.com/astral-sh/ruff
+- pytest: https://github.com/pytest-dev/pytest
+- PyYAML (development/contract tests): https://github.com/yaml/pyyaml
+
+The curated rule catalog links to official public legal sources. Local summaries, external source content and
+third-party data remain subject to their own legal status and terms and are not relicensed by ProofFlow.

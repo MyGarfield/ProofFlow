@@ -1,0 +1,351 @@
+{
+  "$defs": {
+    "ArtifactMeta": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "case_id": {
+          "minLength": 1,
+          "title": "Case Id",
+          "type": "string"
+        },
+        "classification": {
+          "$ref": "#/$defs/DataClassification",
+          "default": "PUBLIC_SYNTHETIC"
+        },
+        "content_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Content Hash"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "producer_identity": {
+          "minLength": 1,
+          "title": "Producer Identity",
+          "type": "string"
+        },
+        "schema_version": {
+          "default": "proofflow.dev/v1alpha1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_refs": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Refs",
+          "type": "array"
+        },
+        "tenant_id": {
+          "minLength": 1,
+          "title": "Tenant Id",
+          "type": "string"
+        },
+        "trace_id": {
+          "minLength": 1,
+          "title": "Trace Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "tenant_id",
+        "case_id",
+        "producer_identity",
+        "trace_id",
+        "created_at"
+      ],
+      "title": "ArtifactMeta",
+      "type": "object"
+    },
+    "DataClassification": {
+      "enum": [
+        "PUBLIC_SYNTHETIC",
+        "INTERNAL",
+        "RESTRICTED"
+      ],
+      "title": "DataClassification",
+      "type": "string"
+    },
+    "Issue": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "needs_human": {
+          "default": false,
+          "title": "Needs Human",
+          "type": "boolean"
+        },
+        "object_refs": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Object Refs",
+          "type": "array"
+        },
+        "retryable": {
+          "default": false,
+          "title": "Retryable",
+          "type": "boolean"
+        },
+        "severity": {
+          "title": "Severity",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "severity",
+        "message"
+      ],
+      "title": "Issue",
+      "type": "object"
+    },
+    "RuleCitation": {
+      "additionalProperties": false,
+      "properties": {
+        "authoritative_source": {
+          "title": "Authoritative Source",
+          "type": "string"
+        },
+        "effective_from": {
+          "format": "date",
+          "title": "Effective From",
+          "type": "string"
+        },
+        "effective_to": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Effective To"
+        },
+        "excerpt": {
+          "title": "Excerpt",
+          "type": "string"
+        },
+        "issue_code": {
+          "title": "Issue Code",
+          "type": "string"
+        },
+        "jurisdiction": {
+          "title": "Jurisdiction",
+          "type": "string"
+        },
+        "locator": {
+          "title": "Locator",
+          "type": "string"
+        },
+        "meta": {
+          "$ref": "#/$defs/ArtifactMeta"
+        },
+        "rule_id": {
+          "title": "Rule Id",
+          "type": "string"
+        },
+        "source_hash": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Source Hash",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "meta",
+        "rule_id",
+        "version",
+        "issue_code",
+        "title",
+        "jurisdiction",
+        "effective_from",
+        "authoritative_source",
+        "locator",
+        "excerpt",
+        "source_hash"
+      ],
+      "title": "RuleCitation",
+      "type": "object"
+    },
+    "RuleRetrieveOutput": {
+      "additionalProperties": false,
+      "properties": {
+        "catalog_version": {
+          "title": "Catalog Version",
+          "type": "string"
+        },
+        "citations": {
+          "items": {
+            "$ref": "#/$defs/RuleCitation"
+          },
+          "title": "Citations",
+          "type": "array"
+        },
+        "missing_issue_codes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Issue Codes",
+          "type": "array"
+        },
+        "rule_scope": {
+          "$ref": "#/$defs/RuleScopeReceipt"
+        }
+      },
+      "required": [
+        "citations",
+        "missing_issue_codes",
+        "catalog_version",
+        "rule_scope"
+      ],
+      "title": "RuleRetrieveOutput",
+      "type": "object"
+    },
+    "RuleScopeReceipt": {
+      "additionalProperties": false,
+      "description": "Deterministic rule-query receipt; integrity metadata, not authentication.",
+      "properties": {
+        "as_of_date": {
+          "format": "date",
+          "title": "As Of Date",
+          "type": "string"
+        },
+        "catalog_version": {
+          "minLength": 1,
+          "title": "Catalog Version",
+          "type": "string"
+        },
+        "issue_codes": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32,
+          "minItems": 1,
+          "title": "Issue Codes",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "jurisdiction": {
+          "minLength": 1,
+          "title": "Jurisdiction",
+          "type": "string"
+        },
+        "rule_query_input_hash": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Rule Query Input Hash",
+          "type": "string"
+        }
+      },
+      "required": [
+        "issue_codes",
+        "jurisdiction",
+        "as_of_date",
+        "catalog_version",
+        "rule_query_input_hash"
+      ],
+      "title": "RuleScopeReceipt",
+      "type": "object"
+    },
+    "SkillStatus": {
+      "enum": [
+        "SUCCESS",
+        "BLOCKED",
+        "NEEDS_HUMAN",
+        "RETRYABLE_FAILURE"
+      ],
+      "title": "SkillStatus",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "emitted_refs": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Emitted Refs",
+      "type": "array"
+    },
+    "input_hash": {
+      "title": "Input Hash",
+      "type": "string"
+    },
+    "issues": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Issue"
+      },
+      "title": "Issues",
+      "type": "array"
+    },
+    "output_hash": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Output Hash"
+    },
+    "status": {
+      "$ref": "#/$defs/SkillStatus"
+    },
+    "value": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RuleRetrieveOutput"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "status",
+    "input_hash"
+  ],
+  "title": "SkillResult[RuleRetrieveOutput]",
+  "type": "object"
+}

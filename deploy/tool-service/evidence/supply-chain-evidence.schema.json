@@ -1,0 +1,381 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://proofflow.dev/schemas/supply-chain-evidence-v1.1.json",
+  "title": "ProofFlow tool-service supply-chain evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "collected_at",
+    "claim_level",
+    "subject",
+    "build_input_provenance",
+    "scope",
+    "tools",
+    "vulnerability_database",
+    "artifacts",
+    "summary",
+    "reproducibility",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.1.0" },
+    "collected_at": { "type": "string", "format": "date-time" },
+    "claim_level": { "const": "POINT_IN_TIME_PACKAGE_VULNERABILITY_SCAN" },
+    "subject": { "$ref": "#/$defs/subject" },
+    "build_input_provenance": { "$ref": "#/$defs/buildInputProvenance" },
+    "scope": { "$ref": "#/$defs/scope" },
+    "tools": { "$ref": "#/$defs/tools" },
+    "vulnerability_database": { "$ref": "#/$defs/database" },
+    "artifacts": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": { "$ref": "#/$defs/artifact" }
+    },
+    "summary": { "$ref": "#/$defs/summary" },
+    "reproducibility": { "$ref": "#/$defs/reproducibility" },
+    "limitations": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 24, "maxLength": 240 }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "relativePath": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$",
+      "not": { "pattern": "(^|/)\\.\\.(/|$)" }
+    },
+    "severityCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["UNKNOWN", "LOW", "MEDIUM", "HIGH", "CRITICAL"],
+      "properties": {
+        "UNKNOWN": { "type": "integer", "minimum": 0 },
+        "LOW": { "type": "integer", "minimum": 0 },
+        "MEDIUM": { "type": "integer", "minimum": 0 },
+        "HIGH": { "type": "integer", "minimum": 0 },
+        "CRITICAL": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tag",
+        "immutable_reference",
+        "image_id",
+        "image_config_digest",
+        "platform",
+        "created_at"
+      ],
+      "properties": {
+        "tag": { "const": "proofflow-tool-service:0.1.0a0" },
+        "immutable_reference": {
+          "const": "proofflow-tool-service@sha256:1a4c4efb2d4e4fe37503ba0082282218e0b8c978dd22c1bd1488b5942d087775"
+        },
+        "image_id": {
+          "const": "sha256:1a4c4efb2d4e4fe37503ba0082282218e0b8c978dd22c1bd1488b5942d087775"
+        },
+        "image_config_digest": { "$ref": "#/$defs/sha256" },
+        "platform": { "const": "linux/amd64" },
+        "created_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "buildInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "kind", "sha256", "bytes", "file_count"],
+      "properties": {
+        "path": {
+          "enum": [
+            ".dockerignore",
+            "deploy/tool-service/Dockerfile",
+            "deploy/tool-service/requirements.lock",
+            "deploy/tool-service/THIRD_PARTY_NOTICES.md",
+            "LICENSE",
+            "NOTICE",
+            "src",
+            "data/rules"
+          ]
+        },
+        "kind": { "enum": ["FILE_BYTES", "DIRECTORY_BUNDLE_V1"] },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "bytes": { "type": "integer", "minimum": 1 },
+        "file_count": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "buildInputProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_level",
+        "hash_algorithm",
+        "directory_bundle_format",
+        "hashes_are_digital_signatures",
+        "build_relationship_attested",
+        "inputs"
+      ],
+      "properties": {
+        "claim_level": { "const": "UNSIGNED_LOCAL_BUILD_INPUT_DIGEST_SNAPSHOT" },
+        "hash_algorithm": { "const": "SHA-256" },
+        "directory_bundle_format": {
+          "const": "PATH_LENGTH_U64_BE_PATH_BYTES_CONTENT_LENGTH_U64_BE_CONTENT_BYTES_V1"
+        },
+        "hashes_are_digital_signatures": { "const": false },
+        "build_relationship_attested": { "const": false },
+        "inputs": {
+          "type": "array",
+          "minItems": 8,
+          "maxItems": 8,
+          "items": { "$ref": "#/$defs/buildInput" }
+        }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "acquisition",
+        "scanner_target",
+        "target_archive_published",
+        "runtime_container_inspected",
+        "runtime_environment_inspected",
+        "scanner_network_during_target_analysis",
+        "scanners",
+        "base_image"
+      ],
+      "properties": {
+        "acquisition": { "const": "DOCKER_IMAGE_SAVE" },
+        "scanner_target": { "const": "READ_ONLY_IMAGE_ARCHIVE" },
+        "target_archive_published": { "const": false },
+        "runtime_container_inspected": { "const": false },
+        "runtime_environment_inspected": { "const": false },
+        "scanner_network_during_target_analysis": { "const": "NONE" },
+        "scanners": {
+          "const": ["OS_PACKAGES", "LANGUAGE_PACKAGES", "KNOWN_VULNERABILITIES"]
+        },
+        "base_image": {
+          "const": "python:3.12-alpine@sha256:285a71327884a4d50efbea30104473b0fa43ecefa499458899670ca30dae76e5"
+        }
+      }
+    },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "release_url",
+        "image",
+        "image_index_digest",
+        "platform_manifest_digest",
+        "platform"
+      ],
+      "properties": {
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "release_url": { "type": "string", "format": "uri", "pattern": "^https://github.com/" },
+        "image": {
+          "type": "string",
+          "pattern": "^[a-z0-9./-]+@sha256:[0-9a-f]{64}$"
+        },
+        "image_index_digest": { "$ref": "#/$defs/sha256" },
+        "platform_manifest_digest": { "$ref": "#/$defs/sha256" },
+        "platform": { "const": "linux/amd64" },
+        "git_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "build_date": { "type": "string", "format": "date-time" }
+      }
+    },
+    "tools": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["syft", "trivy"],
+      "properties": {
+        "syft": {
+          "allOf": [
+            { "$ref": "#/$defs/tool" },
+            {
+              "type": "object",
+              "required": ["git_commit", "build_date"],
+              "properties": {
+                "version": { "const": "1.51.0" },
+                "release_url": { "const": "https://github.com/anchore/syft/releases/tag/v1.51.0" },
+                "image": {
+                  "const": "anchore/syft@sha256:678bfa565b60f747aac0f8e964fe5588a24445b8d0a480e91f6efd70020dfbb0"
+                },
+                "image_index_digest": {
+                  "const": "sha256:678bfa565b60f747aac0f8e964fe5588a24445b8d0a480e91f6efd70020dfbb0"
+                },
+                "platform_manifest_digest": {
+                  "const": "sha256:41f8289664101d6ebab30a97ac8df6b6f86b92d8343285ca90f428e2bc353106"
+                }
+              }
+            }
+          ]
+        },
+        "trivy": {
+          "allOf": [
+            { "$ref": "#/$defs/tool" },
+            {
+              "type": "object",
+              "properties": {
+                "version": { "const": "0.74.0" },
+                "release_url": {
+                  "const": "https://github.com/aquasecurity/trivy/releases/tag/v0.74.0"
+                },
+                "image": {
+                  "const": "aquasec/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969"
+                },
+                "image_index_digest": {
+                  "const": "sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969"
+                },
+                "platform_manifest_digest": {
+                  "const": "sha256:ee940acbf1f58ebadb42d01434ce4609530bf1b52536afbd1eee66cd7123c5c9"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "database": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "updated_at",
+        "next_update",
+        "downloaded_at",
+        "sha256",
+        "bytes"
+      ],
+      "properties": {
+        "schema_version": { "const": 2 },
+        "updated_at": { "type": "string", "format": "date-time" },
+        "next_update": { "type": "string", "format": "date-time" },
+        "downloaded_at": { "type": "string", "format": "date-time" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "bytes": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "media_type", "sha256", "bytes", "record_count"],
+      "properties": {
+        "path": { "$ref": "#/$defs/relativePath" },
+        "media_type": {
+          "enum": [
+            "application/vnd.cyclonedx+json",
+            "application/spdx+json",
+            "application/vnd.aquasec.trivy.report+json"
+          ]
+        },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "bytes": { "type": "integer", "minimum": 2 },
+        "record_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "targetFinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target", "class", "type", "records", "total"],
+      "properties": {
+        "target": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "class": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "type": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "records": { "$ref": "#/$defs/severityCounts" },
+        "total": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "highFinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target",
+        "class",
+        "type",
+        "vulnerability_id",
+        "package_name",
+        "installed_version",
+        "fixed_version",
+        "status",
+        "severity",
+        "primary_url"
+      ],
+      "properties": {
+        "target": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "class": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "type": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "vulnerability_id": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "package_name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "installed_version": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "fixed_version": { "type": ["string", "null"], "maxLength": 200 },
+        "status": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "severity": { "enum": ["HIGH", "CRITICAL"] },
+        "primary_url": { "type": "string", "format": "uri" }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cyclonedx_components",
+        "spdx_packages",
+        "vulnerability_records",
+        "total_vulnerability_records",
+        "findings_by_target",
+        "high_or_critical_findings",
+        "verdict"
+      ],
+      "properties": {
+        "cyclonedx_components": { "type": "integer", "minimum": 0 },
+        "spdx_packages": { "type": "integer", "minimum": 0 },
+        "vulnerability_records": { "$ref": "#/$defs/severityCounts" },
+        "total_vulnerability_records": { "type": "integer", "minimum": 0 },
+        "findings_by_target": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/targetFinding" }
+        },
+        "high_or_critical_findings": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/highFinding" }
+        },
+        "verdict": { "enum": ["HIGH_OR_CRITICAL_FOUND", "NO_HIGH_OR_CRITICAL_FOUND"] }
+      }
+    },
+    "reproducibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "collector",
+        "validator",
+        "schema",
+        "tool_images_pinned_by_digest",
+        "subject_pinned_by_digest",
+        "database_bytes_pinned_by_hash"
+      ],
+      "properties": {
+        "collector": {
+          "const": "deploy/tool-service/scripts/collect_supply_chain_evidence.py"
+        },
+        "validator": {
+          "const": "deploy/tool-service/scripts/validate_supply_chain_evidence.py"
+        },
+        "schema": {
+          "const": "deploy/tool-service/evidence/supply-chain-evidence.schema.json"
+        },
+        "tool_images_pinned_by_digest": { "const": true },
+        "subject_pinned_by_digest": { "const": true },
+        "database_bytes_pinned_by_hash": { "const": true }
+      }
+    }
+  }
+}

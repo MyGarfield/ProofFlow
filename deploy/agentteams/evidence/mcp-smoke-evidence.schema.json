@@ -1,0 +1,933 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/proofflow/agentteams-mcp-smoke-evidence.schema.json",
+  "title": "ProofFlow AgentTeams Manager-operator MCP smoke evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "evidence_kind",
+    "collected_at",
+    "tool_service_image_id",
+    "tool_service_runtime",
+    "collector",
+    "scope",
+    "provenance",
+    "privacy",
+    "mcp_servers",
+    "access_probes",
+    "manager_workflow",
+    "skill_distribution",
+    "resources",
+    "summary",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.2"
+    },
+    "evidence_kind": {
+      "const": "agentteams-manager-operator-mcp-smoke"
+    },
+    "collected_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "tool_service_image_id": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "collector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version",
+        "read_only_post_run_checks",
+        "response_allowlist_only"
+      ],
+      "properties": {
+        "name": {
+          "const": "allowlisted-mcp-post-run-verification"
+        },
+        "version": {
+          "const": "1.2"
+        },
+        "read_only_post_run_checks": {
+          "const": true
+        },
+        "response_allowlist_only": {
+          "const": true
+        }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "deployment",
+        "fixture_status",
+        "data_classification",
+        "initiator",
+        "worker_execution",
+        "llm_inference"
+      ],
+      "properties": {
+        "deployment": {
+          "const": "agentteams-v1.2.2-embedded-local"
+        },
+        "fixture_status": {
+          "const": "SYNTHETIC"
+        },
+        "data_classification": {
+          "const": "PUBLIC_SYNTHETIC"
+        },
+        "initiator": {
+          "const": "manager-operator"
+        },
+        "worker_execution": {
+          "const": false
+        },
+        "llm_inference": {
+          "const": false
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "resource_inventory",
+        "tool_inventory",
+        "tool_service_image",
+        "skill_distribution",
+        "gateway_acl",
+        "workflow"
+      ],
+      "properties": {
+        "resource_inventory": {
+          "const": "read-only-agt-cli-allowlist"
+        },
+        "tool_inventory": {
+          "const": "read-only-mcporter-allowlist"
+        },
+        "tool_service_image": {
+          "const": "read-only-docker-inspect-and-supply-chain-cross-check"
+        },
+        "skill_distribution": {
+          "const": "read-only-agt-cli-manager-files-and-minio-hash-allowlist"
+        },
+        "gateway_acl": {
+          "const": "operator-sanitized-observation"
+        },
+        "workflow": {
+          "const": "operator-sanitized-result-allowlist"
+        }
+      }
+    },
+    "privacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "existing_client_credentials_used",
+        "credential_values_inspected_or_emitted",
+        "cookies_inspected_or_emitted",
+        "environment_dumped",
+        "raw_material_values_emitted",
+        "personal_identifiers_emitted"
+      ],
+      "properties": {
+        "existing_client_credentials_used": {
+          "const": true
+        },
+        "credential_values_inspected_or_emitted": {
+          "const": false
+        },
+        "cookies_inspected_or_emitted": {
+          "const": false
+        },
+        "environment_dumped": {
+          "const": false
+        },
+        "raw_material_values_emitted": {
+          "const": false
+        },
+        "personal_identifiers_emitted": {
+          "const": false
+        }
+      }
+    },
+    "tool_service_runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observed_at",
+        "container_name",
+        "image_id",
+        "state",
+        "health",
+        "service_port",
+        "host_port_published",
+        "security_profile",
+        "resource_limits",
+        "network_profile"
+      ],
+      "properties": {
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "container_name": {
+          "const": "proofflow-tool-service"
+        },
+        "image_id": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "state": {
+          "const": "running"
+        },
+        "health": {
+          "const": "healthy"
+        },
+        "service_port": {
+          "const": 8787
+        },
+        "host_port_published": {
+          "const": false
+        },
+        "security_profile": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "user",
+            "read_only_rootfs",
+            "privileged",
+            "cap_add",
+            "cap_drop",
+            "no_new_privileges"
+          ],
+          "properties": {
+            "user": {
+              "const": "65532:65532"
+            },
+            "read_only_rootfs": {
+              "const": true
+            },
+            "privileged": {
+              "const": false
+            },
+            "cap_add": {
+              "type": "array",
+              "maxItems": 0
+            },
+            "cap_drop": {
+              "const": [
+                "ALL"
+              ]
+            },
+            "no_new_privileges": {
+              "const": true
+            }
+          }
+        },
+        "resource_limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "pids_limit",
+            "memory_bytes",
+            "memory_swap_bytes",
+            "nano_cpus",
+            "tmpfs_tmp"
+          ],
+          "properties": {
+            "pids_limit": {
+              "const": 128
+            },
+            "memory_bytes": {
+              "const": 268435456
+            },
+            "memory_swap_bytes": {
+              "const": 536870912
+            },
+            "nano_cpus": {
+              "const": 1000000000
+            },
+            "tmpfs_tmp": {
+              "const": "rw,noexec,nosuid,size=16m"
+            }
+          }
+        },
+        "network_profile": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "network_mode",
+            "network_aliases"
+          ],
+          "properties": {
+            "network_mode": {
+              "const": "agentteams-net"
+            },
+            "network_aliases": {
+              "const": [
+                "proofflow-tool-service.local"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "mcp_servers": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "status",
+          "tool_count",
+          "tools",
+          "allowed_consumers"
+        ],
+        "properties": {
+          "name": {
+            "enum": [
+              "mcp-proof-evidence",
+              "mcp-proof-rules",
+              "mcp-proof-calc"
+            ]
+          },
+          "status": {
+            "const": "ok"
+          },
+          "tool_count": {
+            "const": 1
+          },
+          "tools": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1,
+            "items": {
+              "enum": [
+                "evidence_ingest",
+                "retrieve_rules",
+                "deterministic_calculate"
+              ]
+            }
+          },
+          "allowed_consumers": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "access_probes": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "probe_id",
+          "caller",
+          "target",
+          "operation",
+          "expected_http_status",
+          "http_status",
+          "outcome",
+          "provenance"
+        ],
+        "properties": {
+          "probe_id": {
+            "enum": [
+              "evidence-worker-evidence-tools-list",
+              "calculation-worker-evidence-tools-list"
+            ]
+          },
+          "caller": {
+            "enum": [
+              "worker-evidence-agent",
+              "worker-calculation-agent"
+            ]
+          },
+          "target": {
+            "const": "mcp-proof-evidence"
+          },
+          "operation": {
+            "const": "tools/list"
+          },
+          "expected_http_status": {
+            "enum": [
+              200,
+              403
+            ]
+          },
+          "http_status": {
+            "enum": [
+              200,
+              403
+            ]
+          },
+          "outcome": {
+            "enum": [
+              "allow",
+              "deny"
+            ]
+          },
+          "provenance": {
+            "const": "operator-sanitized-observation"
+          }
+        }
+      }
+    },
+    "manager_workflow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_ingest",
+        "rule_retrieve",
+        "deterministic_calculate",
+        "tamper_probe"
+      ],
+      "properties": {
+        "evidence_ingest": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "calls",
+            "successful_calls",
+            "emitted_evidence_objects"
+          ],
+          "properties": {
+            "calls": {
+              "const": 3
+            },
+            "successful_calls": {
+              "const": 3
+            },
+            "emitted_evidence_objects": {
+              "const": 13
+            }
+          }
+        },
+        "rule_retrieve": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "citation_count",
+            "missing_issue_code_count"
+          ],
+          "properties": {
+            "status": {
+              "const": "SUCCESS"
+            },
+            "citation_count": {
+              "const": 4
+            },
+            "missing_issue_code_count": {
+              "const": 0
+            }
+          }
+        },
+        "deterministic_calculate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "observed_total_decimal_string",
+            "reproducibility_hash",
+            "output_hash",
+            "value_present"
+          ],
+          "properties": {
+            "status": {
+              "const": "SUCCESS"
+            },
+            "observed_total_decimal_string": {
+              "const": "60000"
+            },
+            "reproducibility_hash": {
+              "const": "sha256:e27533ee98fa3e7b51fbd8f49569399e3d6c8985a9b732f536655de49b5c4b43"
+            },
+            "output_hash": {
+              "const": "sha256:c13d21654ac003a590bd1fb02c6f658fd74f3427b4d2dfe2b5b729d77ecf1704"
+            },
+            "value_present": {
+              "const": true
+            }
+          }
+        },
+        "tamper_probe": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mutation",
+            "deterministic_calculate_status",
+            "issue_codes",
+            "value_is_null"
+          ],
+          "properties": {
+            "mutation": {
+              "const": "same-scope-value-change-then-reseal"
+            },
+            "deterministic_calculate_status": {
+              "const": "BLOCKED"
+            },
+            "issue_codes": {
+              "const": [
+                "UNTRUSTED_EVIDENCE"
+              ]
+            },
+            "value_is_null": {
+              "const": true
+            }
+          }
+        }
+      }
+    },
+    "skill_distribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observed_at",
+        "worker_assignments",
+        "skill_content",
+        "summary"
+      ],
+      "properties": {
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "worker_assignments": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 6,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "worker_name",
+              "assigned_skills"
+            ],
+            "properties": {
+              "worker_name": {
+                "enum": [
+                  "case-manager",
+                  "evidence-agent",
+                  "rule-agent",
+                  "calculation-agent",
+                  "strategy-agent",
+                  "audit-agent"
+                ]
+              },
+              "assigned_skills": {
+                "type": "array",
+                "maxItems": 2,
+                "uniqueItems": true,
+                "items": {
+                  "enum": [
+                    "conflict_detect",
+                    "decision_audit",
+                    "deterministic_calculate",
+                    "document_package",
+                    "evidence_ingest",
+                    "human_approval",
+                    "rule_retrieve",
+                    "timeline_build"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "skill_content": {
+          "type": "array",
+          "minItems": 8,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "skill_name",
+              "repository_path",
+              "repository_sha256",
+              "manager_source_observed",
+              "manager_source_sha256",
+              "manager_matches_repository",
+              "worker_storage"
+            ],
+            "properties": {
+              "skill_name": {
+                "enum": [
+                  "conflict_detect",
+                  "decision_audit",
+                  "deterministic_calculate",
+                  "document_package",
+                  "evidence_ingest",
+                  "human_approval",
+                  "rule_retrieve",
+                  "timeline_build"
+                ]
+              },
+              "repository_path": {
+                "type": "string",
+                "pattern": "^skills/[a-z_]+/SKILL\\.md$"
+              },
+              "repository_sha256": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              },
+              "manager_source_observed": {
+                "const": true
+              },
+              "manager_source_sha256": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              },
+              "manager_matches_repository": {
+                "const": true
+              },
+              "worker_storage": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "worker_name",
+                    "object_observed",
+                    "sha256",
+                    "matches_repository"
+                  ],
+                  "properties": {
+                    "worker_name": {
+                      "enum": [
+                        "case-manager",
+                        "evidence-agent",
+                        "rule-agent",
+                        "calculation-agent",
+                        "audit-agent"
+                      ]
+                    },
+                    "object_observed": {
+                      "const": true
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^sha256:[0-9a-f]{64}$"
+                    },
+                    "matches_repository": {
+                      "const": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "proof_flow_workers",
+            "assignment_entries",
+            "distinct_skills",
+            "repository_source_files_observed",
+            "manager_repository_hash_matches",
+            "worker_storage_objects_observed",
+            "worker_storage_repository_hash_matches",
+            "exact_assignment_match",
+            "all_content_hashes_match",
+            "worker_runtime_consumption_observed"
+          ],
+          "properties": {
+            "proof_flow_workers": {
+              "const": 6
+            },
+            "assignment_entries": {
+              "const": 8
+            },
+            "distinct_skills": {
+              "const": 8
+            },
+            "repository_source_files_observed": {
+              "const": 8
+            },
+            "manager_repository_hash_matches": {
+              "const": 8
+            },
+            "worker_storage_objects_observed": {
+              "const": 8
+            },
+            "worker_storage_repository_hash_matches": {
+              "const": 8
+            },
+            "exact_assignment_match": {
+              "const": true
+            },
+            "all_content_hashes_match": {
+              "const": true
+            },
+            "worker_runtime_consumption_observed": {
+              "const": false
+            }
+          }
+        }
+      }
+    },
+    "resources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workers",
+        "proof_flow_worker_containers",
+        "team",
+        "humans"
+      ],
+      "properties": {
+        "workers": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 6,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "desired_state",
+              "phase",
+              "runtime",
+              "team",
+              "role",
+              "mcp_servers"
+            ],
+            "properties": {
+              "name": {
+                "enum": [
+                  "case-manager",
+                  "evidence-agent",
+                  "rule-agent",
+                  "calculation-agent",
+                  "strategy-agent",
+                  "audit-agent"
+                ]
+              },
+              "desired_state": {
+                "const": "Stopped"
+              },
+              "phase": {
+                "const": "Stopped"
+              },
+              "runtime": {
+                "const": "openclaw"
+              },
+              "team": {
+                "const": "proof-flow-case-review"
+              },
+              "role": {
+                "enum": [
+                  "team_leader",
+                  "worker"
+                ]
+              },
+              "mcp_servers": {
+                "type": "array",
+                "maxItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "enum": [
+                    "mcp-proof-evidence",
+                    "mcp-proof-rules",
+                    "mcp-proof-calc"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "proof_flow_worker_containers": {
+          "const": 0
+        },
+        "team": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "controller_phase",
+            "leader_name",
+            "leader_worker_phase",
+            "member_count",
+            "specialist_worker_count",
+            "ready_workers",
+            "operational_ready"
+          ],
+          "properties": {
+            "name": {
+              "const": "proof-flow-case-review"
+            },
+            "controller_phase": {
+              "const": "Active"
+            },
+            "leader_name": {
+              "const": "case-manager"
+            },
+            "leader_worker_phase": {
+              "const": "Stopped"
+            },
+            "member_count": {
+              "const": 6
+            },
+            "specialist_worker_count": {
+              "const": 5
+            },
+            "ready_workers": {
+              "const": 0
+            },
+            "operational_ready": {
+              "const": false
+            }
+          }
+        },
+        "humans": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "phase",
+              "permission_level",
+              "accessible_teams"
+            ],
+            "properties": {
+              "name": {
+                "enum": [
+                  "proof-reviewer",
+                  "proof-approver"
+                ]
+              },
+              "phase": {
+                "const": "Active"
+              },
+              "permission_level": {
+                "const": 2
+              },
+              "accessible_teams": {
+                "const": [
+                  "proof-flow-case-review"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mcp_servers_ok",
+        "exact_acl_match",
+        "authorized_tools_list_passed",
+        "cross_role_denial_observed",
+        "manager_positive_workflow_passed",
+        "resealed_tamper_blocked",
+        "tool_service_runtime_profile_verified",
+        "all_workers_stopped",
+        "worker_runtime_observed",
+        "team_operational_ready",
+        "human_resources_configured",
+        "skill_distribution_verified",
+        "skill_runtime_consumption_observed",
+        "claim_level"
+      ],
+      "properties": {
+        "mcp_servers_ok": {
+          "const": 3
+        },
+        "exact_acl_match": {
+          "const": true
+        },
+        "authorized_tools_list_passed": {
+          "const": true
+        },
+        "cross_role_denial_observed": {
+          "const": true
+        },
+        "manager_positive_workflow_passed": {
+          "const": true
+        },
+        "resealed_tamper_blocked": {
+          "const": true
+        },
+        "tool_service_runtime_profile_verified": {
+          "const": true
+        },
+        "all_workers_stopped": {
+          "const": true
+        },
+        "worker_runtime_observed": {
+          "const": false
+        },
+        "team_operational_ready": {
+          "const": false
+        },
+        "human_resources_configured": {
+          "const": 2
+        },
+        "skill_distribution_verified": {
+          "const": true
+        },
+        "skill_runtime_consumption_observed": {
+          "const": false
+        },
+        "claim_level": {
+          "const": "manager-operator-public-synthetic-mcp-smoke-only"
+        }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "prefixItems": [
+        {
+          "const": "The successful tool chain was initiated by a Manager operator without Worker execution or LLM inference; it is not a multi-agent run."
+        },
+        {
+          "const": "Team controller phase Active records reconciled configuration only; six Stopped Workers, zero Worker containers, and zero ready Workers make the Team operationally not ready."
+        },
+        {
+          "const": "Gateway ACL and negative HTTP observations are sanitized operator observations; this artifact does not contain credentials, cookies, environment dumps, raw responses, or signed attestations."
+        },
+        {
+          "const": "Skill assignment and SHA-256 equality prove Stopped CR configuration plus stored SKILL.md copies; they do not prove that any Worker loaded, discovered, or executed a Skill."
+        },
+        {
+          "const": "Schema and semantic validation prove this public artifact is internally consistent, not that the underlying point-in-time observations are authentic, fresh, available, secure, or production-ready."
+        }
+      ],
+      "items": false
+    }
+  }
+}

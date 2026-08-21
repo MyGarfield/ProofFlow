@@ -1,0 +1,35 @@
+{
+  "schema_version": "proofflow.dev/v1alpha1",
+  "fixture_status": "SYNTHETIC",
+  "case_id": "case-happy-001",
+  "tenant_id": "tenant-public-demo",
+  "jurisdiction": "CN-ZJ-HZ",
+  "as_of_date": "2025-08-31",
+  "issue_codes": [
+    "termination_notice_or_pay_in_lieu",
+    "economic_compensation_eligibility",
+    "economic_compensation_amount",
+    "economic_compensation_wage_basis"
+  ],
+  "documents": [
+    {
+      "document_id": "doc-contract-001",
+      "path": "contract.json",
+      "media_type": "application/json",
+      "sha256": "sha256:f17e64030475d0a6de6d0f0c340cab223ea64f9addca2789c523fcc3513914ff"
+    },
+    {
+      "document_id": "doc-payroll-001",
+      "path": "payroll.json",
+      "media_type": "application/json",
+      "sha256": "sha256:2979d172f73d3bc83cc7c3a673e39a12b68026afa05424bcf7877cbe7c3300f5"
+    },
+    {
+      "document_id": "doc-notice-001",
+      "path": "termination_notice.json",
+      "media_type": "application/json",
+      "sha256": "sha256:529aa937fdd04b08e6fdb87c2dc0dbb0eac8c27b4b373f03b001ad5bbf489eca"
+    }
+  ],
+  "disclaimer": "Synthetic fixture for deterministic contract tests. It is not legal advice, a real case, or a factual Hangzhou wage-statistics source."
+}

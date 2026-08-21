@@ -1,0 +1,113 @@
+{
+  "$defs": {
+    "RuleRetrieveRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "as_of_date": {
+          "format": "date",
+          "title": "As Of Date",
+          "type": "string"
+        },
+        "issue_codes": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32,
+          "minItems": 1,
+          "title": "Issue Codes",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "jurisdiction": {
+          "minLength": 1,
+          "title": "Jurisdiction",
+          "type": "string"
+        }
+      },
+      "required": [
+        "issue_codes",
+        "jurisdiction",
+        "as_of_date"
+      ],
+      "title": "RuleRetrieveRequest",
+      "type": "object"
+    },
+    "RuleRetrieveToolContext": {
+      "additionalProperties": false,
+      "properties": {
+        "actor_kind": {
+          "const": "AGENT",
+          "default": "AGENT",
+          "title": "Actor Kind",
+          "type": "string"
+        },
+        "caller_identity": {
+          "const": "PF-A3",
+          "default": "PF-A3",
+          "title": "Caller Identity",
+          "type": "string"
+        },
+        "case_id": {
+          "minLength": 1,
+          "title": "Case Id",
+          "type": "string"
+        },
+        "expected_state_version": {
+          "minimum": 0,
+          "title": "Expected State Version",
+          "type": "integer"
+        },
+        "idempotency_key": {
+          "minLength": 1,
+          "title": "Idempotency Key",
+          "type": "string"
+        },
+        "schema_version": {
+          "default": "proofflow.dev/v1alpha1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "tenant_id": {
+          "minLength": 1,
+          "title": "Tenant Id",
+          "type": "string"
+        },
+        "trace_id": {
+          "minLength": 1,
+          "title": "Trace Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tenant_id",
+        "case_id",
+        "trace_id",
+        "idempotency_key",
+        "expected_state_version"
+      ],
+      "title": "RuleRetrieveToolContext",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "arguments": {
+      "$ref": "#/$defs/RuleRetrieveRequest"
+    },
+    "context": {
+      "$ref": "#/$defs/RuleRetrieveToolContext"
+    },
+    "fixture_status": {
+      "const": "SYNTHETIC",
+      "title": "Fixture Status",
+      "type": "string"
+    }
+  },
+  "required": [
+    "fixture_status",
+    "context",
+    "arguments"
+  ],
+  "title": "RuleRetrieveToolCall",
+  "type": "object"
+}

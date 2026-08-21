@@ -1,0 +1,388 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/MyGarfield/ProofFlow/blob/main/deploy/agentteams/evidence/public-evidence.schema.json",
+  "title": "ProofFlow public AgentTeams local-infrastructure smoke evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "evidence_kind",
+    "collected_at",
+    "collector",
+    "scope",
+    "source",
+    "runtime",
+    "container_socket",
+    "resolver",
+    "images",
+    "health_checks",
+    "summary",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.2"},
+    "evidence_kind": {"const": "agentteams-local-infra-smoke"},
+    "collected_at": {"type": "string", "format": "date-time"},
+    "collector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "read_only_runtime_checks"],
+      "properties": {
+        "name": {"const": "collect-public-evidence.sh"},
+        "version": {"const": "1.2"},
+        "read_only_runtime_checks": {"const": true}
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["host_os", "deployment_mode", "synthetic_data_only"],
+      "properties": {
+        "host_os": {"enum": ["darwin", "linux", "other"]},
+        "deployment_mode": {"const": "docker-embedded-local"},
+        "synthetic_data_only": {"const": true}
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "expected_version",
+        "expected_commit",
+        "checkout_supplied",
+        "observed_commit",
+        "commit_matches",
+        "local_colima_socket_patch_present",
+        "local_embedded_console_patch_present",
+        "checkout_has_local_modifications",
+        "verification_status"
+      ],
+      "properties": {
+        "expected_version": {"const": "v1.2.2"},
+        "expected_commit": {"const": "849182af8e017168a5a200a87b1062142caf462d"},
+        "checkout_supplied": {"type": "boolean"},
+        "observed_commit": {
+          "oneOf": [
+            {"type": "null"},
+            {"type": "string", "pattern": "^[0-9a-f]{40}$"}
+          ]
+        },
+        "commit_matches": {"type": "boolean"},
+        "local_colima_socket_patch_present": {"type": "boolean"},
+        "local_embedded_console_patch_present": {"type": "boolean"},
+        "checkout_has_local_modifications": {"type": "boolean"},
+        "verification_status": {"enum": ["pass", "fail", "skip"]}
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "manager_runtime_observed",
+        "worker_runtime_contract",
+        "worker_resources_declared_stopped",
+        "worker_runtime_observed",
+        "worker_containers_observed",
+        "proof_flow_worker_containers_running"
+      ],
+      "properties": {
+        "manager_runtime_observed": {
+          "enum": ["openclaw", "copaw", "qwenpaw", "hermes", "unknown"]
+        },
+        "worker_runtime_contract": {"enum": ["openclaw", "unknown"]},
+        "worker_resources_declared_stopped": {"type": "boolean"},
+        "worker_runtime_observed": {
+          "enum": ["none-zero-workers", "openclaw-only", "mixed", "unknown"]
+        },
+        "worker_containers_observed": {"type": "integer", "minimum": 0},
+        "proof_flow_worker_containers_running": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 6
+        }
+      }
+    },
+    "container_socket": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "docker_context_class",
+        "colima_running",
+        "colima_daemon_local_socket_present",
+        "controller_socket_present",
+        "controller_docker_api_ping_ok"
+      ],
+      "properties": {
+        "docker_context_class": {
+          "enum": ["colima-host-socket", "unix-socket", "tcp", "other"]
+        },
+        "colima_running": {"type": "boolean"},
+        "colima_daemon_local_socket_present": {"type": "boolean"},
+        "controller_socket_present": {"type": "boolean"},
+        "controller_docker_api_ping_ok": {"type": "boolean"}
+      }
+    },
+    "resolver": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "backup_present",
+        "backup_first_line_has_invalid_dash_e_prefix",
+        "current_syntax_allowlist_ok",
+        "normalized_backup_matches_current",
+        "resolver_addresses_emitted",
+        "resolver_file_hashes_emitted",
+        "verification_status"
+      ],
+      "properties": {
+        "backup_present": {"type": "boolean"},
+        "backup_first_line_has_invalid_dash_e_prefix": {"$ref": "#/$defs/nullableBoolean"},
+        "current_syntax_allowlist_ok": {"$ref": "#/$defs/nullableBoolean"},
+        "normalized_backup_matches_current": {"$ref": "#/$defs/nullableBoolean"},
+        "resolver_addresses_emitted": {"const": false},
+        "resolver_file_hashes_emitted": {"const": false},
+        "verification_status": {"enum": ["pass", "fail", "skip"]}
+      }
+    },
+    "images": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "component",
+          "tag",
+          "reference_local_image_id",
+          "observed_local_image_id",
+          "local_image_id_matches_reference",
+          "reference_repo_digest",
+          "observed_repo_digest",
+          "repo_digest_matches_reference"
+        ],
+        "properties": {
+          "component": {
+            "enum": ["controller-embedded", "manager-openclaw", "worker-openclaw"]
+          },
+          "tag": {"type": "string", "minLength": 1},
+          "reference_local_image_id": {"$ref": "#/$defs/sha256"},
+          "observed_local_image_id": {"$ref": "#/$defs/nullableSha256"},
+          "local_image_id_matches_reference": {"type": "boolean"},
+          "reference_repo_digest": {"$ref": "#/$defs/repoDigest"},
+          "observed_repo_digest": {"$ref": "#/$defs/nullableRepoDigest"},
+          "repo_digest_matches_reference": {"type": "boolean"}
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {"component": {"const": "controller-embedded"}},
+              "required": ["component"]
+            },
+            "then": {
+              "properties": {
+                "tag": {
+                  "const": "higress-registry.cn-hangzhou.cr.aliyuncs.com/agentteams/agentteams-embedded:v1.2.2"
+                },
+                "reference_local_image_id": {
+                  "const": "sha256:c7e467bfa5a2a733ea021c19f223180eef85e3e534873feceb8a7a132253125f"
+                },
+                "reference_repo_digest": {
+                  "const": "higress-registry.cn-hangzhou.cr.aliyuncs.com/agentteams/agentteams-embedded@sha256:c7e467bfa5a2a733ea021c19f223180eef85e3e534873feceb8a7a132253125f"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {"component": {"const": "manager-openclaw"}},
+              "required": ["component"]
+            },
+            "then": {
+              "properties": {
+                "tag": {
+                  "const": "higress-registry.cn-hangzhou.cr.aliyuncs.com/agentteams/agentteams-manager:v1.2.2"
+                },
+                "reference_local_image_id": {
+                  "const": "sha256:dd11878943e4a425ff38dcc152c9d44ea0e68d97bac89f711207134b8636c0fb"
+                },
+                "reference_repo_digest": {
+                  "const": "higress-registry.cn-hangzhou.cr.aliyuncs.com/agentteams/agentteams-manager@sha256:dd11878943e4a425ff38dcc152c9d44ea0e68d97bac89f711207134b8636c0fb"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {"component": {"const": "worker-openclaw"}},
+              "required": ["component"]
+            },
+            "then": {
+              "properties": {
+                "tag": {
+                  "const": "higress-registry.cn-hangzhou.cr.aliyuncs.com/agentteams/agentteams-worker:v1.2.2"
+                },
+                "reference_local_image_id": {
+                  "const": "sha256:301f9e311654eca203246fa666d63a126244ea8793f700603d2a6d37b7ffea75"
+                },
+                "reference_repo_digest": {
+                  "const": "higress-registry.cn-hangzhou.cr.aliyuncs.com/agentteams/agentteams-worker@sha256:301f9e311654eca203246fa666d63a126244ea8793f700603d2a6d37b7ffea75"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "health_checks": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "items": {
+        "oneOf": [
+          {"$ref": "#/$defs/httpHealthCheck"},
+          {"$ref": "#/$defs/booleanHealthCheck"}
+        ]
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "passed",
+        "failed",
+        "skipped",
+        "all_observed_components_healthy",
+        "all_six_proof_flow_workers_running",
+        "strict_collection_gate_passed",
+        "claim_level"
+      ],
+      "properties": {
+        "passed": {"type": "integer", "minimum": 0},
+        "failed": {"type": "integer", "minimum": 0},
+        "skipped": {"const": 0},
+        "all_observed_components_healthy": {"type": "boolean"},
+        "all_six_proof_flow_workers_running": {"type": "boolean"},
+        "strict_collection_gate_passed": {"type": "boolean"},
+        "claim_level": {"const": "local-infrastructure-smoke-only"}
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "prefixItems": [
+        {
+          "const": "No ProofFlow Worker, Team, Human, Skill distribution, MCP authorization, Matrix collaboration, model inference, or end-to-end case execution was verified."
+        },
+        {
+          "const": "A healthy endpoint proves point-in-time reachability only; it is not an availability, security, or production-readiness claim."
+        },
+        {
+          "const": "Resolver evidence publishes only syntax and normalization booleans, not resolver contents or file hashes; it does not prove how an invalid line was originally introduced."
+        },
+        {
+          "const": "The strict collection gate is a narrow consistency gate, not a security audit; it does not execute llm-preflight help, inspect secrets, or verify MCP and Worker integration."
+        }
+      ],
+      "items": false
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "nullableSha256": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/sha256"}
+      ]
+    },
+    "repoDigest": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._:/-]*@sha256:[0-9a-f]{64}$"
+    },
+    "nullableRepoDigest": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/repoDigest"}
+      ]
+    },
+    "nullableBoolean": {
+      "type": ["boolean", "null"]
+    },
+    "httpHealthCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "check_id",
+        "status",
+        "expected_http_status",
+        "http_status",
+        "observation"
+      ],
+      "properties": {
+        "check_id": {
+          "enum": [
+            "controller-api",
+            "minio-live",
+            "matrix-versions",
+            "higress-matrix-route",
+            "higress-console",
+            "element-web"
+          ]
+        },
+        "status": {"enum": ["pass", "fail"]},
+        "expected_http_status": {"const": "200"},
+        "http_status": {"type": "string", "pattern": "^(000|[1-5][0-9]{2})$"},
+        "observation": {"const": null}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"http_status": {"const": "200"}},
+            "required": ["http_status"]
+          },
+          "then": {"properties": {"status": {"const": "pass"}}},
+          "else": {"properties": {"status": {"const": "fail"}}}
+        }
+      ]
+    },
+    "booleanHealthCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "check_id",
+        "status",
+        "expected_http_status",
+        "http_status",
+        "observation"
+      ],
+      "properties": {
+        "check_id": {
+          "enum": [
+            "controller-container",
+            "controller-docker-socket-api",
+            "manager-container",
+            "manager-openclaw-gateway"
+          ]
+        },
+        "status": {"enum": ["pass", "fail"]},
+        "expected_http_status": {"const": null},
+        "http_status": {"const": null},
+        "observation": {"type": "boolean"}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"observation": {"const": true}},
+            "required": ["observation"]
+          },
+          "then": {"properties": {"status": {"const": "pass"}}},
+          "else": {"properties": {"status": {"const": "fail"}}}
+        }
+      ]
+    }
+  }
+}

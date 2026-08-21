@@ -1,0 +1,387 @@
+{
+  "benchmark_version": "0.1.0",
+  "configuration": {
+    "concurrency": 4,
+    "connection_policy": "NO_POOL_ONE_DIRECT_CONNECTION_PER_ATTEMPT",
+    "endpoint_count_per_target": 3,
+    "environment_proxy_policy": "IGNORED_BY_IMPLEMENTATION",
+    "http_client": "PYTHON_STDLIB_HTTP_CLIENT",
+    "max_response_body_bytes": 1048576,
+    "measured_requests_per_endpoint": 100,
+    "non_loopback_opt_in": false,
+    "preparation_excluded_from_latency_and_throughput": true,
+    "redirect_policy": "NEVER_FOLLOW",
+    "request_sample_policy": "ONE_FROZEN_BODY_REUSED_BYTE_FOR_BYTE",
+    "response_body_uses_remaining_total_deadline": true,
+    "target_count": 1,
+    "timeout_seconds": 5.0,
+    "total_measured_request_count": 300,
+    "total_preparation_request_count": 3,
+    "total_request_response_deadline_seconds": 5.0,
+    "warmup_excluded_from_measurement": true,
+    "warmup_requests_per_endpoint": 5
+  },
+  "data_classification": "PUBLIC_SYNTHETIC",
+  "environment": {
+    "absolute_paths_recorded": false,
+    "cpu": {
+      "logical_cpu_count": 12,
+      "model": "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz"
+    },
+    "hostname_recorded": false,
+    "memory": {
+      "physical_total_bytes": 34359738368
+    },
+    "operating_system": {
+      "machine": "x86_64",
+      "release": "25.5.0",
+      "system": "Darwin"
+    },
+    "python": {
+      "cache_tag": "cpython-312",
+      "implementation": "cpython",
+      "version": "3.12.13"
+    }
+  },
+  "generated_at": "2026-08-19T21:30:54.420264+00:00",
+  "limitations": {
+    "agentteams_orchestration_measured": false,
+    "cost_measured": false,
+    "external_network_called_by_default": false,
+    "higress_http_forwarding_measured": false,
+    "latency_includes_client_and_connection_setup": true,
+    "legal_accuracy_measured": false,
+    "llm_measured": false,
+    "local_single_run_only": true,
+    "mcp_protocol_measured": false,
+    "preparation_side_effects": "BOUNDED_IN_MEMORY_SYNTHETIC_REGISTRY_ONLY",
+    "production_sla_measured": false,
+    "results_are_not_a_production_capacity_claim": true
+  },
+  "measurement_scope": "TOOL_SERVICE_HTTP_ONLY",
+  "provenance": {
+    "git": {
+      "available": true,
+      "dirty": true,
+      "dirty_paths_disclosed": false,
+      "dirty_status_digest": "sha256:ccd0643fd1d8f7f8af2756f0396472a1b4bb3f1903b41af7d15b729a2d3180f1",
+      "head_commit": "42c0552704191bcafe614786c9956cbbd634e23f",
+      "head_tree": "2ef2d941b43c72e635ac399927ed5d074b732590",
+      "signature_verified": false
+    },
+    "hashes_are_digital_signatures": false,
+    "input_bundles": {
+      "benchmark_harness": {
+        "bundle_sha256": "sha256:be2f3b40a995fc2544e934ce05bafeaff19bde85068c0b2f9005e3fbe62e1659",
+        "file_count": 5,
+        "hash_kind": "UNSIGNED_CONTENT_DIGEST",
+        "root": "benchmarks/performance",
+        "signature_verified": false
+      },
+      "reference_core": {
+        "bundle_sha256": "sha256:cd7b473b485c0939982c9b23e31311e3b1415d0dc9f21d1982e1cf815465abc8",
+        "file_count": 20,
+        "hash_kind": "UNSIGNED_CONTENT_DIGEST",
+        "root": "src/proofflow",
+        "signature_verified": false
+      },
+      "rule_catalog": {
+        "bundle_sha256": "sha256:51f264a6e3c3d10ee6e9ea8a3d04bdedc70449ade77968ab9b2ac3838859455f",
+        "file_count": 1,
+        "hash_kind": "UNSIGNED_CONTENT_DIGEST",
+        "root": "data/rules",
+        "signature_verified": false
+      },
+      "synthetic_fixture": {
+        "bundle_sha256": "sha256:60ce3111c813c8869e4be65ae5f4fcd9712e388769b35645393dc270184c7f9d",
+        "file_count": 4,
+        "hash_kind": "UNSIGNED_CONTENT_DIGEST",
+        "root": "examples/cases/happy_path",
+        "signature_verified": false
+      }
+    },
+    "request_samples": [
+      {
+        "body_bytes": 919,
+        "body_sha256": "sha256:ff1670987fe2a65c9cb6ce36a797c91ebf1c502f635415b8265974cc294d6b2b",
+        "fixture_status": "SYNTHETIC",
+        "method": "POST",
+        "name": "prepare_doc-contract-001",
+        "path": "/v1/tools/evidence-ingest"
+      },
+      {
+        "body_bytes": 881,
+        "body_sha256": "sha256:196537cd1b75525642b6ccd47b6081efe9865b30b4bb7892bfae82fcc7e881cd",
+        "fixture_status": "SYNTHETIC",
+        "method": "POST",
+        "name": "prepare_doc-payroll-001",
+        "path": "/v1/tools/evidence-ingest"
+      },
+      {
+        "body_bytes": 1103,
+        "body_sha256": "sha256:0d4778f1eafaac4345f6fd1f697aeb2741aa8962801a246dcf2b931795bf4a59",
+        "fixture_status": "SYNTHETIC",
+        "method": "POST",
+        "name": "prepare_doc-notice-001",
+        "path": "/v1/tools/evidence-ingest"
+      },
+      {
+        "body_bytes": 0,
+        "body_sha256": null,
+        "fixture_status": "SYNTHETIC",
+        "method": "GET",
+        "name": "health",
+        "path": "/health"
+      },
+      {
+        "body_bytes": 454,
+        "body_sha256": "sha256:a3ce7b48b00a9ae25d9a6851440b7c1da8d00356c4d5951f41a2171490b081d2",
+        "fixture_status": "SYNTHETIC",
+        "method": "POST",
+        "name": "rule_retrieve",
+        "path": "/v1/tools/rule-retrieve"
+      },
+      {
+        "body_bytes": 11865,
+        "body_sha256": "sha256:6c44f28c7aca7370766882cab36afe3a80856a98f5dbf116084018a1b695fc09",
+        "fixture_status": "SYNTHETIC",
+        "method": "POST",
+        "name": "deterministic_calculate",
+        "path": "/v1/tools/deterministic-calculate"
+      }
+    ],
+    "runtime_image": {
+      "digest": null,
+      "source": null,
+      "verified": false
+    },
+    "uv_lock": {
+      "hash_kind": "UNSIGNED_CONTENT_DIGEST",
+      "path": "uv.lock",
+      "sha256": "sha256:27a36d857a86326229940b665239dc5826435e0251b8838bcc688c04884879be",
+      "signature_verified": false
+    }
+  },
+  "report_hash": "sha256:7dcd9c3b99a454d8f1e5217d85baa9c64505c1ef10ce879bca2a66c6ee1c82d8",
+  "report_hash_semantics": {
+    "algorithm": "SHA-256",
+    "authenticity_verified": false,
+    "digital_signature_present": false,
+    "kind": "UNSIGNED_CONTENT_DIGEST"
+  },
+  "resource_usage": {
+    "interpretation": "IN_PROCESS_CLIENT_AND_SERVICE",
+    "population": "PREPARATION_PLUS_WARMUP_PLUS_MEASURED_PHASES",
+    "process_cpu_percent_of_wall_one_core_equals_100": 104.08451,
+    "process_cpu_seconds_delta": 1.578966,
+    "process_max_rss_bytes_after": 36483072,
+    "process_max_rss_bytes_before": 33562624,
+    "scope": "CLIENT_AND_SERVICE",
+    "system_available_memory_bytes_after": 12587311104,
+    "system_available_memory_bytes_before": 12621168640,
+    "total_benchmark_wall_seconds": 1.517004
+  },
+  "run_classification": "LOCAL_SINGLE_RUN",
+  "schema_version": "proofflow.performance-report/v1",
+  "summary": {
+    "all_measured_requests_functionally_successful": true,
+    "all_target_preparations_successful": true,
+    "attempted_request_count": 300,
+    "benchmark_run_valid": true,
+    "functional_failure_count": 0,
+    "functional_success_count": 300
+  },
+  "targets": [
+    {
+      "base_url": "http://127.0.0.1:55718",
+      "endpoints": [
+        {
+          "endpoint": "health",
+          "expected_service_status": "ok",
+          "expected_skill_status": null,
+          "measurement": {
+            "attempted_request_count": 100,
+            "attempted_throughput_requests_per_second": 850.834322,
+            "complete_http_response_count": 100,
+            "functional_failure_count": 0,
+            "functional_success_count": 100,
+            "functional_throughput_requests_per_second": 850.834322,
+            "http_2xx_status_count": 100,
+            "http_non_2xx_status_count": 0,
+            "http_status_counts": {
+              "200": 100
+            },
+            "http_status_received_count": 100,
+            "invalid_json_response_count": 0,
+            "latency_ms": {
+              "maximum": 9.679736,
+              "minimum": 2.267123,
+              "p50_nearest_rank": 3.994401,
+              "p95_nearest_rank": 8.104342,
+              "p99_nearest_rank": 9.097432,
+              "population": "ALL_REQUEST_ATTEMPTS"
+            },
+            "measured_wall_seconds": 0.117532,
+            "response_read_error_count": 0,
+            "response_read_errors": {},
+            "skill_status_counts": {},
+            "skill_status_unavailable_count": 0,
+            "transport_error_count": 0,
+            "transport_errors": {}
+          },
+          "method": "GET",
+          "path": "/health",
+          "sample_body_bytes": 0,
+          "sample_body_sha256": null,
+          "warmup": {
+            "attempted_request_count": 5,
+            "excluded_from_latency_and_throughput": true,
+            "functional_failure_count": 0
+          }
+        },
+        {
+          "endpoint": "rule_retrieve",
+          "expected_service_status": null,
+          "expected_skill_status": "SUCCESS",
+          "measurement": {
+            "attempted_request_count": 100,
+            "attempted_throughput_requests_per_second": 313.687201,
+            "complete_http_response_count": 100,
+            "functional_failure_count": 0,
+            "functional_success_count": 100,
+            "functional_throughput_requests_per_second": 313.687201,
+            "http_2xx_status_count": 100,
+            "http_non_2xx_status_count": 0,
+            "http_status_counts": {
+              "200": 100
+            },
+            "http_status_received_count": 100,
+            "invalid_json_response_count": 0,
+            "latency_ms": {
+              "maximum": 22.114649,
+              "minimum": 2.688541,
+              "p50_nearest_rank": 11.61142,
+              "p95_nearest_rank": 19.780595,
+              "p99_nearest_rank": 21.635608,
+              "population": "ALL_REQUEST_ATTEMPTS"
+            },
+            "measured_wall_seconds": 0.318789,
+            "response_read_error_count": 0,
+            "response_read_errors": {},
+            "skill_status_counts": {
+              "SUCCESS": 100
+            },
+            "skill_status_unavailable_count": 0,
+            "transport_error_count": 0,
+            "transport_errors": {}
+          },
+          "method": "POST",
+          "path": "/v1/tools/rule-retrieve",
+          "sample_body_bytes": 454,
+          "sample_body_sha256": "sha256:a3ce7b48b00a9ae25d9a6851440b7c1da8d00356c4d5951f41a2171490b081d2",
+          "warmup": {
+            "attempted_request_count": 5,
+            "excluded_from_latency_and_throughput": true,
+            "functional_failure_count": 0
+          }
+        },
+        {
+          "endpoint": "deterministic_calculate",
+          "expected_service_status": null,
+          "expected_skill_status": "SUCCESS",
+          "measurement": {
+            "attempted_request_count": 100,
+            "attempted_throughput_requests_per_second": 101.563788,
+            "complete_http_response_count": 100,
+            "functional_failure_count": 0,
+            "functional_success_count": 100,
+            "functional_throughput_requests_per_second": 101.563788,
+            "http_2xx_status_count": 100,
+            "http_non_2xx_status_count": 0,
+            "http_status_counts": {
+              "200": 100
+            },
+            "http_status_received_count": 100,
+            "invalid_json_response_count": 0,
+            "latency_ms": {
+              "maximum": 103.515674,
+              "minimum": 15.383172,
+              "p50_nearest_rank": 37.874614,
+              "p95_nearest_rank": 55.986067,
+              "p99_nearest_rank": 89.555772,
+              "population": "ALL_REQUEST_ATTEMPTS"
+            },
+            "measured_wall_seconds": 0.984603,
+            "response_read_error_count": 0,
+            "response_read_errors": {},
+            "skill_status_counts": {
+              "SUCCESS": 100
+            },
+            "skill_status_unavailable_count": 0,
+            "transport_error_count": 0,
+            "transport_errors": {}
+          },
+          "method": "POST",
+          "path": "/v1/tools/deterministic-calculate",
+          "sample_body_bytes": 11865,
+          "sample_body_sha256": "sha256:6c44f28c7aca7370766882cab36afe3a80856a98f5dbf116084018a1b695fc09",
+          "warmup": {
+            "attempted_request_count": 5,
+            "excluded_from_latency_and_throughput": true,
+            "functional_failure_count": 0
+          }
+        }
+      ],
+      "kind": "DIRECT_HTTP",
+      "label": "direct",
+      "preparation": {
+        "all_requests_successful": true,
+        "included_in_latency_or_throughput": false,
+        "purpose": "SEED_BOUNDED_IN_MEMORY_SYNTHETIC_TRUST_REGISTRY",
+        "registered_evidence_count": 13,
+        "request_count": 3,
+        "requests": [
+          {
+            "artifacts_valid": true,
+            "functional_success": true,
+            "http_status": 200,
+            "json_valid": true,
+            "name": "prepare_doc-contract-001",
+            "path": "/v1/tools/evidence-ingest",
+            "registered_evidence_count": 5,
+            "response_read_error": null,
+            "sample_body_sha256": "sha256:ff1670987fe2a65c9cb6ce36a797c91ebf1c502f635415b8265974cc294d6b2b",
+            "skill_status": "SUCCESS",
+            "transport_error": null
+          },
+          {
+            "artifacts_valid": true,
+            "functional_success": true,
+            "http_status": 200,
+            "json_valid": true,
+            "name": "prepare_doc-payroll-001",
+            "path": "/v1/tools/evidence-ingest",
+            "registered_evidence_count": 4,
+            "response_read_error": null,
+            "sample_body_sha256": "sha256:196537cd1b75525642b6ccd47b6081efe9865b30b4bb7892bfae82fcc7e881cd",
+            "skill_status": "SUCCESS",
+            "transport_error": null
+          },
+          {
+            "artifacts_valid": true,
+            "functional_success": true,
+            "http_status": 200,
+            "json_valid": true,
+            "name": "prepare_doc-notice-001",
+            "path": "/v1/tools/evidence-ingest",
+            "registered_evidence_count": 4,
+            "response_read_error": null,
+            "sample_body_sha256": "sha256:0d4778f1eafaac4345f6fd1f697aeb2741aa8962801a246dcf2b931795bf4a59",
+            "skill_status": "SUCCESS",
+            "transport_error": null
+          }
+        ]
+      }
+    }
+  ]
+}

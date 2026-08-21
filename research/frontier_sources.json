@@ -1,0 +1,806 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "schema_version": "proofflow.frontier-sources/v1",
+  "research_id": "frontier-champion-research-2026-08-21-r1",
+  "accessed_at": "2026-08-21",
+  "official_rubric": {
+    "source_ids": ["FR-001", "FR-002"],
+    "dimensions": [
+      {
+        "id": "scene_value_and_reproducibility",
+        "label": "场景价值与行业可复制性",
+        "weight_points": 25,
+        "source_ids": ["FR-001", "FR-002"]
+      },
+      {
+        "id": "multi_agent_collaboration_loop",
+        "label": "多 Agent 协同与自主闭环能力",
+        "weight_points": 25,
+        "source_ids": ["FR-001", "FR-002"]
+      },
+      {
+        "id": "skill_engineering_and_reuse",
+        "label": "Skill 工程体系与生态复用",
+        "weight_points": 25,
+        "source_ids": ["FR-001", "FR-002"]
+      },
+      {
+        "id": "engineering_runtime_and_security_audit",
+        "label": "工程落地、运行验证与安全可审计",
+        "weight_points": 20,
+        "source_ids": ["FR-001", "FR-002"]
+      },
+      {
+        "id": "open_source",
+        "label": "开放/开源贡献",
+        "weight_points": 5,
+        "source_ids": ["FR-001", "FR-002"]
+      }
+    ],
+    "total_points": 100
+  },
+  "registry_integrity": {
+    "claim_count": 30,
+    "source_count": 21,
+    "claim_ids": [
+      "CL-SCORE-WEIGHTS",
+      "CL-THREE-ROLE-BASELINE",
+      "CL-SIMPLE-COMPOSABLE",
+      "CL-AUTONOMY-RISK",
+      "CL-MCP-HUMAN-DENY",
+      "CL-MCP-AUTH-BOUNDARY",
+      "CL-A2A-OPAQUE-INTEROP",
+      "CL-TRACE-STRUCTURE",
+      "CL-OTEL-AGENT-SEMANTICS",
+      "CL-EVAL-HARNESS-BUDGET",
+      "CL-MULTIAGENT-FAILURES",
+      "CL-MAGENTIC-ORCHESTRATION",
+      "CL-TAU-BENCH-RELIABILITY",
+      "CL-STATEFUL-TOOLS",
+      "CL-PROMPT-INJECTION",
+      "CL-ADAPTIVE-CONTEXT",
+      "CL-PERSISTENT-HITL",
+      "CL-FAILURE-ATTRIBUTION",
+      "CL-HYPOTHESIS-PROOF-CARRYING-CONTEXT",
+      "CL-HYPOTHESIS-SPECIALIZATION",
+      "CL-HYPOTHESIS-CONTEXT-TRADEOFF",
+      "CL-HYPOTHESIS-PORTABLE-PROTOCOL",
+      "CL-UNKNOWN-PROOFFLOW-AGENT-UPLIFT",
+      "CL-UNKNOWN-A2A-RUN",
+      "CL-UNKNOWN-MEMORY-GAIN",
+      "CL-UNKNOWN-OTEL-COMPLIANCE",
+      "CL-OBJECTION-DETERMINISTIC-DOMINATES",
+      "CL-OBJECTION-MULTIAGENT-ATTACK-SURFACE",
+      "CL-OBJECTION-BENCHMARK-GENERALIZATION",
+      "CL-OBJECTION-HUMAN-WAIT-COST"
+    ],
+    "source_ids": [
+      "FR-001",
+      "FR-002",
+      "FR-003",
+      "FR-004",
+      "FR-005",
+      "FR-006",
+      "FR-007",
+      "FR-008",
+      "FR-009",
+      "FR-010",
+      "FR-011",
+      "FR-012",
+      "FR-013",
+      "FR-014",
+      "FR-015",
+      "FR-016",
+      "FR-017",
+      "FR-018",
+      "FR-019",
+      "FR-020",
+      "FR-021"
+    ],
+    "normalized_registry_sha256": "sha256:f7e1fb4a2a177ebc44fa5105c4cd1dce9b717057692d50328d88c59f902fecfc",
+    "digest_scope": "Canonical JSON of claims, official_rubric, and sources with sorted keys, UTF-8, and compact separators; registry_integrity is excluded to avoid circularity.",
+    "is_signature": false,
+    "limitations": [
+      "The digest detects accidental registry drift but is not a cryptographic signature, provenance attestation, or proof that the cited external content is authentic or unchanged outside the recorded revision."
+    ]
+  },
+  "claims": [
+    {
+      "claim_id": "CL-SCORE-WEIGHTS",
+      "layer": "VERIFIED_FACT",
+      "statement": "GOAI Agent Infra officially weights scene value, multi-agent collaboration, Skill engineering, engineering/runtime/security, and open-source contribution at 25/25/25/20/5.",
+      "source_ids": ["FR-001", "FR-002"],
+      "official_score_dimensions": [
+        "scene_value_and_reproducibility",
+        "multi_agent_collaboration_loop",
+        "skill_engineering_and_reuse",
+        "engineering_runtime_and_security_audit",
+        "open_source"
+      ]
+    },
+    {
+      "claim_id": "CL-THREE-ROLE-BASELINE",
+      "layer": "VERIFIED_FACT",
+      "statement": "The official track requires at least three different Agent roles and asks teams to map orchestration, decomposition, context passing, execution, and state tracking to AgentTeams.",
+      "source_ids": ["FR-001", "FR-002"],
+      "official_score_dimensions": [
+        "multi_agent_collaboration_loop",
+        "scene_value_and_reproducibility"
+      ]
+    },
+    {
+      "claim_id": "CL-SIMPLE-COMPOSABLE",
+      "layer": "VERIFIED_FACT",
+      "statement": "Anthropic's official engineering guidance distinguishes workflows from agents and recommends starting with simple composable patterns before adding autonomy.",
+      "source_ids": ["FR-003"],
+      "official_score_dimensions": [
+        "multi_agent_collaboration_loop",
+        "engineering_runtime_and_security_audit"
+      ]
+    },
+    {
+      "claim_id": "CL-AUTONOMY-RISK",
+      "layer": "VERIFIED_FACT",
+      "statement": "Anthropic's trustworthy-agent research frames self-directed plan/act/observe/adjust loops as increasing autonomy-related risk and emphasizes human control, alignment, security, transparency, and privacy.",
+      "source_ids": ["FR-004"],
+      "official_score_dimensions": ["engineering_runtime_and_security_audit"]
+    },
+    {
+      "claim_id": "CL-MCP-HUMAN-DENY",
+      "layer": "VERIFIED_FACT",
+      "statement": "The MCP tools specification treats tool annotations as untrusted unless the server is trusted and recommends that clients preserve a human ability to deny tool invocations.",
+      "source_ids": ["FR-005"],
+      "official_score_dimensions": [
+        "engineering_runtime_and_security_audit",
+        "multi_agent_collaboration_loop"
+      ]
+    },
+    {
+      "claim_id": "CL-MCP-AUTH-BOUNDARY",
+      "layer": "VERIFIED_FACT",
+      "statement": "The MCP authorization specification requires an OAuth 2.1-oriented authorization flow with resource/audience binding and forbids token passthrough.",
+      "source_ids": ["FR-006"],
+      "official_score_dimensions": ["engineering_runtime_and_security_audit"]
+    },
+    {
+      "claim_id": "CL-A2A-OPAQUE-INTEROP",
+      "layer": "VERIFIED_FACT",
+      "statement": "A2A defines an interoperability model for independent opaque agents that supports capability discovery, modality negotiation, task collaboration, and multiple protocol bindings without sharing internal memory or tools.",
+      "source_ids": ["FR-007"],
+      "official_score_dimensions": [
+        "multi_agent_collaboration_loop",
+        "engineering_runtime_and_security_audit",
+        "open_source"
+      ]
+    },
+    {
+      "claim_id": "CL-TRACE-STRUCTURE",
+      "layer": "VERIFIED_FACT",
+      "statement": "The OpenAI Agents SDK documents traces and spans for model generations, tool calls, handoffs, guardrails, and custom events, including parent/child structure and sensitive-data controls.",
+      "source_ids": ["FR-008"],
+      "official_score_dimensions": ["engineering_runtime_and_security_audit"]
+    },
+    {
+      "claim_id": "CL-OTEL-AGENT-SEMANTICS",
+      "layer": "VERIFIED_FACT",
+      "statement": "OpenTelemetry's GenAI project defines development-stage semantic conventions for agent, workflow, plan, and tool-execution spans, including internal and remote agent invocations.",
+      "source_ids": ["FR-009"],
+      "official_score_dimensions": ["engineering_runtime_and_security_audit"]
+    },
+    {
+      "claim_id": "CL-EVAL-HARNESS-BUDGET",
+      "layer": "VERIFIED_FACT",
+      "statement": "OpenAI's evaluation research argues that credible comparisons fix the harness, outcomes, tools, budget, and validity checks, because shortcutting, contamination, broken tasks, refusals, or sandbagging can distort scores.",
+      "source_ids": ["FR-010"],
+      "official_score_dimensions": [
+        "scene_value_and_reproducibility",
+        "engineering_runtime_and_security_audit"
+      ]
+    },
+    {
+      "claim_id": "CL-MULTIAGENT-FAILURES",
+      "layer": "VERIFIED_FACT",
+      "statement": "The Why Do Multi-Agent LLM Systems Fail? study reports 14 failure modes across specification/system design, inter-agent misalignment, and verification/termination categories.",
+      "source_ids": ["FR-012"],
+      "official_score_dimensions": [
+        "multi_agent_collaboration_loop",
+        "engineering_runtime_and_security_audit"
+      ]
+    },
+    {
+      "claim_id": "CL-MAGENTIC-ORCHESTRATION",
+      "layer": "VERIFIED_FACT",
+      "statement": "Magentic-One presents an orchestrator that plans, tracks, and replans work across specialized agents and evaluates the system with repeatable benchmark controls and ablations.",
+      "source_ids": ["FR-011"],
+      "official_score_dimensions": [
+        "multi_agent_collaboration_loop",
+        "scene_value_and_reproducibility"
+      ]
+    },
+    {
+      "claim_id": "CL-TAU-BENCH-RELIABILITY",
+      "layer": "VERIFIED_FACT",
+      "statement": "τ-bench evaluates tool-agent-user interaction and pass^k reliability; its paper reports that strong-looking task results can remain unreliable across repeated trials.",
+      "source_ids": ["FR-013"],
+      "official_score_dimensions": [
+        "scene_value_and_reproducibility",
+        "engineering_runtime_and_security_audit"
+      ]
+    },
+    {
+      "claim_id": "CL-STATEFUL-TOOLS",
+      "layer": "VERIFIED_FACT",
+      "statement": "ToolSandbox evaluates stateful tool execution with implicit state dependencies, user simulation, and intermediate/final milestones rather than treating each tool call as an isolated stateless function.",
+      "source_ids": ["FR-014", "FR-015"],
+      "official_score_dimensions": [
+        "multi_agent_collaboration_loop",
+        "engineering_runtime_and_security_audit"
+      ]
+    },
+    {
+      "claim_id": "CL-PROMPT-INJECTION",
+      "layer": "VERIFIED_FACT",
+      "statement": "AgentDojo provides dynamic tool environments for indirect prompt-injection evaluation and reports security failures under adversarial task conditions.",
+      "source_ids": ["FR-016"],
+      "official_score_dimensions": ["engineering_runtime_and_security_audit"]
+    },
+    {
+      "claim_id": "CL-ADAPTIVE-CONTEXT",
+      "layer": "VERIFIED_FACT",
+      "statement": "The ACE paper treats context as an evolving playbook updated through generation, reflection, and curation, and reports task-quality, adaptation-latency, and rollout-cost gains on its own benchmarks.",
+      "source_ids": ["FR-017", "FR-020"],
+      "official_score_dimensions": [
+        "scene_value_and_reproducibility",
+        "engineering_runtime_and_security_audit"
+      ]
+    },
+    {
+      "claim_id": "CL-PERSISTENT-HITL",
+      "layer": "VERIFIED_FACT",
+      "statement": "LangGraph's official docs describe checkpointed persistence for pause/resume Human-in-the-loop, memory, time-travel debugging, and fault-tolerant recovery; its HITL middleware supports approve, edit, and reject decisions.",
+      "source_ids": ["FR-018", "FR-019"],
+      "official_score_dimensions": [
+        "multi_agent_collaboration_loop",
+        "engineering_runtime_and_security_audit"
+      ]
+    },
+    {
+      "claim_id": "CL-FAILURE-ATTRIBUTION",
+      "layer": "VERIFIED_FACT",
+      "statement": "The Who&When failure-attribution study reports that identifying the responsible agent and pinpointing the failed step remain difficult, motivating explicit per-agent and per-step provenance.",
+      "source_ids": ["FR-021"],
+      "official_score_dimensions": [
+        "multi_agent_collaboration_loop",
+        "engineering_runtime_and_security_audit"
+      ]
+    },
+    {
+      "claim_id": "CL-HYPOTHESIS-PROOF-CARRYING-CONTEXT",
+      "layer": "TESTABLE_HYPOTHESIS",
+      "statement": "A source-linked, hash-bound context envelope will reduce unsafe success and provenance UNKNOWN outcomes compared with unstructured handoffs, at a measurable token and latency cost.",
+      "source_ids": [],
+      "official_score_dimensions": [
+        "multi_agent_collaboration_loop",
+        "engineering_runtime_and_security_audit"
+      ]
+    },
+    {
+      "claim_id": "CL-HYPOTHESIS-SPECIALIZATION",
+      "layer": "TESTABLE_HYPOTHESIS",
+      "statement": "The six-agent topology will improve structured conflict handling and independent verification over the single-agent topology on selected scenarios, but may lose on cost, tail latency, or coordination failures.",
+      "source_ids": [],
+      "official_score_dimensions": [
+        "multi_agent_collaboration_loop",
+        "scene_value_and_reproducibility",
+        "engineering_runtime_and_security_audit"
+      ]
+    },
+    {
+      "claim_id": "CL-HYPOTHESIS-CONTEXT-TRADEOFF",
+      "layer": "TESTABLE_HYPOTHESIS",
+      "statement": "Structured memory compaction and retrieval can improve context recall under a fixed budget, but only a paired quality/cost/latency experiment can distinguish a real gain from retrieval overhead or stale-memory errors.",
+      "source_ids": [],
+      "official_score_dimensions": [
+        "scene_value_and_reproducibility",
+        "engineering_runtime_and_security_audit"
+      ]
+    },
+    {
+      "claim_id": "CL-HYPOTHESIS-PORTABLE-PROTOCOL",
+      "layer": "TESTABLE_HYPOTHESIS",
+      "statement": "A provider-neutral evidence contract at MCP/tool boundaries and an opaque-agent boundary compatible with A2A can lower migration cost without weakening identity, tenant, or trace checks.",
+      "source_ids": [],
+      "official_score_dimensions": [
+        "multi_agent_collaboration_loop",
+        "skill_engineering_and_reuse",
+        "open_source"
+      ]
+    },
+    {
+      "claim_id": "CL-UNKNOWN-PROOFFLOW-AGENT-UPLIFT",
+      "layer": "NO_EVIDENCE",
+      "statement": "There is no checked-in evidence that ProofFlow's six-agent run improves quality, safety, cost, latency, or official score over deterministic or single-agent arms.",
+      "source_ids": [],
+      "official_score_dimensions": [
+        "scene_value_and_reproducibility",
+        "multi_agent_collaboration_loop",
+        "engineering_runtime_and_security_audit"
+      ]
+    },
+    {
+      "claim_id": "CL-UNKNOWN-A2A-RUN",
+      "layer": "NO_EVIDENCE",
+      "statement": "There is no checked-in ProofFlow A2A interoperability run or cross-framework conformance result.",
+      "source_ids": [],
+      "official_score_dimensions": [
+        "multi_agent_collaboration_loop",
+        "open_source"
+      ]
+    },
+    {
+      "claim_id": "CL-UNKNOWN-MEMORY-GAIN",
+      "layer": "NO_EVIDENCE",
+      "statement": "There is no checked-in ProofFlow memory/context experiment showing a domain-quality gain after accounting for token, latency, stale-context, and security costs.",
+      "source_ids": [],
+      "official_score_dimensions": [
+        "scene_value_and_reproducibility",
+        "engineering_runtime_and_security_audit"
+      ]
+    },
+    {
+      "claim_id": "CL-UNKNOWN-OTEL-COMPLIANCE",
+      "layer": "NO_EVIDENCE",
+      "statement": "OpenTelemetry GenAI agent conventions are not evidence that ProofFlow currently emits compliant, complete, or stable agent traces.",
+      "source_ids": [],
+      "official_score_dimensions": ["engineering_runtime_and_security_audit"]
+    },
+    {
+      "claim_id": "CL-OBJECTION-DETERMINISTIC-DOMINATES",
+      "layer": "STRONGEST_OBJECTION",
+      "statement": "Because the domain has a deterministic state machine, rule boundary, and calculation engine, a deterministic workflow may dominate dynamic agents on correctness, cost, latency, and auditability.",
+      "source_ids": [],
+      "official_score_dimensions": [
+        "scene_value_and_reproducibility",
+        "multi_agent_collaboration_loop",
+        "engineering_runtime_and_security_audit"
+      ]
+    },
+    {
+      "claim_id": "CL-OBJECTION-MULTIAGENT-ATTACK-SURFACE",
+      "layer": "STRONGEST_OBJECTION",
+      "statement": "Every extra agent, handoff, memory write, and tool boundary adds coordination and attack surface; a six-agent result is not a safety improvement unless adversarial tests show no unsafe-success regression.",
+      "source_ids": [],
+      "official_score_dimensions": [
+        "multi_agent_collaboration_loop",
+        "engineering_runtime_and_security_audit"
+      ]
+    },
+    {
+      "claim_id": "CL-OBJECTION-BENCHMARK-GENERALIZATION",
+      "layer": "STRONGEST_OBJECTION",
+      "statement": "Results from public multi-agent benchmarks may not transfer to ProofFlow's synthetic employment-dispute contracts, so external benchmark wins cannot be used as ProofFlow claims.",
+      "source_ids": [],
+      "official_score_dimensions": ["scene_value_and_reproducibility"]
+    },
+    {
+      "claim_id": "CL-OBJECTION-HUMAN-WAIT-COST",
+      "layer": "STRONGEST_OBJECTION",
+      "statement": "Human approval and recovery waiting time can dominate end-to-end latency; mixing it into active compute would make a safer design look artificially slow or hide the real operational tradeoff.",
+      "source_ids": [],
+      "official_score_dimensions": ["engineering_runtime_and_security_audit"]
+    }
+  ],
+  "sources": [
+    {
+      "source_id": "FR-001",
+      "source_type": "OFFICIAL_COMPETITION_PAGE",
+      "title": "Agent Infra 新智基座 track details and review dimensions",
+      "publisher": "GOAI Global Open-source AI Challenge",
+      "published_at": null,
+      "url": "https://www.goaihz.com/tracks",
+      "supports": ["CL-SCORE-WEIGHTS", "CL-THREE-ROLE-BASELINE"],
+      "limitations": [
+        "UNVERSIONED_POINT_IN_TIME: this is the official rubric and requirement page, not evidence that any ProofFlow arm has run or earned points; the page may change."
+      ],
+      "accessed_at": "2026-08-21",
+      "domain": "www.goaihz.com",
+      "revision": {
+        "kind": "UNVERSIONED_POINT_IN_TIME",
+        "value": "retrieved 2026-08-21",
+        "locator": "Agent Infra track review dimensions"
+      }
+    },
+    {
+      "source_id": "FR-002",
+      "source_type": "OFFICIAL_COMPETITION_MANUAL",
+      "title": "Agent Infra 新智基座 participant handbook",
+      "publisher": "GOAI Global Open-source AI Challenge",
+      "published_at": null,
+      "url": "https://oss.goaihz.com/prod/20260720/6e21b053-f18b-4857-83e2-835bd96d5434.pdf",
+      "supports": ["CL-SCORE-WEIGHTS", "CL-THREE-ROLE-BASELINE"],
+      "limitations": [
+        "The handbook describes submission requirements; it does not validate a local runtime, model result, or security claim."
+      ],
+      "accessed_at": "2026-08-21",
+      "domain": "oss.goaihz.com",
+      "revision": {
+        "kind": "FILE_SHA256",
+        "value": "sha256:689feb5e39a2369d859945234bba3a577e2f567ed9a962459aa334886ab4c1eb",
+        "locator": "whole PDF file",
+        "content_sha256": "sha256:689feb5e39a2369d859945234bba3a577e2f567ed9a962459aa334886ab4c1eb"
+      }
+    },
+    {
+      "source_id": "FR-003",
+      "source_type": "OFFICIAL_DOCS",
+      "title": "Building effective agents",
+      "publisher": "Anthropic",
+      "published_at": "2024-12-19",
+      "url": "https://www.anthropic.com/engineering/building-effective-agents",
+      "supports": ["CL-SIMPLE-COMPOSABLE"],
+      "limitations": [
+        "UNVERSIONED_POINT_IN_TIME: this is vendor engineering guidance, not an independent benchmark and not a ProofFlow domain result; the page may change."
+      ],
+      "accessed_at": "2026-08-21",
+      "domain": "www.anthropic.com",
+      "revision": {
+        "kind": "UNVERSIONED_POINT_IN_TIME",
+        "value": "page date 2024-12-19",
+        "locator": "Building effective agents"
+      }
+    },
+    {
+      "source_id": "FR-004",
+      "source_type": "OFFICIAL_DOCS",
+      "title": "Trustworthy agents in practice",
+      "publisher": "Anthropic",
+      "published_at": "2026-04-09",
+      "url": "https://www.anthropic.com/research/trustworthy-agents",
+      "supports": ["CL-AUTONOMY-RISK"],
+      "limitations": [
+        "UNVERSIONED_POINT_IN_TIME: the principles are a research framing, not a proof that any implementation satisfies them; the page may change."
+      ],
+      "accessed_at": "2026-08-21",
+      "domain": "www.anthropic.com",
+      "revision": {
+        "kind": "UNVERSIONED_POINT_IN_TIME",
+        "value": "page date 2026-04-09",
+        "locator": "Trustworthy agents in practice"
+      }
+    },
+    {
+      "source_id": "FR-005",
+      "source_type": "OFFICIAL_SPEC",
+      "title": "Model Context Protocol 2025-06-18 server tools specification",
+      "publisher": "Model Context Protocol",
+      "published_at": "2025-06-18",
+      "url": "https://modelcontextprotocol.io/specification/2025-06-18/server/tools",
+      "supports": ["CL-MCP-HUMAN-DENY"],
+      "limitations": [
+        "A protocol recommendation does not prove that a client, gateway, or agent runtime enforces the boundary."
+      ],
+      "accessed_at": "2026-08-21",
+      "domain": "modelcontextprotocol.io",
+      "revision": {
+        "kind": "SPEC_VERSION",
+        "value": "2025-06-18",
+        "locator": "server/tools"
+      }
+    },
+    {
+      "source_id": "FR-006",
+      "source_type": "OFFICIAL_SPEC",
+      "title": "Model Context Protocol 2025-06-18 authorization specification",
+      "publisher": "Model Context Protocol",
+      "published_at": "2025-06-18",
+      "url": "https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization",
+      "supports": ["CL-MCP-AUTH-BOUNDARY"],
+      "limitations": [
+        "The specification defines an authorization contract; deployment conformance and tenant isolation still require negative tests."
+      ],
+      "accessed_at": "2026-08-21",
+      "domain": "modelcontextprotocol.io",
+      "revision": {
+        "kind": "SPEC_VERSION",
+        "value": "2025-06-18",
+        "locator": "basic/authorization"
+      }
+    },
+    {
+      "source_id": "FR-007",
+      "source_type": "OFFICIAL_REPO",
+      "title": "Agent2Agent (A2A) Protocol Specification",
+      "publisher": "A2A Project / Linux Foundation",
+      "published_at": null,
+      "url": "https://github.com/a2aproject/A2A/blob/16ba52690519bf55b9388e34d4db356efa88aa51/docs/specification.md",
+      "supports": ["CL-A2A-OPAQUE-INTEROP"],
+      "limitations": [
+        "The specification describes interoperable semantics; it is not a ProofFlow cross-runtime conformance run."
+      ],
+      "accessed_at": "2026-08-21",
+      "domain": "github.com",
+      "revision": {
+        "kind": "GIT_COMMIT",
+        "value": "16ba52690519bf55b9388e34d4db356efa88aa51",
+        "locator": "docs/specification.md",
+        "content_sha256": "sha256:bb451da8ac9b7ba07250d5424cd77b8b4dbb7d26907e2ddd5b94eb35aa0c771f"
+      }
+    },
+    {
+      "source_id": "FR-008",
+      "source_type": "OFFICIAL_REPO",
+      "title": "OpenAI Agents SDK tracing documentation",
+      "publisher": "OpenAI",
+      "published_at": null,
+      "url": "https://github.com/openai/openai-agents-python/blob/f73e747530d898328ba56eaf45c6f6d1ec806cc8/docs/tracing.md",
+      "supports": ["CL-TRACE-STRUCTURE"],
+      "limitations": [
+        "The documented SDK trace model is not a claim that ProofFlow currently uses this SDK or emits complete traces."
+      ],
+      "accessed_at": "2026-08-21",
+      "domain": "github.com",
+      "revision": {
+        "kind": "GIT_COMMIT",
+        "value": "f73e747530d898328ba56eaf45c6f6d1ec806cc8",
+        "locator": "docs/tracing.md",
+        "content_sha256": "sha256:eecdd6b57b3c55ac94ffafad25253511f5a80fca8dc9f9bb6b303bfb21eb5a02"
+      }
+    },
+    {
+      "source_id": "FR-009",
+      "source_type": "OFFICIAL_REPO",
+      "title": "Semantic conventions for GenAI agent and framework spans",
+      "publisher": "OpenTelemetry GenAI Semantic Conventions",
+      "published_at": null,
+      "url": "https://github.com/open-telemetry/semantic-conventions-genai/blob/8a3767d6c5d09bc0917722720973c0c44182d960/docs/gen-ai/gen-ai-agent-spans.md",
+      "supports": ["CL-OTEL-AGENT-SEMANTICS"],
+      "limitations": [
+        "The page marks the conventions as Development and the repository is evolving; use it as a vocabulary reference, not stable compliance evidence."
+      ],
+      "accessed_at": "2026-08-21",
+      "domain": "github.com",
+      "revision": {
+        "kind": "GIT_COMMIT",
+        "value": "8a3767d6c5d09bc0917722720973c0c44182d960",
+        "locator": "docs/gen-ai/gen-ai-agent-spans.md",
+        "content_sha256": "sha256:3d4bac4ab0737ceed1d9d1bd806513d5ad15e5b745b0d36977d47c3b76809db1"
+      }
+    },
+    {
+      "source_id": "FR-010",
+      "source_type": "OFFICIAL_DOCS",
+      "title": "A shared playbook for trustworthy third party evaluations",
+      "publisher": "OpenAI",
+      "published_at": "2026-05-29",
+      "url": "https://openai.com/index/trustworthy-third-party-evaluations-foundations/",
+      "supports": ["CL-EVAL-HARNESS-BUDGET"],
+      "limitations": [
+        "UNVERSIONED_POINT_IN_TIME: this is evaluation methodology guidance and does not supply ProofFlow measurements or a winning score; the page may change."
+      ],
+      "accessed_at": "2026-08-21",
+      "domain": "openai.com",
+      "revision": {
+        "kind": "UNVERSIONED_POINT_IN_TIME",
+        "value": "page date 2026-05-29",
+        "locator": "A shared playbook for trustworthy third party evaluations"
+      }
+    },
+    {
+      "source_id": "FR-011",
+      "source_type": "PAPER",
+      "title": "Magentic-One: A Generalist Multi-Agent System for Solving Complex Tasks",
+      "publisher": "arXiv (original paper)",
+      "published_at": "2024-11-07",
+      "url": "https://arxiv.org/abs/2411.04468v1",
+      "supports": ["CL-MAGENTIC-ORCHESTRATION"],
+      "limitations": [
+        "The reported tasks, models, and benchmark results are not the ProofFlow domain and do not establish a six-agent benefit here."
+      ],
+      "accessed_at": "2026-08-21",
+      "domain": "arxiv.org",
+      "revision": {
+        "kind": "ARXIV_VERSION",
+        "value": "v1",
+        "locator": "arXiv:2411.04468v1",
+        "content_sha256": "sha256:e6620f66ce54a7460c90c854ac5b4dc26200f6f8d9c3b3f969e26ab8774338e9"
+      }
+    },
+    {
+      "source_id": "FR-012",
+      "source_type": "PAPER",
+      "title": "Why Do Multi-Agent LLM Systems Fail?",
+      "publisher": "arXiv (original paper)",
+      "published_at": "2025-03-17",
+      "url": "https://arxiv.org/abs/2503.13657v3",
+      "supports": ["CL-MULTIAGENT-FAILURES"],
+      "limitations": [
+        "The study's frameworks, tasks, and annotations are external to ProofFlow; the taxonomy is a threat model, not a local failure count."
+      ],
+      "accessed_at": "2026-08-21",
+      "domain": "arxiv.org",
+      "revision": {
+        "kind": "ARXIV_VERSION",
+        "value": "v3",
+        "locator": "arXiv:2503.13657v3",
+        "content_sha256": "sha256:1b9e317a2a421e60ca2b2eda4a30844557a01e63286a790890c0ecef32d25460"
+      }
+    },
+    {
+      "source_id": "FR-013",
+      "source_type": "PAPER",
+      "title": "τ-bench: A Benchmark for Tool-Agent-User Interaction in Real-World Domains",
+      "publisher": "arXiv (original paper)",
+      "published_at": "2024-06-17",
+      "url": "https://arxiv.org/abs/2406.12045v1",
+      "supports": ["CL-TAU-BENCH-RELIABILITY"],
+      "limitations": [
+        "The simulated users, APIs, and domains differ from ProofFlow; pass^k is a useful reliability lens, not the current protocol's sole metric."
+      ],
+      "accessed_at": "2026-08-21",
+      "domain": "arxiv.org",
+      "revision": {
+        "kind": "ARXIV_VERSION",
+        "value": "v1",
+        "locator": "arXiv:2406.12045v1",
+        "content_sha256": "sha256:0ce66a1763d698c61bb311c3c874bf593d1e9a5bfff11bb35f6f72b981f6da56"
+      }
+    },
+    {
+      "source_id": "FR-014",
+      "source_type": "PAPER",
+      "title": "ToolSandbox: A Stateful, Conversational, Interactive Evaluation Benchmark for LLM Tool Use Capabilities",
+      "publisher": "arXiv (original paper)",
+      "published_at": "2024-08-08",
+      "url": "https://arxiv.org/abs/2408.04682v2",
+      "supports": ["CL-STATEFUL-TOOLS"],
+      "limitations": [
+        "The benchmark environment and milestones are not ProofFlow's contracts and do not prove a local tool-chain result."
+      ],
+      "accessed_at": "2026-08-21",
+      "domain": "arxiv.org",
+      "revision": {
+        "kind": "ARXIV_VERSION",
+        "value": "v2",
+        "locator": "arXiv:2408.04682v2",
+        "content_sha256": "sha256:3449baed1d8e0f4c07dbc859621899685eed8a6a0445a1ae8909c178e6b6173e"
+      }
+    },
+    {
+      "source_id": "FR-015",
+      "source_type": "OFFICIAL_REPO",
+      "title": "ToolSandbox official repository",
+      "publisher": "Apple",
+      "published_at": null,
+      "url": "https://github.com/apple/ToolSandbox/blob/165848b9a78cead7ca7fe7c89c688b58e6501219/README.md",
+      "supports": ["CL-STATEFUL-TOOLS"],
+      "limitations": [
+        "The pinned README is a reference implementation and benchmark artifact, not an interoperability or security certification for ProofFlow; it does not freeze the entire repository."
+      ],
+      "accessed_at": "2026-08-21",
+      "domain": "github.com",
+      "revision": {
+        "kind": "GIT_COMMIT",
+        "value": "165848b9a78cead7ca7fe7c89c688b58e6501219",
+        "locator": "README.md",
+        "content_sha256": "sha256:0e5cfb9077769e2dcbe74dbfc8b8fac8314d8a213ab34364ab6b2ecaf47d8fe8"
+      }
+    },
+    {
+      "source_id": "FR-016",
+      "source_type": "PAPER",
+      "title": "AgentDojo: A Dynamic Environment to Evaluate Prompt Injection Attacks and Defenses for LLM Agents",
+      "publisher": "arXiv (original paper)",
+      "published_at": "2024-06-19",
+      "url": "https://arxiv.org/abs/2406.13352v3",
+      "supports": ["CL-PROMPT-INJECTION"],
+      "limitations": [
+        "The tools, tasks, and attack model are not identical to ProofFlow; use it to design adversarial cases, not to import a security score."
+      ],
+      "accessed_at": "2026-08-21",
+      "domain": "arxiv.org",
+      "revision": {
+        "kind": "ARXIV_VERSION",
+        "value": "v3",
+        "locator": "arXiv:2406.13352v3",
+        "content_sha256": "sha256:349884fffbf43282591c5accffd57bb651632f38e412fe303114941bdd111b05"
+      }
+    },
+    {
+      "source_id": "FR-017",
+      "source_type": "PAPER",
+      "title": "Agentic Context Engineering: Evolving Contexts for Self-Improving Language Models",
+      "publisher": "arXiv (original paper)",
+      "published_at": "2025-10-06",
+      "url": "https://arxiv.org/abs/2510.04618v3",
+      "supports": ["CL-ADAPTIVE-CONTEXT"],
+      "limitations": [
+        "The quality, latency, and cost gains are author-reported benchmark results; they do not establish a ProofFlow memory benefit or safe retention policy."
+      ],
+      "accessed_at": "2026-08-21",
+      "domain": "arxiv.org",
+      "revision": {
+        "kind": "ARXIV_VERSION",
+        "value": "v3",
+        "locator": "arXiv:2510.04618v3",
+        "content_sha256": "sha256:51050ced82df75c143b151262d5af8763916968ca50374bd8ff778f40552b0ad"
+      }
+    },
+    {
+      "source_id": "FR-018",
+      "source_type": "OFFICIAL_PROJECT_DOCS",
+      "title": "LangChain Human-in-the-loop middleware",
+      "publisher": "LangChain",
+      "published_at": null,
+      "url": "https://docs.langchain.com/oss/python/langchain/human-in-the-loop",
+      "supports": ["CL-PERSISTENT-HITL"],
+      "limitations": [
+        "UNVERSIONED_POINT_IN_TIME: framework documentation demonstrates a design pattern; it does not prove a human actually reviewed a ProofFlow run; the page may change."
+      ],
+      "accessed_at": "2026-08-21",
+      "domain": "docs.langchain.com",
+      "revision": {
+        "kind": "UNVERSIONED_POINT_IN_TIME",
+        "value": "retrieved 2026-08-21",
+        "locator": "LangChain Human-in-the-loop"
+      }
+    },
+    {
+      "source_id": "FR-019",
+      "source_type": "OFFICIAL_PROJECT_DOCS",
+      "title": "LangGraph persistence documentation",
+      "publisher": "LangChain",
+      "published_at": null,
+      "url": "https://docs.langchain.com/oss/python/langgraph/persistence",
+      "supports": ["CL-PERSISTENT-HITL"],
+      "limitations": [
+        "UNVERSIONED_POINT_IN_TIME: checkpointing provides a recovery primitive, not proof that side effects are idempotent or that retained memory is correct; the page may change."
+      ],
+      "accessed_at": "2026-08-21",
+      "domain": "docs.langchain.com",
+      "revision": {
+        "kind": "UNVERSIONED_POINT_IN_TIME",
+        "value": "retrieved 2026-08-21",
+        "locator": "LangGraph persistence"
+      }
+    },
+    {
+      "source_id": "FR-020",
+      "source_type": "OFFICIAL_PROJECT_DOCS",
+      "title": "LangGraph memory documentation",
+      "publisher": "LangChain",
+      "published_at": null,
+      "url": "https://docs.langchain.com/oss/python/langgraph/add-memory",
+      "supports": ["CL-ADAPTIVE-CONTEXT"],
+      "limitations": [
+        "UNVERSIONED_POINT_IN_TIME: the documentation describes short- and long-term memory primitives; it does not show ProofFlow-specific recall, leakage, or cost measurements; the page may change."
+      ],
+      "accessed_at": "2026-08-21",
+      "domain": "docs.langchain.com",
+      "revision": {
+        "kind": "UNVERSIONED_POINT_IN_TIME",
+        "value": "retrieved 2026-08-21",
+        "locator": "LangGraph memory"
+      }
+    },
+    {
+      "source_id": "FR-021",
+      "source_type": "PAPER",
+      "title": "Which Agent Causes Task Failures and When? On Automated Failure Attribution of LLM Multi-Agent Systems",
+      "publisher": "arXiv (original paper)",
+      "published_at": "2025-04-30",
+      "url": "https://arxiv.org/abs/2505.00212v3",
+      "supports": ["CL-FAILURE-ATTRIBUTION"],
+      "limitations": [
+        "The reported attribution accuracy is from a separate dataset and should not be treated as a ProofFlow trace-quality measurement."
+      ],
+      "accessed_at": "2026-08-21",
+      "domain": "arxiv.org",
+      "revision": {
+        "kind": "ARXIV_VERSION",
+        "value": "v3",
+        "locator": "arXiv:2505.00212v3",
+        "content_sha256": "sha256:1d8b788987d06a6337fd923995e3e8c0514cc0a3cb5e758cf9510f4d7cc9032c"
+      }
+    }
+  ]
+}

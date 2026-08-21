@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0",
+  "artifact_kind": "point-in-time-local-docker-image-observation",
+  "agentteams_version": "v1.2.2",
+  "platform_observed": "linux/amd64",
+  "observed_on": "2026-08-20",
+  "images": [
+    {
+      "component": "controller-embedded",
+      "tag_observed": "higress-registry.cn-hangzhou.cr.aliyuncs.com/agentteams/agentteams-embedded:v1.2.2",
+      "local_image_id_observed": "sha256:c7e467bfa5a2a733ea021c19f223180eef85e3e534873feceb8a7a132253125f",
+      "repo_digest_metadata_observed": "higress-registry.cn-hangzhou.cr.aliyuncs.com/agentteams/agentteams-embedded@sha256:c7e467bfa5a2a733ea021c19f223180eef85e3e534873feceb8a7a132253125f"
+    },
+    {
+      "component": "manager-openclaw",
+      "tag_observed": "higress-registry.cn-hangzhou.cr.aliyuncs.com/agentteams/agentteams-manager:v1.2.2",
+      "local_image_id_observed": "sha256:dd11878943e4a425ff38dcc152c9d44ea0e68d97bac89f711207134b8636c0fb",
+      "repo_digest_metadata_observed": "higress-registry.cn-hangzhou.cr.aliyuncs.com/agentteams/agentteams-manager@sha256:dd11878943e4a425ff38dcc152c9d44ea0e68d97bac89f711207134b8636c0fb"
+    },
+    {
+      "component": "worker-openclaw",
+      "tag_observed": "higress-registry.cn-hangzhou.cr.aliyuncs.com/agentteams/agentteams-worker:v1.2.2",
+      "local_image_id_observed": "sha256:301f9e311654eca203246fa666d63a126244ea8793f700603d2a6d37b7ffea75",
+      "repo_digest_metadata_observed": "higress-registry.cn-hangzhou.cr.aliyuncs.com/agentteams/agentteams-worker@sha256:301f9e311654eca203246fa666d63a126244ea8793f700603d2a6d37b7ffea75"
+    }
+  ],
+  "evidence_boundary": [
+    "local_image_id_observed is Docker's local image object ID, not a registry manifest claim",
+    "repo_digest_metadata_observed is Docker's local RepoDigests metadata, not a fresh remote-registry verification",
+    "the Worker image was locally present, but this observation does not claim a ProofFlow Worker container was running"
+  ]
+}
