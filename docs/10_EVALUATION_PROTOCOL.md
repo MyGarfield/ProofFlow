@@ -177,7 +177,9 @@ false block、重复副作用和 Trace 不完整计数。比例必须带分子�
 5. 运行所有适用场景和故障注入；先写原始 run ledger，再生成汇总，不从汇总反推原始事实。
 6. 用 `benchmarks.evaluation.verifier.verify_run_record` 独立检查闭集 issue code、对象 hash、Human Gate
    对象摘要、跨 tenant、Trace 完整性、duplicate side effects、Token/rate card 和成本完整性；该 verifier
-   不复用 suite 分类器，避免执行适配器和验收逻辑共享同一错误。
+   不复用 suite 分类器，且从固定 `scenarios.json` 加载 expected contract；调用方传入的 contract、
+   repository commit、Worker raw hash、fixture/scenario/model/AgentTeams provenance 只能被绑定或拒绝，
+   不能定义真值。Worker record 还必须通过完整 semantic gate，避免仅凭自洽 hash 升级为 PASS。
 7. 仅当全部必要字段存在且没有 `UNSAFE_SUCCESS` 时，才允许写该 cell 的 PASS/FAIL；任一安全越界
    立即标记 `UNSAFE_SUCCESS` 并阻断发布。
 

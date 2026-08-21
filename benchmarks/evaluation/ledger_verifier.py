@@ -2,8 +2,9 @@
 
 This module intentionally does not import ``suite.classify_scenario_observation``
 or any producer-side runner. It validates the ledger from its serialized public
-contract and computes report status/arm counts independently. Hashes are
-unsigned consistency evidence, not an authenticity attestation.
+contract and invokes only the shared Worker evidence semantic gate for executed
+Worker records. Hashes are unsigned consistency evidence, not an authenticity
+attestation.
 """
 
 from __future__ import annotations
@@ -20,6 +21,11 @@ from typing import Any
 from jsonschema import Draft202012Validator, FormatChecker
 
 from .fixture import FIXTURE_MANIFEST_PATH, fixture_manifest_digest, validate_fixture_manifest
+from .suite import (
+    EXPECTED_AGENTTEAMS_COMMIT,
+    EXPECTED_AGENTTEAMS_VERSION,
+    gate_worker_execution_evidence,
+)
 
 EVALUATION_DIR = Path(__file__).resolve().parent
 SCENARIO_MANIFEST_PATH = EVALUATION_DIR / "scenarios.json"
@@ -228,6 +234,18 @@ def verify_run_ledger(
             reasons.append("ENTRY_SCENARIO_MANIFEST_DIGEST_MISMATCH")
         if entry["repository_commit"] != root_provenance["repository_commit"]:
             reasons.append("ENTRY_SOURCE_COMMIT_MISMATCH")
+        is_worker_arm = entry["arm_id"] in ("single_agent", "six_agent")
+        if (entry["execution_status"] == "NOT_EXECUTED" or not is_worker_arm) and any(
+            entry[field] is not None
+            for field in (
+                "model_provider_id",
+                "model_id",
+                "model_configuration_digest",
+                "agentteams_version",
+                "agentteams_commit",
+            )
+        ):
+            reasons.append("UNEXECUTED_MODEL_PROVENANCE_NOT_NULL")
         try:
             started = datetime.fromisoformat(entry["started_at"].replace("Z", "+00:00"))
             finished = datetime.fromisoformat(entry["finished_at"].replace("Z", "+00:00"))
@@ -253,14 +271,19 @@ def verify_run_ledger(
         reasons.extend(_measurement_reasons(entry["cost"], kind="cost"))
         worker_evidence = entry["worker_evidence"]
         worker_evidence_sha256 = entry["worker_evidence_sha256"]
-        requires_worker_evidence = entry["arm_id"] in ("single_agent", "six_agent")
+        requires_worker_evidence = is_worker_arm
         if entry["execution_status"] == "NOT_EXECUTED" or not requires_worker_evidence:
             if worker_evidence is not None or worker_evidence_sha256 is not None:
                 reasons.append("UNEXECUTED_WORKER_EVIDENCE_NOT_NULL")
         elif not isinstance(worker_evidence, Mapping) or worker_evidence_sha256 is None:
             reasons.append("EXECUTED_WORKER_EVIDENCE_MISSING")
         else:
-            if _canonical_digest(worker_evidence) != worker_evidence_sha256:
+            try:
+                worker_digest = _canonical_digest(worker_evidence)
+            except (TypeError, ValueError, OverflowError):
+                reasons.append("WORKER_EVIDENCE_HASH_INVALID")
+                worker_digest = None
+            if worker_digest != worker_evidence_sha256:
                 reasons.append("WORKER_EVIDENCE_HASH_MISMATCH")
             try:
                 worker_schema = _read_json(WORKER_EVIDENCE_SCHEMA_PATH)
@@ -273,6 +296,7 @@ def verify_run_ledger(
             except (TypeError, ValueError, json.JSONDecodeError):
                 reasons.append("WORKER_EVIDENCE_SCHEMA_INVALID")
             worker_provenance = worker_evidence.get("provenance")
+            worker_model = worker_evidence.get("model")
             worker_repository_commit = (
                 worker_provenance.get("repository_commit")
                 if isinstance(worker_provenance, Mapping)
@@ -282,9 +306,34 @@ def verify_run_ledger(
                 worker_evidence.get("arm_id") != entry["arm_id"]
                 or worker_evidence.get("scenario_id") != entry["scenario_id"]
                 or worker_evidence.get("run_id") != entry["run_id"]
+                or worker_evidence.get("fixture_manifest_sha256")
+                != entry["fixture_manifest_sha256"]
+                or worker_evidence.get("scenario_manifest_sha256")
+                != entry["scenario_manifest_sha256"]
                 or worker_repository_commit != entry["repository_commit"]
+                or not isinstance(worker_model, Mapping)
+                or worker_model.get("provider_id") != entry["model_provider_id"]
+                or worker_model.get("model_id") != entry["model_id"]
+                or worker_model.get("configuration_digest") != entry["model_configuration_digest"]
+                or not isinstance(worker_provenance, Mapping)
+                or worker_provenance.get("agentteams_version") != entry["agentteams_version"]
+                or worker_provenance.get("agentteams_commit") != entry["agentteams_commit"]
             ):
                 reasons.append("WORKER_EVIDENCE_BINDING_MISMATCH")
+            if entry["model_configuration_digest"] is None:
+                reasons.append("WORKER_MODEL_PROVENANCE_MISSING")
+            if entry["agentteams_version"] != EXPECTED_AGENTTEAMS_VERSION:
+                reasons.append("AGENTTEAMS_VERSION_MISMATCH")
+            if entry["agentteams_commit"] != EXPECTED_AGENTTEAMS_COMMIT:
+                reasons.append("AGENTTEAMS_COMMIT_MISMATCH")
+            semantic_gate = gate_worker_execution_evidence(
+                worker_evidence,
+                arm_id=entry["arm_id"],
+                scenario_id=entry["scenario_id"],
+                expected_repository_commit=entry["repository_commit"],
+            )
+            if semantic_gate["status"] != "READY":
+                reasons.append("WORKER_EVIDENCE_SEMANTIC_INVALID")
         pair_groups[(entry["scenario_id"], entry["replicate_id"], entry["attempt"])].append(entry)
 
     applicable = {item["id"]: set(item["arm_ids"]) for item in manifest["scenarios"]}

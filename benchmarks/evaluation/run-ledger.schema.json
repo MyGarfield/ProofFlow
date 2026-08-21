@@ -39,6 +39,8 @@
         "entry_index", "previous_entry_sha256", "entry_sha256", "entry_id", "arm_id", "scenario_id", "replicate_id", "attempt", "run_id",
         "execution_status", "status", "issue_codes", "started_at", "finished_at",
         "fixture_manifest_sha256", "scenario_manifest_sha256", "repository_commit",
+        "model_provider_id", "model_id", "model_configuration_digest",
+        "agentteams_version", "agentteams_commit",
         "worker_evidence_sha256", "worker_evidence", "result", "latency", "cost"
       ],
       "properties": {
@@ -61,6 +63,11 @@
         "fixture_manifest_sha256": {"$ref": "#/$defs/digest"},
         "scenario_manifest_sha256": {"$ref": "#/$defs/digest"},
         "repository_commit": {"$ref": "#/$defs/commit"},
+        "model_provider_id": {"type": ["string", "null"], "minLength": 1},
+        "model_id": {"type": ["string", "null"], "minLength": 1},
+        "model_configuration_digest": {"type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$"},
+        "agentteams_version": {"type": ["string", "null"], "minLength": 1},
+        "agentteams_commit": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"},
         "worker_evidence_sha256": {"type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$"},
         "worker_evidence": {"type": ["object", "null"]},
         "result": {
