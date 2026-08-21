@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import http.client
 import json
+import re
 import threading
 from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -131,6 +132,7 @@ def main() -> None:
                 "method": "GET",
                 "url": blocked_target,
                 "decision": "BLOCK_BEFORE_SOCKET",
+                "status": None,
             }
         )
     else:
@@ -177,9 +179,15 @@ def main() -> None:
     action("package", {}, 200)
     action("verify", {}, 200)
     benchmark = action("benchmark", {}, 200)
+    benchmark_report_hash = benchmark.get("result", {}).get("report_hash")
     require(
         benchmark.get("result", {}).get("contract_pass_fraction") == "11/11",
         "benchmark did not produce the pinned 11/11 contract result",
+    )
+    require(
+        isinstance(benchmark_report_hash, str)
+        and re.fullmatch(r"sha256:[0-9a-f]{64}", benchmark_report_hash) is not None,
+        "benchmark report hash was not a SHA-256 digest",
     )
 
     write("action-ledger.json", {
@@ -195,10 +203,19 @@ def main() -> None:
         "actions": ledger,
         "benchmark_contract_pass_fraction": benchmark["result"]["contract_pass_fraction"],
         "benchmark_accuracy_claim": "NOT_MEASURED",
+        "benchmark_report_hash": benchmark_report_hash,
+        "benchmark_report_hash_reproducible": False,
+        "benchmark_report_hash_provenance": (
+            "server-generated synthetic report digest observed by the capture client; "
+            "a replay does not independently reproduce this field"
+        ),
     })
     write("network-ledger.json", {
         "schema": "proofflow.reference-runtime.network-ledger.v1",
         "policy": NETWORK_POLICY,
+        "client": "http.client.HTTPConnection",
+        "proxy_env_used": False,
+        "redirects_followed": False,
         "requests": network,
         "redirect_regression": run_redirect_regression(),
         "non_loopback_requests_sent": 0,

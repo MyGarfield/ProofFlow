@@ -11,7 +11,7 @@
     body { font-family:var(--sans); -webkit-font-smoothing:antialiased; }
     .root { position:relative; width:100%; height:100%; background:#fff; overflow:hidden; }
     .scene { position:absolute; inset:0; width:100%; height:100%; background:#fff; overflow:hidden; }
-    .scene-frame { display:flex; flex-direction:column; width:100%; height:100%; padding:28px 36px 24px; gap:14px; }
+    .scene-frame { display:flex; flex-direction:column; width:100%; height:100%; padding:28px 36px 92px; gap:14px; }
     .header { display:grid; grid-template-columns:300px 1fr 360px; align-items:center; border-bottom:2px solid #000; padding-bottom:14px; min-height:72px; }
     .brand { display:flex; gap:12px; align-items:center; font-size:34px; font-weight:900; letter-spacing:-.07em; }
     .brand-mark { width:22px; height:22px; background:var(--red); display:block; }
@@ -28,6 +28,7 @@
     .rail, .truth, .ledger, .trace, .limit { border:2px solid #000; background:#fff; min-width:0; }
     .rail { grid-row:1 / span 2; padding:20px; display:flex; flex-direction:column; justify-content:space-between; }
     .rail h1 { margin:0; font-size:70px; line-height:.86; letter-spacing:-.08em; }
+    #scene-approve .rail h1 { font-size:60px; letter-spacing:-.09em; white-space:nowrap; }
     .rail p { margin:0; border-top:6px solid var(--red); padding-top:14px; font-size:20px; line-height:1.35; }
     .rail .kicker { font-size:15px; }
     .truth { padding:20px; }

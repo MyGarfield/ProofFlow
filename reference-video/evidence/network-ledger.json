@@ -1,12 +1,15 @@
 {
+  "client": "http.client.HTTPConnection",
   "non_loopback_requests_sent": 0,
   "policy": "capture client uses direct http.client connections to 127.0.0.1/localhost only; reject all other targets before socket creation; no proxy env and no redirects",
+  "proxy_env_used": false,
   "redirect_regression": {
     "location_observed": true,
     "redirect_followed": false,
     "sink_requests": 0,
     "status": 302
   },
+  "redirects_followed": false,
   "requests": [
     {
       "decision": "ALLOW_LOOPBACK",
@@ -33,6 +36,7 @@
       "decision": "BLOCK_BEFORE_SOCKET",
       "method": "GET",
       "seq": 3,
+      "status": null,
       "url": "https://external.invalid/blocked-by-loopback-policy"
     },
     {

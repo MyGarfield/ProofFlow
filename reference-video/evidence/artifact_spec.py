@@ -34,6 +34,7 @@ ARTIFACT_PATHS = (
     "capture/extracted/visible-text.txt",
     "capture/screenshots/full-page.png",
     "capture/screenshots/scroll-000.png",
+    "capture/screenshots/contact-sheet.jpg",
     "evidence/action-ledger.json",
     "evidence/network-ledger.json",
     "evidence/dom-states.json",

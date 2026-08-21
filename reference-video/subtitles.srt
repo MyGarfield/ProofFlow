@@ -23,9 +23,5 @@ PACKAGE：生成本地评审包；外部副作用仍为 false
 VERIFY：独立检查 artifacts、trace、审批绑定与 package file hashes → VALID
 
 7
-00:01:15,000 --> 00:01:22,800
-公开合同套件：11/11 表示结构合同完整，不是法律准确率；60000 是合成参考值，不是法律结论
-
-8
-00:01:23,000 --> 00:01:32,000
+00:01:15,000 --> 00:01:32,000
 边界保持不变：PUBLIC SYNTHETIC / REFERENCE RUNTIME / NO LLM / Workers Stopped / readyWorkers=0；Worker/LLM 评测 UNKNOWN，分值 null

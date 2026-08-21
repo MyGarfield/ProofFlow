@@ -1,15 +1,10 @@
-file '../snapshots/frame-00-at-5s.png'
-duration 10
-file '../snapshots/frame-01-at-18s.png'
-duration 16
-file '../snapshots/frame-02-at-33s.png'
-duration 15
-file '../snapshots/frame-03-at-49s.png'
-duration 17
-file '../snapshots/frame-04-at-62s.png'
-duration 8
-file '../snapshots/frame-05-at-70s.png'
-duration 9
-file '../snapshots/frame-06-at-84s.png'
-duration 17
-file '../snapshots/frame-06-at-84s.png'
+method=ffmpeg_filter_concat
+fps=30
+segment=0-10s snapshots/frame-00-at-5s.png
+segment=10-26s snapshots/frame-01-at-18s.png
+segment=26-41s snapshots/frame-02-at-33s.png
+segment=41-58s snapshots/frame-03-at-49s.png
+segment=58-66s snapshots/frame-04-at-62s.png
+segment=66-75s snapshots/frame-05-at-70s.png
+segment=75-92s snapshots/frame-06-at-84s.png
+audio=silent-aac.m4a role=AAC_PLACEHOLDER_SILENCE_NOT_NARRATION

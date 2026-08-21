@@ -1,4 +1,8 @@
 {
+  "excluded_from_digest": [
+    "evidence/privacy-scan.json",
+    "manifest.json"
+  ],
   "files_scanned": [
     "DESIGN.md",
     "SCRIPT.md",
@@ -27,7 +31,40 @@
     "evidence/test_manifest_validator.py",
     "evidence/validate_manifest.py",
     "index.html",
+    "narration.txt",
+    "subtitles.srt",
     "manifest.json",
+    "evidence/privacy-scan.json"
+  ],
+  "input_digest": "sha256:381475f8fb208f844d4a7c12cfb3fd5523e66c742dcb3813fe90be898fa7c70f",
+  "input_paths": [
+    "DESIGN.md",
+    "SCRIPT.md",
+    "STORYBOARD.md",
+    "capture/.cursorrules",
+    "capture/AGENTS.md",
+    "capture/CLAUDE.md",
+    "capture/extracted/animations.json",
+    "capture/extracted/design-styles.json",
+    "capture/extracted/fonts-manifest.json",
+    "capture/extracted/page.html",
+    "capture/extracted/tokens.json",
+    "capture/extracted/visible-text.txt",
+    "capture/meta.json",
+    "evidence/action-ledger.json",
+    "evidence/artifact_spec.py",
+    "evidence/capture_sequence.py",
+    "evidence/dom-states.json",
+    "evidence/ffmpeg-image-sequence.txt",
+    "evidence/finalize_manifest.py",
+    "evidence/lint-summary.json",
+    "evidence/manifest.schema.json",
+    "evidence/network-ledger.json",
+    "evidence/run_final_lint.py",
+    "evidence/run_privacy_scan.py",
+    "evidence/test_manifest_validator.py",
+    "evidence/validate_manifest.py",
+    "index.html",
     "narration.txt",
     "subtitles.srt"
   ],
@@ -36,7 +73,11 @@
   "patterns": [
     "absolute_path",
     "api_key",
-    "bearer_token"
+    "authorization",
+    "bearer_token",
+    "private_key"
   ],
-  "schema": "proofflow.reference-runtime.privacy-scan.v1"
+  "scanner": "run_privacy_scan.py",
+  "scanner_sha256": "sha256:738cc8bc5c6b3e2d3aa364a95926d4a469a9b485ae1bfce35f65a5752a2715cd",
+  "schema": "proofflow.reference-runtime.privacy-scan.v2"
 }

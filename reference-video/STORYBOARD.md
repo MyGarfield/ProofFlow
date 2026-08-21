@@ -13,7 +13,7 @@ The top ribbon and bottom caption-safe zone remain legible in every state. A sma
 
 ### 1 — captured page + boundary (0–10s)
 
-Show the actual HyperFrames capture screenshot of the loopback page, with a thin blue source bar and a red annotation: `PAGE-LEVEL CAPTURE / NO EXTERNAL REQUESTS`. The boundary ribbon remains dominant. A deterministic scanline moves once across the screenshot.
+Show the actual HyperFrames capture screenshot of the loopback page, with a thin blue source bar and a red annotation: `PAGE-LEVEL CAPTURE / CAPTURE CLIENT · NON-LOOPBACK SENT: 0`. The boundary ribbon remains dominant. A deterministic scanline moves once across the screenshot.
 
 ### 2 — PREPARE (10–26s)
 
