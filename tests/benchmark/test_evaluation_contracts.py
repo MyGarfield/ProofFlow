@@ -5,12 +5,14 @@ from pathlib import Path
 import pytest
 from jsonschema import Draft202012Validator, FormatChecker
 
+from benchmarks.evaluation.fixture import fixture_manifest_digest
 from benchmarks.evaluation.suite import (
     ARM_IDS,
     EVALUATION_DIR,
     EvaluationManifestError,
     classify_scenario_observation,
     compute_protocol_report,
+    file_digest,
     gate_worker_execution_evidence,
     render_report,
     validate_manifest,
@@ -38,8 +40,8 @@ def valid_worker_evidence(arm_id: str = "six_agent") -> dict:
         "arm_id": arm_id,
         "run_id": "run-synthetic-001",
         "trace_id": "trace-synthetic-001",
-        "fixture_manifest_sha256": "sha256:" + "1" * 64,
-        "scenario_manifest_sha256": "sha256:" + "2" * 64,
+        "fixture_manifest_sha256": fixture_manifest_digest(),
+        "scenario_manifest_sha256": file_digest(MANIFEST_PATH),
         "worker_execution_observed": True,
         "llm_inference_observed": True,
         "team_operational_ready": True,
@@ -119,6 +121,13 @@ def test_manifest_and_worker_evidence_schemas_are_valid() -> None:
     Draft202012Validator(worker_schema, format_checker=FormatChecker()).validate(
         valid_worker_evidence()
     )
+
+
+def test_public_fixture_bundle_is_hashed_and_covers_all_scenarios() -> None:
+    document = validate_manifest()
+
+    assert document["fixture_manifest"]["sha256"] == fixture_manifest_digest()
+    assert document["fixture_manifest"]["path"] == "benchmarks/evaluation/fixtures/manifest.json"
 
 
 def test_current_manager_smoke_is_blocked_and_maps_to_unknown() -> None:
@@ -286,4 +295,5 @@ def test_cli_report_schema_is_machine_readable_and_provenance_hashed() -> None:
 
     Draft202012Validator(schema, format_checker=FormatChecker()).validate(report)
     assert report["report_hash"].startswith("sha256:")
+    assert report["provenance"]["fixture_manifest_sha256"] == fixture_manifest_digest()
     assert all(item["official_weight_points"] > 0 for item in report["scorecard"])

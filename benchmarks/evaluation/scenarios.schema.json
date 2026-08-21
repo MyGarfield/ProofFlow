@@ -11,6 +11,7 @@
     "suite_version",
     "data_classification",
     "provider_neutral",
+    "fixture_manifest",
     "execution_policy",
     "arms",
     "official_score_mapping",
@@ -28,6 +29,15 @@
     "suite_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
     "data_classification": {"const": "PUBLIC_SYNTHETIC"},
     "provider_neutral": {"const": true},
+    "fixture_manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"const": "benchmarks/evaluation/fixtures/manifest.json"},
+        "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      }
+    },
     "execution_policy": {
       "type": "object",
       "additionalProperties": false,

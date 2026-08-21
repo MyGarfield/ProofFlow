@@ -16,6 +16,12 @@ from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
 
+from .fixture import (
+    FIXTURE_SCHEMA_PATH,
+    fixture_manifest_digest,
+    validate_fixture_manifest,
+)
+
 ROOT = Path(__file__).resolve().parents[2]
 EVALUATION_DIR = Path(__file__).resolve().parent
 MANIFEST_PATH = EVALUATION_DIR / "scenarios.json"
@@ -170,6 +176,13 @@ def validate_manifest(manifest: Mapping[str, Any] | None = None) -> dict[str, An
         raise EvaluationManifestError("zero cannot represent an unexecuted outcome")
     if document["measurement"]["cost"]["missing_cost_is_unknown_not_zero"] is not True:
         raise EvaluationManifestError("missing cost must remain UNKNOWN")
+    fixture_reference = document["fixture_manifest"]
+    if fixture_reference["sha256"] != fixture_manifest_digest():
+        raise EvaluationManifestError("fixture manifest digest does not match checked-in bundle")
+    try:
+        validate_fixture_manifest()
+    except ValueError as error:
+        raise EvaluationManifestError(str(error)) from error
     return document
 
 
@@ -204,6 +217,16 @@ def gate_worker_execution_evidence(
         }
 
     reasons: list[str] = []
+    if not isinstance(evidence, Mapping):
+        return {
+            "status": "BLOCKED",
+            "score_status": "UNKNOWN",
+            "reason_codes": ["EVIDENCE_SCHEMA_INVALID"],
+        }
+    try:
+        _validate_schema(evidence, WORKER_EVIDENCE_SCHEMA_PATH)
+    except EvaluationManifestError:
+        reasons.append("EVIDENCE_SCHEMA_INVALID")
 
     def require_string(field: str) -> None:
         if not isinstance(evidence.get(field), str) or not evidence[field]:
@@ -215,6 +238,10 @@ def gate_worker_execution_evidence(
 
     for field in ("run_id", "trace_id", "fixture_manifest_sha256", "scenario_manifest_sha256"):
         require_string(field)
+    if evidence.get("fixture_manifest_sha256") != fixture_manifest_digest():
+        reasons.append("FIXTURE_MANIFEST_DIGEST_MISMATCH")
+    if evidence.get("scenario_manifest_sha256") != file_digest(MANIFEST_PATH):
+        reasons.append("SCENARIO_MANIFEST_DIGEST_MISMATCH")
     if evidence.get("arm_id") != arm_id:
         reasons.append("ARM_ID_MISMATCH")
     if evidence.get("evidence_kind") != "worker-orchestration-run":
@@ -384,6 +411,8 @@ def compute_protocol_report() -> dict[str, Any]:
             "reliability_denominator": "attempted_runs",
         },
         "provenance": {
+            "fixture_manifest_sha256": fixture_manifest_digest(),
+            "fixture_schema_sha256": file_digest(FIXTURE_SCHEMA_PATH),
             "scenario_schema_sha256": file_digest(SCENARIO_SCHEMA_PATH),
             "worker_evidence_schema_sha256": file_digest(WORKER_EVIDENCE_SCHEMA_PATH),
             "suite_source_sha256": file_digest(Path(__file__)),
