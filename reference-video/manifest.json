@@ -20,6 +20,7 @@
     "subtitles.srt": "sha256:7de64f835bf05e8f52041fa97f41e7a3b2f5c4258222a3f89fa2cadeebb266a8"
   },
   "artifact_payload_commit": "163a6597c71e02493d10b213756dc748b169178c",
+  "artifact_payload_commit_semantics": "commit that first introduced the rendered payload; final delivery commit is reported separately because embedding a commit hash in its own tree is self-referential",
   "audio": "silent-aac.m4a",
   "audio_role": "AAC_PLACEHOLDER_SILENCE_NOT_NARRATION",
   "capture": "capture/",

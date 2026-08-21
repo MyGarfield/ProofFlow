@@ -87,6 +87,7 @@ def main() -> None:
         {
             "recorded_source_commit": source_commit,
             "artifact_payload_commit": artifact_commit or manifest.get("artifact_payload_commit"),
+            "artifact_payload_commit_semantics": "commit that first introduced the rendered payload; final delivery commit is reported separately because embedding a commit hash in its own tree is self-referential",
             "actual_duration_seconds": float(media["format"]["duration"]),
             "ffprobe": media,
             "keyframe_probes": keyframe_probes,
