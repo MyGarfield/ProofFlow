@@ -1,19 +1,21 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.invalid/proofflow/evaluation-run-ledger.schema.json",
-  "title": "ProofFlow append-only evaluation run ledger v2",
+  "title": "ProofFlow hash-chained append-only evaluation run ledger v2",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "ledger_id", "append_only", "entry_key", "entries", "provenance"],
+  "required": ["schema_version", "ledger_id", "append_only", "entry_key", "coverage_plan", "entries", "ledger_root_sha256", "provenance"],
   "properties": {
     "schema_version": {"const": "proofflow.evaluation-run-ledger/v2"},
     "ledger_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"},
     "append_only": {"const": true},
     "entry_key": {"const": "arm_id+scenario_id+replicate_id+attempt"},
+    "coverage_plan": {"$ref": "#/$defs/coveragePlan"},
     "entries": {
       "type": "array", "minItems": 1, "uniqueItems": true,
       "items": {"$ref": "#/$defs/entry"}
     },
+    "ledger_root_sha256": {"$ref": "#/$defs/digest"},
     "provenance": {"$ref": "#/$defs/ledgerProvenance"}
   },
   "$defs": {
@@ -22,15 +24,27 @@
     "identifier": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"},
     "scenarioId": {"type": "string", "pattern": "^[a-z0-9_]+$"},
     "issueCode": {"type": "string", "pattern": "^[A-Z0-9_]+$"},
+    "coveragePlan": {
+      "type": "object", "additionalProperties": false,
+      "required": ["replicate_ids", "attempts", "scope"],
+      "properties": {
+        "replicate_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "integer", "minimum": 1}},
+        "attempts": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "integer", "minimum": 1}},
+        "scope": {"const": "ALL_APPLICABLE_ARMS_AND_SCENARIOS"}
+      }
+    },
     "entry": {
       "type": "object", "additionalProperties": false,
       "required": [
-        "entry_id", "arm_id", "scenario_id", "replicate_id", "attempt", "run_id",
+        "entry_index", "previous_entry_sha256", "entry_sha256", "entry_id", "arm_id", "scenario_id", "replicate_id", "attempt", "run_id",
         "execution_status", "status", "issue_codes", "started_at", "finished_at",
         "fixture_manifest_sha256", "scenario_manifest_sha256", "repository_commit",
-        "result", "latency", "cost"
+        "worker_evidence_sha256", "worker_evidence", "result", "latency", "cost"
       ],
       "properties": {
+        "entry_index": {"type": "integer", "minimum": 1},
+        "previous_entry_sha256": {"$ref": "#/$defs/digest"},
+        "entry_sha256": {"$ref": "#/$defs/digest"},
         "entry_id": {"$ref": "#/$defs/identifier"},
         "arm_id": {"enum": ["deterministic_reference", "single_agent", "six_agent"]},
         "scenario_id": {"$ref": "#/$defs/scenarioId"},
@@ -47,6 +61,8 @@
         "fixture_manifest_sha256": {"$ref": "#/$defs/digest"},
         "scenario_manifest_sha256": {"$ref": "#/$defs/digest"},
         "repository_commit": {"$ref": "#/$defs/commit"},
+        "worker_evidence_sha256": {"type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$"},
+        "worker_evidence": {"type": ["object", "null"]},
         "result": {
           "type": ["object", "null"],
           "additionalProperties": false,

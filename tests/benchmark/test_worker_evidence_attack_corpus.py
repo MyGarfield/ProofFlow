@@ -31,6 +31,8 @@ def _gate(evidence: object, scenario_id: str = "happy_path") -> dict:
         ),
         ("empty_mcp_receipts", lambda value: value.__setitem__("worker_mcp_call_receipts", [])),
         ("empty_skill_receipts", lambda value: value.__setitem__("skill_consumption_receipts", [])),
+        ("missing_worker_session_receipts", lambda value: value.pop("worker_session_receipts")),
+        ("missing_llm_inference_receipts", lambda value: value.pop("llm_inference_receipts")),
         ("incomplete_human_receipt", lambda value: value.__setitem__("human_gate_receipt", {})),
         (
             "arbitrary_specialist_names",
@@ -71,6 +73,16 @@ def test_valid_shape_with_wrong_agentteams_topology_is_blocked(
     assert gate["status"] == "BLOCKED"
     assert gate["score_status"] == "UNKNOWN"
     assert reason in gate["reason_codes"]
+
+
+def test_stopped_specialist_is_not_ready() -> None:
+    evidence = deepcopy(valid_worker_evidence("six_agent"))
+    evidence["specialist_phases"]["rule-agent"] = "Stopped"
+
+    gate = _gate(evidence)
+
+    assert gate["status"] == "BLOCKED"
+    assert "SPECIALIST_NOT_RUNNING" in gate["reason_codes"]
 
 
 def test_early_block_without_human_approval_receipt_is_valid_capture() -> None:
@@ -119,6 +131,76 @@ def test_cross_field_provenance_and_receipt_bindings_are_fail_closed(mutate, rea
     assert gate["status"] == "BLOCKED"
     assert gate["score_status"] == "UNKNOWN"
     assert reason in gate["reason_codes"]
+
+
+@pytest.mark.parametrize(
+    ("mutate", "reason"),
+    [
+        (
+            lambda value: value.__setitem__(
+                "worker_mcp_call_receipts", value["worker_mcp_call_receipts"][:1]
+            ),
+            "MCP_RECEIPT_COVERAGE_MISMATCH",
+        ),
+        (
+            lambda value: [
+                item.__setitem__("worker_name", "case-manager")
+                for item in (*value["task_event_receipts"], *value["matrix_event_receipts"])
+            ],
+            "TASK_EVENT_PARTICIPANT_SET_MISMATCH",
+        ),
+        (
+            lambda value: value["skill_consumption_receipts"][0].__setitem__(
+                "skill_sha256", "sha256:" + "8" * 64
+            ),
+            "SKILL_DIGEST_MISMATCH",
+        ),
+        (
+            lambda value: value["provenance"].__setitem__("agentteams_version", "v9.9.9"),
+            "AGENTTEAMS_VERSION_MISMATCH",
+        ),
+        (
+            lambda value: value["provenance"].__setitem__("agentteams_commit", "c" * 40),
+            "AGENTTEAMS_COMMIT_MISMATCH",
+        ),
+    ],
+)
+def test_worker_evidence_coverage_and_pinned_provenance_are_fail_closed(
+    mutate, reason: str
+) -> None:
+    evidence = deepcopy(valid_worker_evidence("six_agent"))
+    mutate(evidence)
+
+    gate = _gate(evidence)
+
+    assert gate["status"] == "BLOCKED"
+    assert gate["score_status"] == "UNKNOWN"
+    assert reason in gate["reason_codes"]
+
+
+def test_matrix_roster_cannot_be_forged_by_reusing_the_leader() -> None:
+    evidence = deepcopy(valid_worker_evidence("six_agent"))
+    for receipt in evidence["matrix_event_receipts"]:
+        receipt["worker_name"] = "case-manager"
+
+    gate = _gate(evidence)
+
+    assert gate["status"] == "BLOCKED"
+    assert "MATRIX_EVENT_PARTICIPANT_SET_MISMATCH" in gate["reason_codes"]
+
+
+def test_bare_execution_booleans_without_session_or_llm_receipts_are_schema_blocked() -> None:
+    evidence = deepcopy(valid_worker_evidence("six_agent"))
+    evidence.pop("worker_session_receipts")
+    evidence.pop("llm_inference_receipts")
+
+    gate = _gate(evidence)
+
+    assert gate == {
+        "status": "BLOCKED",
+        "score_status": "UNKNOWN",
+        "reason_codes": ["EVIDENCE_SCHEMA_INVALID"],
+    }
 
 
 def test_duplicate_keys_and_nan_are_rejected_by_strict_json_entrypoint() -> None:

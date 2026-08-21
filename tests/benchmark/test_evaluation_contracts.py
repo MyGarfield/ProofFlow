@@ -8,13 +8,17 @@ from jsonschema import Draft202012Validator, FormatChecker
 from benchmarks.evaluation.fixture import fixture_manifest_digest
 from benchmarks.evaluation.suite import (
     ARM_IDS,
+    CANONICAL_LEADER,
     EVALUATION_DIR,
+    EXPECTED_AGENTTEAMS_COMMIT,
+    EXPECTED_AGENTTEAMS_VERSION,
     EvaluationManifestError,
     classify_scenario_observation,
     compute_protocol_report,
     file_digest,
     gate_worker_execution_evidence,
     render_report,
+    repository_skill_digests,
     validate_manifest,
 )
 
@@ -49,10 +53,140 @@ def valid_worker_evidence(arm_id: str = "six_agent", scenario_id: str = "happy_p
         "audit-agent": ["conflict_detect", "decision_audit"],
     }
     if arm_id == "single_agent":
-        specialist_skills = {"case-manager": specialist_skills["case-manager"]}
+        specialist_skills = {"case-manager": list(repository_skill_digests())}
     scenario = next(item for item in manifest()["scenarios"] if item["id"] == scenario_id)
-    human_policy = scenario["evidence_gate"]["human_gate_receipt"]
-    human_decision = scenario["evidence_gate"]["required_human_decision"]
+    gate_policy = scenario["evidence_gate"]
+    human_policy = gate_policy["human_gate_receipt"]
+    human_decision = gate_policy["required_human_decision"]
+    task_participants = gate_policy["task_event_participants"][arm_id]
+    matrix_participants = gate_policy["matrix_event_participants"][arm_id]
+    task_receipts = [
+        {
+            "event_id": f"task-event-{index:03d}",
+            "event_type": gate_policy["task_event_types"][0],
+            "run_id": "run-synthetic-001",
+            "scenario_id": scenario_id,
+            "trace_id": "trace-synthetic-001",
+            "worker_name": worker,
+            "trace_event_id": f"trace-task-{index:03d}",
+        }
+        for index, worker in enumerate(task_participants, start=1)
+    ]
+    matrix_receipts = [
+        {
+            "event_id": f"matrix-event-{index:03d}",
+            "event_type": gate_policy["matrix_event_types"][0],
+            "run_id": "run-synthetic-001",
+            "scenario_id": scenario_id,
+            "trace_id": "trace-synthetic-001",
+            "worker_name": worker,
+            "trace_event_id": f"trace-matrix-{index:03d}",
+        }
+        for index, worker in enumerate(matrix_participants, start=1)
+    ]
+    task_event_by_worker = {item["worker_name"]: item["event_id"] for item in task_receipts}
+    matrix_event_by_worker = {item["worker_name"]: item["event_id"] for item in matrix_receipts}
+    mcp_receipts = [
+        {
+            "receipt_id": f"mcp-receipt-{index:03d}",
+            "worker_name": requirement["worker_by_arm"][arm_id],
+            "worker_role": (
+                "LEADER" if requirement["worker_by_arm"][arm_id] == "case-manager" else "SPECIALIST"
+            ),
+            "tool": requirement["tool"],
+            "run_id": "run-synthetic-001",
+            "scenario_id": scenario_id,
+            "trace_id": "trace-synthetic-001",
+            "trace_event_id": f"trace-mcp-{index:03d}",
+            "task_event_id": task_event_by_worker[requirement["worker_by_arm"][arm_id]],
+            "matrix_event_id": matrix_event_by_worker[requirement["worker_by_arm"][arm_id]],
+            "http_status": 200,
+            "business_status": "SUCCESS",
+        }
+        for index, requirement in enumerate(gate_policy["required_mcp_receipts"], start=1)
+    ]
+    skill_digests = repository_skill_digests()
+    skill_pairs = [
+        (worker, skill) for worker, skills in specialist_skills.items() for skill in skills
+    ]
+    skill_receipts = [
+        {
+            "receipt_id": f"skill-receipt-{index:03d}",
+            "worker_name": worker,
+            "worker_role": "LEADER" if worker == "case-manager" else "SPECIALIST",
+            "skill_name": skill,
+            "skill_sha256": skill_digests[skill],
+            "run_id": "run-synthetic-001",
+            "scenario_id": scenario_id,
+            "trace_id": "trace-synthetic-001",
+            "trace_event_id": f"trace-skill-{index:03d}",
+            "task_event_id": task_event_by_worker[worker],
+            "matrix_event_id": matrix_event_by_worker[worker],
+        }
+        for index, (worker, skill) in enumerate(skill_pairs, start=1)
+    ]
+    session_receipts = [
+        {
+            "receipt_id": f"session-receipt-{index:03d}",
+            "worker_name": worker,
+            "session_id": f"session-{index:03d}",
+            "container_id": f"container-{index:03d}",
+            "task_id": f"task-{index:03d}",
+            "run_id": "run-synthetic-001",
+            "scenario_id": scenario_id,
+            "trace_id": "trace-synthetic-001",
+            "trace_event_id": f"trace-session-{index:03d}",
+            "task_event_id": task_event_by_worker[worker],
+            "matrix_event_id": matrix_event_by_worker[worker],
+            "started_at": "2026-08-21T00:00:00Z",
+            "finished_at": "2026-08-21T00:00:01Z",
+            "phase": "Completed",
+            "outcome": "COMPLETED"
+            if scenario["expected"]["outcome_class"] == "PASS"
+            else "BLOCKED",
+        }
+        for index, worker in enumerate(task_participants, start=1)
+    ]
+    llm_receipts = [
+        {
+            "receipt_id": f"llm-receipt-{index:03d}",
+            "worker_name": worker,
+            "worker_role": "LEADER" if worker == "case-manager" else "SPECIALIST",
+            "run_id": "run-synthetic-001",
+            "scenario_id": scenario_id,
+            "trace_id": "trace-synthetic-001",
+            "trace_event_id": f"trace-llm-{index:03d}",
+            "task_event_id": task_event_by_worker[worker],
+            "matrix_event_id": matrix_event_by_worker[worker],
+            "model_configuration_digest": "sha256:" + "5" * 64,
+            "request_sha256": "sha256:" + "6" * 64,
+            "response_sha256": "sha256:" + "7" * 64,
+            "started_at": "2026-08-21T00:00:00Z",
+            "finished_at": "2026-08-21T00:00:01Z",
+            "input_tokens": 1,
+            "output_tokens": 1,
+            "total_tokens": 2,
+            "token_usage_complete": True,
+            "cost_complete": False,
+            "total_cost": None,
+            "currency": None,
+            "rate_card_id": None,
+            "unknown_reason": "PUBLIC_SYNTHETIC_COST_NOT_FROZEN",
+        }
+        for index, worker in enumerate(task_participants, start=1)
+    ]
+    captured_trace_event_ids = [
+        item["trace_event_id"] for item in (*task_receipts, *matrix_receipts)
+    ]
+    captured_trace_event_ids.extend(item["trace_event_id"] for item in mcp_receipts)
+    captured_trace_event_ids.extend(item["trace_event_id"] for item in skill_receipts)
+    captured_trace_event_ids.extend(
+        f"trace-session-{index:03d}" for index in range(1, len(session_receipts) + 1)
+    )
+    captured_trace_event_ids.extend(
+        f"trace-llm-{index:03d}" for index in range(1, len(llm_receipts) + 1)
+    )
+    captured_trace_event_ids.extend(["trace-event-001", "trace-event-003"])
     return {
         "schema_version": "proofflow.worker-run-evidence/v2",
         "evidence_kind": "worker-orchestration-run",
@@ -73,75 +207,19 @@ def valid_worker_evidence(arm_id: str = "six_agent", scenario_id: str = "happy_p
             "specialist_worker_names": specialist_names,
         },
         "specialist_phases": {name: "Running" for name in specialist_names},
-        "task_event_ids": ["task-event-001"],
-        "matrix_event_ids": ["matrix-event-001"],
-        "task_event_receipts": [
-            {
-                "event_id": "task-event-001",
-                "event_type": "TASK_COMPLETED",
-                "run_id": "run-synthetic-001",
-                "scenario_id": scenario_id,
-                "trace_id": "trace-synthetic-001",
-                "worker_name": "case-manager",
-            }
-        ],
-        "matrix_event_receipts": [
-            {
-                "event_id": "matrix-event-001",
-                "event_type": "MATRIX_COMPLETED",
-                "run_id": "run-synthetic-001",
-                "scenario_id": scenario_id,
-                "trace_id": "trace-synthetic-001",
-                "worker_name": "case-manager",
-            }
-        ],
-        "worker_mcp_call_receipts": [
-            {
-                "receipt_id": "mcp-receipt-001",
-                "worker_name": "case-manager",
-                "worker_role": "LEADER",
-                "tool": "evidence_ingest",
-                "run_id": "run-synthetic-001",
-                "scenario_id": scenario_id,
-                "trace_id": "trace-synthetic-001",
-                "trace_event_id": "trace-event-001",
-                "http_status": 200,
-                "business_status": "SUCCESS",
-            }
-        ],
-        "skill_consumption_receipts": [
-            {
-                "receipt_id": f"skill-receipt-{index:03d}",
-                "worker_name": worker,
-                "worker_role": "LEADER" if worker == "case-manager" else "SPECIALIST",
-                "skill_name": skill,
-                "skill_sha256": "sha256:" + "3" * 64,
-                "run_id": "run-synthetic-001",
-                "scenario_id": scenario_id,
-                "trace_id": "trace-synthetic-001",
-                "trace_event_id": f"trace-skill-{index:03d}",
-            }
-            for index, (worker, skill) in enumerate(
-                (
-                    pair
-                    for worker, skills in specialist_skills.items()
-                    for pair in [(worker, skill) for skill in skills]
-                ),
-                start=1,
-            )
-        ],
+        "task_event_ids": [item["event_id"] for item in task_receipts],
+        "matrix_event_ids": [item["event_id"] for item in matrix_receipts],
+        "task_event_receipts": task_receipts,
+        "matrix_event_receipts": matrix_receipts,
+        "worker_session_receipts": session_receipts,
+        "llm_inference_receipts": llm_receipts,
+        "worker_mcp_call_receipts": mcp_receipts,
+        "skill_consumption_receipts": skill_receipts,
         "skill_coverage": specialist_skills,
         "capture_completeness": {
             "harness_capture_complete": True,
             "sut_trace_complete": scenario["evidence_gate"]["sut_trace_complete"],
-            "captured_trace_event_ids": [
-                "trace-event-001",
-                "trace-event-003",
-                *[
-                    f"trace-skill-{index:03d}"
-                    for index in range(1, sum(map(len, specialist_skills.values())) + 1)
-                ],
-            ],
+            "captured_trace_event_ids": captured_trace_event_ids,
         },
         "sut_trace_events": scenario["expected"]["required_trace_events"],
         **(
@@ -149,13 +227,19 @@ def valid_worker_evidence(arm_id: str = "six_agent", scenario_id: str = "happy_p
                 "human_gate_receipt": {
                     "receipt_id": "human-receipt-001",
                     "receipt_present": True,
+                    "actor_kind": "HUMAN",
+                    "actor_id": "actor-pseudonymous-001",
+                    "actor_role": "APPROVER",
+                    "decided_at": "2026-08-21T00:00:01Z",
+                    "method": "MANUAL_REVIEW",
                     "run_id": "run-synthetic-001",
                     "scenario_id": scenario_id,
                     "trace_id": "trace-synthetic-001",
-                    "worker_name": "case-manager",
                     "decision": human_decision or "APPROVED",
                     "decision_subject_hash": "sha256:" + "4" * 64,
                     "trace_event_id": "trace-event-003",
+                    "task_event_id": task_event_by_worker[CANONICAL_LEADER],
+                    "matrix_event_id": matrix_event_by_worker[CANONICAL_LEADER],
                 }
             }
             if human_policy != "NOT_REQUIRED"
@@ -171,8 +255,8 @@ def valid_worker_evidence(arm_id: str = "six_agent", scenario_id: str = "happy_p
         },
         "provenance": {
             "repository_commit": "a" * 40,
-            "agentteams_version": "v1.2.2",
-            "agentteams_commit": "b" * 40,
+            "agentteams_version": EXPECTED_AGENTTEAMS_VERSION,
+            "agentteams_commit": EXPECTED_AGENTTEAMS_COMMIT,
             "collector_version": "evaluation-adapter-v1",
         },
     }
@@ -314,14 +398,19 @@ def test_six_agent_requires_running_leader_separately_from_specialists() -> None
 
 
 def test_single_agent_leader_only_topology_is_one_total_and_zero_specialists() -> None:
+    evidence = valid_worker_evidence("single_agent")
     gate = gate_worker_execution_evidence(
-        valid_worker_evidence("single_agent"),
+        evidence,
         arm_id="single_agent",
         scenario_id="happy_path",
         expected_repository_commit=TEST_REPOSITORY_COMMIT,
     )
 
     assert gate == {"status": "READY", "score_status": "ELIGIBLE", "reason_codes": []}
+    assert set(evidence["skill_coverage"]["case-manager"]) == set(repository_skill_digests())
+    assert {item["worker_name"] for item in evidence["worker_mcp_call_receipts"]} == {
+        "case-manager"
+    }
 
 
 def test_unexecuted_protocol_report_never_emits_zero_or_pass() -> None:

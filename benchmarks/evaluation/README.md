@@ -17,6 +17,8 @@ uv run python -m benchmarks.evaluation.run \
   --output .proofflow/evaluation-protocol-report.json
 
 uv run pytest tests/benchmark/test_evaluation_contracts.py \
+  tests/benchmark/test_worker_evidence_attack_corpus.py \
+  tests/benchmark/test_evaluation_ledger_v2.py \
   tests/benchmark/test_evaluation_verifier.py
 uv run ruff format --check benchmarks/evaluation tests/benchmark/test_evaluation_verifier.py
 uv run ruff check benchmarks/evaluation tests/benchmark/test_evaluation_verifier.py
@@ -60,7 +62,10 @@ unknowns. `benchmarks.evaluation.verifier.verify_run_record` is an independent
 verifier: it does not import the suite classifier, accepts only an expected
 scenario contract, and returns the closed statuses `PASS`, `FAIL`, `UNKNOWN`,
 or `UNSAFE_SUCCESS`. It never converts missing provenance or missing cost into
-a score.
+a score. The Worker-evidence and ledger verifiers are structural/semantic
+consistency gates over unsigned declarations; they do not prove execution
+authenticity. Authenticity requires public raw AgentTeams/Task/Matrix/MCP
+receipts or a signed/attested evidence package.
 
 The AgentTeams topology is explicit in the Worker evidence contract:
 `readyWorkers` is the specialist count, not the total Worker count. A
@@ -74,10 +79,23 @@ Each scenario also has a machine-readable `runner_binding`. The four existing
 deterministic handlers and six exact deterministic adapters are bound by exact
 IDs; both Worker arms are explicitly `null` until an authorized adapter exists.
 A binding is not an execution result. `benchmarks.evaluation.ledger` can run
-the ten deterministic scenarios into the append-only v2 ledger; it records
-single/six as `NOT_EXECUTED`/`UNKNOWN` and leaves cost and unfrozen latency
-measurements `null` with an explicit reason. `ledger_verifier` independently
-checks entry uniqueness, provenance, pairing, and the cost/latency unknown
-contract before `aggregate_run_ledger` emits an `EXECUTED` or `MIXED_EXECUTION`
-report. Official score points remain `UNKNOWN`/`null` until paired arms and
-their required evidence exist.
+the ten deterministic scenarios into a hash-chained append-only v2 ledger. Its
+explicit `coverage_plan` expands every applicable arm/scenario for each
+declared replicate and attempt; each entry has an ordered index, previous-entry
+hash, entry hash, and the ledger has a root hash. Worker entries also carry
+`worker_evidence` plus its recomputed `worker_evidence_sha256`; unexecuted
+Worker arms remain `null`/`UNKNOWN`. `ledger_verifier` independently checks
+manifest coverage, sequence/hash-chain, provenance, evidence binding, pairing,
+and the cost/latency unknown contract before `aggregate_run_ledger` emits an
+`EXECUTED` or `MIXED_EXECUTION` report. These hashes are tamper-evident
+consistency checks, not signatures or attestations. Official score points
+remain `UNKNOWN`/`null` until paired arms and their required evidence exist.
+
+The Worker evidence contract requires more than `worker_execution_observed` or
+`llm_inference_observed` booleans: every expected participant needs a bound
+Worker session receipt and LLM inference receipt with session/container/task
+links, trace IDs, request/response hashes, model configuration digest, and
+explicit token/cost completeness. Human decisions require a pseudonymous
+`actor_kind=HUMAN` receipt with actor role, method, decision time, subject hash,
+and task/Matrix/trace links. The gate remains `BLOCKED`/`UNKNOWN` when these
+receipts are absent.

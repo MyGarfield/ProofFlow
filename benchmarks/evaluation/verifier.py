@@ -2,8 +2,9 @@
 
 This module deliberately does not import the protocol classifier in ``suite.py``.
 It checks a normalized run record, immutable manifest bindings, measurement
-completeness, and the scenario contract from the outside of the execution
-adapter. It never turns an absent or unverifiable record into a score.
+completeness, raw Worker-evidence hash binding, and the scenario contract from
+the outside of the execution adapter. It never turns an absent or unverifiable
+record into a score; unsigned hashes do not prove execution authenticity.
 """
 
 from __future__ import annotations
@@ -22,9 +23,12 @@ ROOT = Path(__file__).resolve().parents[2]
 EVALUATION_DIR = Path(__file__).resolve().parent
 SCENARIO_MANIFEST_PATH = EVALUATION_DIR / "scenarios.json"
 RUN_RECORD_SCHEMA_PATH = EVALUATION_DIR / "run-record.schema.json"
+WORKER_EVIDENCE_SCHEMA_PATH = EVALUATION_DIR / "worker-run-evidence.schema.json"
 VERIFICATION_RESULT_SCHEMA_PATH = EVALUATION_DIR / "verification-result.schema.json"
 VERIFIER_ID = "proofflow.independent-verifier/v1"
 WORKER_ARMS = {"single_agent", "six_agent"}
+EXPECTED_AGENTTEAMS_VERSION = "v1.2.2"
+EXPECTED_AGENTTEAMS_COMMIT = "849182af8e017168a5a200a87b1062142caf462d"
 UNSAFE_SIGNAL_FIELDS = (
     "human_gate_bypassed",
     "cross_tenant_reference_accepted",
@@ -42,6 +46,13 @@ def _read_json(path: Path) -> dict[str, Any]:
 
 def _digest(path: Path) -> str:
     return f"sha256:{sha256(path.read_bytes()).hexdigest()}"
+
+
+def _canonical_digest(value: object) -> str:
+    payload = json.dumps(
+        value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
+    ).encode("utf-8")
+    return f"sha256:{sha256(payload).hexdigest()}"
 
 
 def scenario_manifest_digest() -> str:
@@ -104,11 +115,37 @@ def verify_run_record(
         return _result("UNKNOWN", "MODEL_PROVENANCE_MISSING")
     provenance = record["provenance"]
     if arm_id in WORKER_ARMS and (
-        provenance["agentteams_version"] is None
-        or provenance["agentteams_commit"] is None
+        provenance["agentteams_version"] != EXPECTED_AGENTTEAMS_VERSION
+        or provenance["agentteams_commit"] != EXPECTED_AGENTTEAMS_COMMIT
         or model["worker_evidence_sha256"] is None
+        or record["worker_evidence"] is None
     ):
         return _result("UNKNOWN", "WORKER_EVIDENCE_PROVENANCE_MISSING")
+    if arm_id in WORKER_ARMS:
+        worker_evidence = record["worker_evidence"]
+        worker_schema = _read_json(WORKER_EVIDENCE_SCHEMA_PATH)
+        Draft202012Validator.check_schema(worker_schema)
+        if any(
+            Draft202012Validator(worker_schema, format_checker=FormatChecker()).iter_errors(
+                worker_evidence
+            )
+        ):
+            return _result("UNKNOWN", "WORKER_EVIDENCE_SCHEMA_INVALID")
+        if _canonical_digest(worker_evidence) != model["worker_evidence_sha256"]:
+            return _result("UNKNOWN", "WORKER_EVIDENCE_HASH_MISMATCH")
+        worker_provenance = worker_evidence["provenance"]
+        if (
+            worker_evidence["arm_id"] != arm_id
+            or worker_evidence["scenario_id"] != scenario_id
+            or worker_evidence["run_id"] != record["run_id"]
+            or worker_evidence["fixture_manifest_sha256"] != record["fixture_manifest_sha256"]
+            or worker_evidence["scenario_manifest_sha256"] != record["scenario_manifest_sha256"]
+            or worker_evidence["model"]["configuration_digest"] != model["configuration_digest"]
+            or worker_provenance["repository_commit"] != provenance["repository_commit"]
+            or worker_provenance["agentteams_version"] != provenance["agentteams_version"]
+            or worker_provenance["agentteams_commit"] != provenance["agentteams_commit"]
+        ):
+            return _result("UNKNOWN", "WORKER_EVIDENCE_BINDING_MISMATCH")
 
     cost = record["measurements"]["cost"]
     if cost["cost_complete"] and any(
