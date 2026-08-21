@@ -278,15 +278,37 @@
     "scenario": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "title", "category", "arm_ids", "fault_injection", "expected", "observables"],
+      "required": ["id", "title", "category", "arm_ids", "fault_injection", "runner_binding", "evidence_gate", "expected", "observables"],
       "properties": {
         "id": {"type": "string", "pattern": "^[a-z0-9_]+$"},
         "title": {"type": "string", "minLength": 1},
         "category": {"type": "string", "minLength": 1},
         "arm_ids": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/armId"}},
         "fault_injection": {"type": "string", "minLength": 1},
+        "runner_binding": {"$ref": "#/$defs/runnerBinding"},
+        "evidence_gate": {"$ref": "#/$defs/evidenceGate"},
         "expected": {"$ref": "#/$defs/expectedContract"},
         "observables": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "runnerBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["deterministic_reference", "single_agent", "six_agent"],
+      "properties": {
+        "deterministic_reference": {"type": ["string", "null"], "minLength": 1},
+        "single_agent": {"type": ["string", "null"], "minLength": 1},
+        "six_agent": {"type": ["string", "null"], "minLength": 1}
+      }
+    },
+    "evidenceGate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["human_gate_receipt", "required_human_decision", "sut_trace_complete"],
+      "properties": {
+        "human_gate_receipt": {"enum": ["NOT_REQUIRED", "REQUIRED_CAPTURE", "REQUIRED_APPROVAL"]},
+        "required_human_decision": {"enum": ["APPROVED", "NOT_APPROVED", null]},
+        "sut_trace_complete": {"type": "boolean"}
       }
     },
     "expectedContract": {

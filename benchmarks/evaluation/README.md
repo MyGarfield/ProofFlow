@@ -28,6 +28,22 @@ as zero. A future provider/orchestrator adapter must normalize its public
 synthetic run evidence to `worker-run-evidence.schema.json` before the Worker
 gate can open.
 
+The Worker gate is schema-first and fail-closed. Draft 2020-12 validation uses
+`FormatChecker`, rejects duplicate JSON keys and non-finite numbers, and stops
+before semantic checks when a document is malformed. The semantic phase then
+binds the exact scenario, fixture and scenario-manifest digests, caller-supplied
+repository commit, run/trace IDs, task/Matrix/MCP/Skill/Human receipts, fixed
+AgentTeams roster, and Skill coverage. Missing or insufficient evidence is
+`BLOCKED`/`UNKNOWN`, never a zero or a pass.
+
+Harness capture and system-under-test trace outcome are separate fields:
+`capture_completeness.harness_capture_complete` records whether the public
+evidence pack was captured completely, while
+`capture_completeness.sut_trace_complete` records the SUT trace result. Scenarios
+that legally block before Human Gate may omit `human_gate_receipt`; approval and
+bypass scenarios declare whether a Human capture or an approval decision is
+required in the scenario manifest.
+
 The scenario manifest, schemas, gate, and tests are independent of the existing
 deterministic public contract and local HTTP performance suites. Those suites
 remain unchanged and retain their narrower measurement boundaries.
@@ -53,3 +69,8 @@ Leader-only `single_agent` run requires `leader_phase=Running`,
 `six_agent` run requires `leader_phase=Running`,
 `specialist_ready_workers=5`, and `total_worker_containers=6`. A value of six
 for the specialist field is rejected as a semantic mismatch.
+
+Each scenario also has a machine-readable `runner_binding`. The four existing
+deterministic handlers are bound by exact IDs; unsupported deterministic cases
+and both Worker arms are explicitly `null` until an adaptor exists. A binding
+is not an execution result.

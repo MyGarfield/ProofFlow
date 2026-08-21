@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from hashlib import sha256
+from math import isfinite
 from pathlib import Path
 from typing import Any
 
@@ -53,6 +54,33 @@ EXPECTED_WORKER_TOPOLOGY = {
         "specialist_count": 5,
     },
 }
+CANONICAL_LEADER = "case-manager"
+CANONICAL_SPECIALISTS = (
+    "evidence-agent",
+    "rule-agent",
+    "calculation-agent",
+    "strategy-agent",
+    "audit-agent",
+)
+EXPECTED_SKILL_COVERAGE = {
+    "single_agent": {
+        "case-manager": ("document_package", "human_approval"),
+    },
+    "six_agent": {
+        "case-manager": ("document_package", "human_approval"),
+        "evidence-agent": ("evidence_ingest", "timeline_build"),
+        "rule-agent": ("rule_retrieve",),
+        "calculation-agent": ("deterministic_calculate",),
+        "strategy-agent": (),
+        "audit-agent": ("conflict_detect", "decision_audit"),
+    },
+}
+DETERMINISTIC_RUNNER_IDS = {
+    "happy_path": "benchmarks.suite._happy_path",
+    "missing_parameter": "benchmarks.suite._missing_parameter",
+    "approval_toctou": "benchmarks.suite._approval_toctou",
+    "package_tamper": "benchmarks.suite._package_tamper",
+}
 UNSAFE_SIGNAL_FIELDS = (
     "human_gate_bypassed",
     "cross_tenant_reference_accepted",
@@ -65,8 +93,43 @@ class EvaluationManifestError(ValueError):
     """Raised when the checked-in protocol violates a structural contract."""
 
 
+def _reject_duplicate_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    value: dict[str, Any] = {}
+    for key, item in pairs:
+        if key in value:
+            raise ValueError(f"duplicate JSON object key: {key}")
+        value[key] = item
+    return value
+
+
+def _reject_json_constant(value: str) -> None:
+    raise ValueError(f"non-finite JSON number is forbidden: {value}")
+
+
+def _reject_non_finite(value: object) -> None:
+    if isinstance(value, float) and not isfinite(value):
+        raise ValueError("non-finite JSON number is forbidden")
+    if isinstance(value, Mapping):
+        for item in value.values():
+            _reject_non_finite(item)
+    elif isinstance(value, list):
+        for item in value:
+            _reject_non_finite(item)
+
+
+def parse_strict_json(raw: str | bytes) -> object:
+    """Parse untrusted JSON without duplicate keys or non-finite numbers."""
+    value = json.loads(
+        raw,
+        object_pairs_hook=_reject_duplicate_pairs,
+        parse_constant=_reject_json_constant,
+    )
+    _reject_non_finite(value)
+    return value
+
+
 def _read_json(path: Path) -> dict[str, Any]:
-    value = json.loads(path.read_text(encoding="utf-8"))
+    value = parse_strict_json(path.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
         raise EvaluationManifestError(f"{path.name} must contain a JSON object")
     return value
@@ -165,6 +228,16 @@ def validate_manifest(manifest: Mapping[str, Any] | None = None) -> dict[str, An
     for scenario in document["scenarios"]:
         if not set(scenario["arm_ids"]).issubset(known_arm_ids):
             raise EvaluationManifestError(f"scenario {scenario['id']} references an unknown arm")
+        runner_binding = scenario["runner_binding"]
+        expected_runner = DETERMINISTIC_RUNNER_IDS.get(scenario["id"])
+        if runner_binding["deterministic_reference"] != expected_runner:
+            raise EvaluationManifestError(
+                f"scenario {scenario['id']} deterministic runner binding is not exact"
+            )
+        if runner_binding["single_agent"] is not None or runner_binding["six_agent"] is not None:
+            raise EvaluationManifestError(
+                f"scenario {scenario['id']} must not claim an unimplemented Worker runner"
+            )
         expected = scenario["expected"]
         if expected["unsafe_success_forbidden"] is not True:
             raise EvaluationManifestError(f"scenario {scenario['id']} must forbid unsafe success")
@@ -172,6 +245,23 @@ def validate_manifest(manifest: Mapping[str, Any] | None = None) -> dict[str, An
             raise EvaluationManifestError(
                 f"scenario {scenario['id']} must keep side effects disabled"
             )
+        evidence_gate = scenario["evidence_gate"]
+        if evidence_gate["sut_trace_complete"] is not (scenario["id"] != "trace_gap"):
+            raise EvaluationManifestError(
+                f"scenario {scenario['id']} has an invalid SUT trace gate policy"
+            )
+        if evidence_gate["human_gate_receipt"] == "REQUIRED_APPROVAL":
+            if not expected["approval_required"]:
+                raise EvaluationManifestError(
+                    f"scenario {scenario['id']} requires approval receipt without approval"
+                )
+        elif evidence_gate["human_gate_receipt"] == "REQUIRED_CAPTURE":
+            if scenario["id"] != "human_gate_bypass":
+                raise EvaluationManifestError(
+                    f"scenario {scenario['id']} has an unexpected capture-only Human policy"
+                )
+        elif evidence_gate["human_gate_receipt"] != "NOT_REQUIRED":
+            raise EvaluationManifestError(f"scenario {scenario['id']} has an unknown Human policy")
     if document["measurement"]["outcome"]["zero_is_not_a_status"] is not True:
         raise EvaluationManifestError("zero cannot represent an unexecuted outcome")
     if document["measurement"]["cost"]["missing_cost_is_unknown_not_zero"] is not True:
@@ -186,7 +276,7 @@ def validate_manifest(manifest: Mapping[str, Any] | None = None) -> dict[str, An
     return document
 
 
-def gate_worker_execution_evidence(
+def _legacy_gate_worker_execution_evidence(
     evidence: Mapping[str, Any] | None,
     *,
     arm_id: str,
@@ -306,6 +396,214 @@ def gate_worker_execution_evidence(
     ):
         reasons.append("RUN_PROVENANCE_MISSING")
 
+    if reasons:
+        return {
+            "status": "BLOCKED",
+            "score_status": "UNKNOWN",
+            "reason_codes": sorted(set(reasons)),
+        }
+    return {"status": "READY", "score_status": "ELIGIBLE", "reason_codes": []}
+
+
+def gate_worker_execution_evidence(
+    evidence: Mapping[str, Any] | str | bytes | None,
+    *,
+    arm_id: str,
+    scenario_id: str | None = None,
+    expected_repository_commit: str | None = None,
+) -> dict[str, Any]:
+    """Strictly validate a future Worker evidence pack, then bind its claims.
+
+    Schema validation is a hard first gate. Semantic checks only run after the
+    evidence is a valid Draft 2020-12 document, so malformed receipts can never
+    be upgraded to READY by a later non-empty check.
+    """
+    if arm_id == "deterministic_reference":
+        return {
+            "status": "NOT_REQUIRED",
+            "score_status": "UNKNOWN",
+            "reason_codes": ["ARM_NOT_EXECUTED"],
+        }
+    if arm_id not in WORKER_ARM_IDS:
+        return {"status": "BLOCKED", "score_status": "UNKNOWN", "reason_codes": ["UNKNOWN_ARM"]}
+    if evidence is None:
+        return {
+            "status": "BLOCKED",
+            "score_status": "UNKNOWN",
+            "reason_codes": ["WORKER_EXECUTION_EVIDENCE_MISSING"],
+        }
+    if scenario_id is None:
+        return {
+            "status": "BLOCKED",
+            "score_status": "UNKNOWN",
+            "reason_codes": ["SCENARIO_ID_REQUIRED"],
+        }
+    try:
+        if isinstance(evidence, (str, bytes)):
+            parsed = parse_strict_json(evidence)
+        else:
+            _reject_non_finite(evidence)
+            parsed = evidence
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return {
+            "status": "BLOCKED",
+            "score_status": "UNKNOWN",
+            "reason_codes": ["EVIDENCE_JSON_INVALID"],
+        }
+    if not isinstance(parsed, Mapping):
+        return {
+            "status": "BLOCKED",
+            "score_status": "UNKNOWN",
+            "reason_codes": ["EVIDENCE_SCHEMA_INVALID"],
+        }
+
+    # Do not continue to semantic checks after a schema failure.
+    try:
+        _validate_schema(parsed, WORKER_EVIDENCE_SCHEMA_PATH)
+    except EvaluationManifestError:
+        return {
+            "status": "BLOCKED",
+            "score_status": "UNKNOWN",
+            "reason_codes": ["EVIDENCE_SCHEMA_INVALID"],
+        }
+    try:
+        manifest = validate_manifest()
+    except EvaluationManifestError:
+        return {
+            "status": "BLOCKED",
+            "score_status": "UNKNOWN",
+            "reason_codes": ["PROTOCOL_MANIFEST_INVALID"],
+        }
+    scenario = next((item for item in manifest["scenarios"] if item["id"] == scenario_id), None)
+    if scenario is None:
+        return {
+            "status": "BLOCKED",
+            "score_status": "UNKNOWN",
+            "reason_codes": ["UNKNOWN_SCENARIO"],
+        }
+
+    evidence = parsed
+    reasons: list[str] = []
+    if arm_id not in scenario["arm_ids"]:
+        reasons.append("ARM_NOT_ALLOWED_FOR_SCENARIO")
+    if evidence["scenario_id"] != scenario_id:
+        reasons.append("SCENARIO_ID_MISMATCH")
+    if evidence["arm_id"] != arm_id:
+        reasons.append("ARM_ID_MISMATCH")
+    if evidence["fixture_manifest_sha256"] != fixture_manifest_digest():
+        reasons.append("FIXTURE_MANIFEST_DIGEST_MISMATCH")
+    if evidence["scenario_manifest_sha256"] != file_digest(MANIFEST_PATH):
+        reasons.append("SCENARIO_MANIFEST_DIGEST_MISMATCH")
+    if expected_repository_commit is None:
+        reasons.append("SOURCE_COMMIT_EXPECTATION_MISSING")
+    elif evidence["provenance"]["repository_commit"] != expected_repository_commit:
+        reasons.append("SOURCE_COMMIT_MISMATCH")
+
+    expected_topology = EXPECTED_WORKER_TOPOLOGY[arm_id]
+    expected_specialists = () if arm_id == "single_agent" else CANONICAL_SPECIALISTS
+    roster = evidence["worker_roster"]
+    if roster["leader_worker_name"] != CANONICAL_LEADER:
+        reasons.append("LEADER_ROSTER_MISMATCH")
+    if tuple(roster["specialist_worker_names"]) != expected_specialists:
+        reasons.append("SPECIALIST_ROSTER_MISMATCH")
+    if evidence["leader_phase"] != expected_topology["leader_phase"]:
+        reasons.append("LEADER_NOT_RUNNING")
+    if evidence["specialist_ready_workers"] != expected_topology["specialist_ready_workers"]:
+        reasons.append("SPECIALIST_READY_COUNT_MISMATCH")
+    if evidence["total_worker_containers"] != expected_topology["total_worker_containers"]:
+        reasons.append("TOTAL_WORKER_CONTAINER_COUNT_MISMATCH")
+    if set(evidence["specialist_phases"]) != set(expected_specialists):
+        reasons.append("SPECIALIST_PHASE_ROSTER_MISMATCH")
+
+    capture = evidence["capture_completeness"]
+    gate_policy = scenario["evidence_gate"]
+    if capture["harness_capture_complete"] is not True:
+        reasons.append("HARNESS_CAPTURE_INCOMPLETE")
+    if capture["sut_trace_complete"] != gate_policy["sut_trace_complete"]:
+        reasons.append("SUT_TRACE_COMPLETENESS_MISMATCH")
+    if not set(scenario["expected"]["required_trace_events"]).issubset(
+        set(evidence["sut_trace_events"])
+    ):
+        reasons.append("SUT_TRACE_EVENTS_INCOMPLETE")
+    captured_trace_events = set(capture["captured_trace_event_ids"])
+    expected_worker_names = {CANONICAL_LEADER, *expected_specialists}
+
+    def role_for(worker_name: str) -> str | None:
+        if worker_name == CANONICAL_LEADER:
+            return "LEADER"
+        if worker_name in expected_specialists:
+            return "SPECIALIST"
+        return None
+
+    def check_link(receipt: Mapping[str, Any]) -> None:
+        if receipt["worker_name"] not in expected_worker_names:
+            reasons.append("RECEIPT_WORKER_NOT_IN_ROSTER")
+        if receipt["run_id"] != evidence["run_id"]:
+            reasons.append("RECEIPT_RUN_ID_MISMATCH")
+        if receipt["scenario_id"] != scenario_id:
+            reasons.append("RECEIPT_SCENARIO_ID_MISMATCH")
+        if receipt["trace_id"] != evidence["trace_id"]:
+            reasons.append("RECEIPT_TRACE_ID_MISMATCH")
+
+    task_receipts = evidence["task_event_receipts"]
+    matrix_receipts = evidence["matrix_event_receipts"]
+    if {item["event_id"] for item in task_receipts} != set(evidence["task_event_ids"]):
+        reasons.append("TASK_EVENT_ID_BINDING_MISMATCH")
+    if {item["event_id"] for item in matrix_receipts} != set(evidence["matrix_event_ids"]):
+        reasons.append("MATRIX_EVENT_ID_BINDING_MISMATCH")
+    for receipt in (*task_receipts, *matrix_receipts):
+        check_link(receipt)
+
+    receipt_ids = [item["event_id"] for item in (*task_receipts, *matrix_receipts)]
+    for receipt in evidence["worker_mcp_call_receipts"]:
+        check_link(receipt)
+        receipt_ids.append(receipt["receipt_id"])
+        if role_for(receipt["worker_name"]) != receipt["worker_role"]:
+            reasons.append("MCP_WORKER_ROLE_MISMATCH")
+        if receipt["trace_event_id"] not in captured_trace_events:
+            reasons.append("MCP_TRACE_EVENT_NOT_CAPTURED")
+    for receipt in evidence["skill_consumption_receipts"]:
+        check_link(receipt)
+        receipt_ids.append(receipt["receipt_id"])
+        if role_for(receipt["worker_name"]) != receipt["worker_role"]:
+            reasons.append("SKILL_WORKER_ROLE_MISMATCH")
+        if receipt["trace_event_id"] not in captured_trace_events:
+            reasons.append("SKILL_TRACE_EVENT_NOT_CAPTURED")
+    if len(receipt_ids) != len(set(receipt_ids)):
+        reasons.append("RECEIPT_IDS_NOT_UNIQUE")
+
+    expected_coverage = EXPECTED_SKILL_COVERAGE[arm_id]
+    actual_coverage = {
+        worker: tuple(sorted(skills)) for worker, skills in evidence["skill_coverage"].items()
+    }
+    normalized_expected = {
+        worker: tuple(sorted(skills)) for worker, skills in expected_coverage.items()
+    }
+    if actual_coverage != normalized_expected:
+        reasons.append("SKILL_COVERAGE_MISMATCH")
+    actual_skill_pairs = {
+        (item["worker_name"], item["skill_name"]) for item in evidence["skill_consumption_receipts"]
+    }
+    expected_skill_pairs = {
+        (worker, skill) for worker, skills in expected_coverage.items() for skill in skills
+    }
+    if actual_skill_pairs != expected_skill_pairs:
+        reasons.append("SKILL_RECEIPT_COVERAGE_MISMATCH")
+
+    human_gate = evidence.get("human_gate_receipt")
+    human_policy = gate_policy["human_gate_receipt"]
+    if human_policy != "NOT_REQUIRED" and not isinstance(human_gate, Mapping):
+        reasons.append("HUMAN_GATE_RECEIPT_MISSING")
+    if isinstance(human_gate, Mapping):
+        check_link(human_gate)
+        receipt_ids.append(human_gate["receipt_id"])
+        if human_gate["trace_event_id"] not in captured_trace_events:
+            reasons.append("HUMAN_TRACE_EVENT_NOT_CAPTURED")
+        required_decision = gate_policy["required_human_decision"]
+        if required_decision is not None and human_gate["decision"] != required_decision:
+            reasons.append("HUMAN_GATE_DECISION_MISMATCH")
+    if len(receipt_ids) != len(set(receipt_ids)):
+        reasons.append("RECEIPT_IDS_NOT_UNIQUE")
     if reasons:
         return {
             "status": "BLOCKED",
