@@ -168,7 +168,7 @@ def main() -> None:
     })
     write("network-ledger.json", {
         "schema": "proofflow.reference-runtime.network-ledger.v1",
-        "policy": "allow only 127.0.0.1 or localhost; reject all other targets before socket creation",
+        "policy": "capture client uses direct http.client connections to 127.0.0.1/localhost only; reject all other targets before socket creation; no proxy env and no redirects",
         "requests": network,
         "redirect_regression": run_redirect_regression(),
         "non_loopback_requests_sent": 0,

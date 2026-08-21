@@ -72,6 +72,7 @@ def main() -> None:
         "evidence/ffmpeg-image-sequence.txt",
         "evidence/manifest.schema.json",
         "evidence/validate_manifest.py",
+        "evidence/test_manifest_validator.py",
         "evidence/lint-summary.json",
         "capture/meta.json",
         "capture/screenshots/scroll-000.png",
@@ -79,9 +80,17 @@ def main() -> None:
         "DESIGN.md",
         "SCRIPT.md",
         "STORYBOARD.md",
+        "snapshots/frame-00-at-5s.png",
+        "snapshots/frame-01-at-18s.png",
+        "snapshots/frame-02-at-33s.png",
+        "snapshots/frame-03-at-49s.png",
+        "snapshots/frame-04-at-62s.png",
+        "snapshots/frame-05-at-70s.png",
+        "snapshots/frame-06-at-84s.png",
     ]
     manifest = json.loads((VIDEO_ROOT / "manifest.json").read_text(encoding="utf-8"))
     manifest.pop("artifact_commit", None)
+    manifest.pop("source_commit", None)
     artifact_commit = sys.argv[1] if len(sys.argv) > 1 else None
     manifest.update(
         {
@@ -93,8 +102,11 @@ def main() -> None:
             "keyframe_probes": keyframe_probes,
             "artifact_hashes": {path: sha256(VIDEO_ROOT / path) for path in rel_paths},
             "network_ledger_non_loopback_requests_sent": json.loads((VIDEO_ROOT / "evidence/network-ledger.json").read_text(encoding="utf-8"))["non_loopback_requests_sent"],
+            "network_policy": "capture client only: direct http.client to 127.0.0.1/localhost; no proxy env; no redirects; not a host-wide browser network observation",
             "voiceover_status": "UNAVAILABLE_LOCAL_TTS",
             "audio_role": "AAC_PLACEHOLDER_SILENCE_NOT_NARRATION",
+            "render_method": "FFMPEG_FROM_HYPERFRAMES_SNAPSHOTS",
+            "render_input_hashes": {path: sha256(VIDEO_ROOT / path) for path in rel_paths if path.startswith("snapshots/")},
         }
     )
     (VIDEO_ROOT / "manifest.json").write_text(

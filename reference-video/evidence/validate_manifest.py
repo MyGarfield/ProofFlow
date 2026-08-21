@@ -8,6 +8,8 @@ import re
 import subprocess
 from pathlib import Path
 
+from jsonschema import Draft202012Validator, FormatChecker
+
 
 ROOT = Path(__file__).resolve().parents[2]
 VIDEO = ROOT / "reference-video"
@@ -19,9 +21,26 @@ def digest(path: Path) -> str:
     return "sha256:" + h
 
 
+def strict_load(path: Path):
+    def reject_duplicates(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError(f"duplicate JSON key: {key}")
+            result[key] = value
+        return result
+
+    def reject_constant(value):
+        raise ValueError(f"non-finite JSON number: {value}")
+
+    return json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=reject_duplicates, parse_constant=reject_constant)
+
+
 def main() -> None:
-    manifest = json.loads((VIDEO / "manifest.json").read_text(encoding="utf-8"))
-    schema = json.loads((VIDEO / "evidence/manifest.schema.json").read_text(encoding="utf-8"))
+    manifest = strict_load(VIDEO / "manifest.json")
+    schema = strict_load(VIDEO / "evidence/manifest.schema.json")
+    Draft202012Validator.check_schema(schema)
+    Draft202012Validator(schema, format_checker=FormatChecker()).validate(manifest)
     assert manifest["schema"] == schema["$id"]
     assert re.fullmatch(r"[0-9a-f]{40}", manifest["recorded_source_commit"])
     assert re.fullmatch(r"[0-9a-f]{40}", manifest["artifact_payload_commit"])
@@ -34,12 +53,12 @@ def main() -> None:
         path = VIDEO / relative
         assert path.is_file(), relative
         assert digest(path) == expected, relative
-    network = json.loads((VIDEO / "evidence/network-ledger.json").read_text(encoding="utf-8"))
+    network = strict_load(VIDEO / "evidence/network-ledger.json")
     assert network["non_loopback_requests_sent"] == 0
     assert network["redirect_regression"] == {"location_observed": True, "redirect_followed": False, "sink_requests": 0, "status": 302}
     for item in network["requests"]:
         assert item["url"].startswith("http://127.0.0.1:8765/") or item["decision"] == "BLOCK_BEFORE_SOCKET"
-    action = json.loads((VIDEO / "evidence/action-ledger.json").read_text(encoding="utf-8"))
+    action = strict_load(VIDEO / "evidence/action-ledger.json")
     assert [item["action"] for item in action["actions"]] == ["PREPARE", "PACKAGE", "APPROVE", "PACKAGE", "VERIFY", "BENCHMARK"]
     assert [item["http_status"] for item in action["actions"]] == [200, 409, 200, 200, 200, 200]
     assert all(item["evidence"] == "PASS" for item in action["actions"])

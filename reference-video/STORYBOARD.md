@@ -7,7 +7,7 @@
 
 ## Global safety frame
 
-The top ribbon and bottom caption-safe zone remain legible in every state. A small upper-right source chip reads `http://127.0.0.1:8765` and `NON-LOOPBACK: 0 SENT`. Every state card repeats `REFERENCE RUNTIME / NO LLM` to prevent accidental over-claiming.
+The top ribbon and bottom caption-safe zone remain legible in every state. A small upper-right source chip reads `http://127.0.0.1:8765` and `CAPTURE CLIENT · NON-LOOPBACK SENT: 0`. Every state card repeats `REFERENCE RUNTIME / NO LLM` to prevent accidental over-claiming.
 
 ## Beats
 
