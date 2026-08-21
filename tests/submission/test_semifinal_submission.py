@@ -592,7 +592,7 @@ def test_final_zip_without_decks_is_rejected(
         },
     )
     errors = _validate_zip(forged, trust_context)
-    assert any("exact inventory mismatch" in item for item in errors)
+    assert any("exact config-derived inventory mismatch" in item for item in errors)
 
 
 def test_strict_json_rejects_duplicate_keys_and_non_finite(tmp_path: Path) -> None:
