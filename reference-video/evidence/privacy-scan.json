@@ -1,0 +1,42 @@
+{
+  "files_scanned": [
+    "DESIGN.md",
+    "SCRIPT.md",
+    "STORYBOARD.md",
+    "capture/.cursorrules",
+    "capture/AGENTS.md",
+    "capture/CLAUDE.md",
+    "capture/extracted/animations.json",
+    "capture/extracted/design-styles.json",
+    "capture/extracted/fonts-manifest.json",
+    "capture/extracted/page.html",
+    "capture/extracted/tokens.json",
+    "capture/extracted/visible-text.txt",
+    "capture/meta.json",
+    "evidence/action-ledger.json",
+    "evidence/artifact_spec.py",
+    "evidence/capture_sequence.py",
+    "evidence/dom-states.json",
+    "evidence/ffmpeg-image-sequence.txt",
+    "evidence/finalize_manifest.py",
+    "evidence/lint-summary.json",
+    "evidence/manifest.schema.json",
+    "evidence/network-ledger.json",
+    "evidence/run_final_lint.py",
+    "evidence/run_privacy_scan.py",
+    "evidence/test_manifest_validator.py",
+    "evidence/validate_manifest.py",
+    "index.html",
+    "manifest.json",
+    "narration.txt",
+    "subtitles.srt"
+  ],
+  "matches": [],
+  "path_policy": "published text contains no workstation absolute paths or credential-shaped values",
+  "patterns": [
+    "absolute_path",
+    "api_key",
+    "bearer_token"
+  ],
+  "schema": "proofflow.reference-runtime.privacy-scan.v1"
+}

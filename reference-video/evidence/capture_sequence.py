@@ -19,8 +19,26 @@ from urllib.parse import urlsplit
 ROOT = Path(__file__).resolve().parents[2]
 OUT = Path(__file__).resolve().parent
 BASE = "http://127.0.0.1:8765"
+NETWORK_POLICY = (
+    "capture client uses direct http.client connections to 127.0.0.1/localhost only; "
+    "reject all other targets before socket creation; no proxy env and no redirects"
+)
+FIXED_SEQUENCE = [
+    "PREPARE",
+    "409_FAIL_CLOSED",
+    "LOCAL_DEMO",
+    "PACKAGE",
+    "VERIFY",
+    "11/11_BENCHMARK",
+]
 FIXTURE = "sha256:60ce3111c813c8869e4be65ae5f4fcd9712e388769b35645393dc270184c7f9d"
 RULES = "sha256:27686c904451870dd5953ec6e47c155a395b2f279995e50f68aea984e6bf91de"
+
+
+def require(condition: bool, message: str) -> None:
+    """Fail closed even when this script is run with Python optimizations."""
+    if not condition:
+        raise RuntimeError(message)
 
 
 def guard_url(url: str) -> None:
@@ -82,8 +100,11 @@ def run_redirect_regression() -> dict[str, object]:
     status, _raw, headers = direct_request("GET", f"http://127.0.0.1:{server.server_port}/redirect")
     server.shutdown()
     thread.join(timeout=2)
-    assert status == 302 and headers.get("Location") == "https://proxy.invalid/sink"
-    assert RedirectHandler.sink_requests == 0
+    require(
+        status == 302 and headers.get("Location") == "https://proxy.invalid/sink",
+        "redirect regression did not return the expected 302 Location",
+    )
+    require(RedirectHandler.sink_requests == 0, "redirect regression followed the sink")
     return {"status": status, "location_observed": True, "redirect_followed": False, "sink_requests": 0}
 
 
@@ -112,9 +133,11 @@ def main() -> None:
                 "decision": "BLOCK_BEFORE_SOCKET",
             }
         )
+    else:
+        raise RuntimeError("loopback guard accepted the non-loopback regression target")
 
     status, bootstrap, _headers = request("GET", "/api/bootstrap")
-    assert status == 200 and bootstrap["ok"]
+    require(status == 200 and bootstrap.get("ok") is True, "bootstrap failed")
     token = bootstrap["request_token"]
     network.append({"seq": len(network), "method": "GET", "url": BASE + "/api/bootstrap", "decision": "ALLOW_LOOPBACK", "status": status})
 
@@ -140,9 +163,12 @@ def main() -> None:
         )
         if state is not None:
             states.append({"seq": len(states) + 1, "state": state, "action": name.upper()})
-        assert status_code == expected_status
+        require(status_code == expected_status, f"{name} returned {status_code}, expected {expected_status}")
         if expected_code:
-            assert (result.get("error") or {}).get("code") == expected_code
+            require(
+                (result.get("error") or {}).get("code") == expected_code,
+                f"{name} returned the wrong error code",
+            )
         return result
 
     action("prepare", {}, 200)
@@ -151,6 +177,10 @@ def main() -> None:
     action("package", {}, 200)
     action("verify", {}, 200)
     benchmark = action("benchmark", {}, 200)
+    require(
+        benchmark.get("result", {}).get("contract_pass_fraction") == "11/11",
+        "benchmark did not produce the pinned 11/11 contract result",
+    )
 
     write("action-ledger.json", {
         "schema": "proofflow.reference-runtime.action-ledger.v1",
@@ -168,7 +198,7 @@ def main() -> None:
     })
     write("network-ledger.json", {
         "schema": "proofflow.reference-runtime.network-ledger.v1",
-        "policy": "capture client uses direct http.client connections to 127.0.0.1/localhost only; reject all other targets before socket creation; no proxy env and no redirects",
+        "policy": NETWORK_POLICY,
         "requests": network,
         "redirect_regression": run_redirect_regression(),
         "non_loopback_requests_sent": 0,
@@ -177,7 +207,7 @@ def main() -> None:
         "schema": "proofflow.reference-runtime.dom-state-capture.v1",
         "page": BASE,
         "states": states,
-        "fixed_sequence": ["PREPARE", "409_FAIL_CLOSED", "LOCAL_DEMO", "PACKAGE", "VERIFY", "11/11_BENCHMARK"],
+        "fixed_sequence": FIXED_SEQUENCE,
     })
 
 

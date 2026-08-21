@@ -1,8 +1,14 @@
 {
-  "tool": "npx hyperframes lint --json",
-  "ok": true,
+  "command": "npx hyperframes lint --json",
   "errorCount": 0,
-  "warningCount": 1,
-  "warningCodes": ["timeline_track_too_dense"],
-  "paths_redacted": true
+  "index_sha256": "sha256:0723cf4ed637b1ef247222fbca101e25c1ee8736b54c6391bf229419284fdfc3",
+  "ok": true,
+  "paths_redacted": true,
+  "schema": "proofflow.reference-runtime.lint-summary.v1",
+  "tool": "hyperframes",
+  "tool_version": "0.8.6",
+  "warningCodes": [
+    "timeline_track_too_dense"
+  ],
+  "warningCount": 1
 }

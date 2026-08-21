@@ -63,7 +63,7 @@
   ],
   "benchmark_accuracy_claim": "NOT_MEASURED",
   "benchmark_contract_pass_fraction": "11/11",
-  "captured_at": "2026-08-21T06:04:27.666418+00:00",
+  "captured_at": "2026-08-21T07:38:55.129610+00:00",
   "classification": "PUBLIC_SYNTHETIC",
   "fixture_pin": "sha256:60ce3111c813c8869e4be65ae5f4fcd9712e388769b35645393dc270184c7f9d",
   "llm": "OFF",
