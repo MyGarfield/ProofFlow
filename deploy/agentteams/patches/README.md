@@ -20,11 +20,14 @@ git -C /path/to/AgentTeams-v1.2.2 apply --check \
   /path/to/ProofFlow/deploy/agentteams/patches/PATCH_NAME.patch
 ```
 
-The `llm-preflight` patch includes Go tests for three security properties:
+The `llm-preflight` patch includes Go tests for these security properties:
 
-1. `--help` and the Cobra `Flag.DefValue` do not contain an API-key sentinel supplied by env;
-2. an env-only key is still read at command execution and reaches the HTTP Authorization header;
-3. an explicitly changed flag preserves the existing flag-over-env precedence.
+1. `--help`, `agt help llm-preflight`, Bash/Zsh completion, command errors, and every recursive
+   Cobra flag default/value do not contain an API-key sentinel supplied by env;
+2. an env-only key is read only at command execution and reaches an isolated httptest HTTP
+   Authorization header;
+3. an explicitly changed flag preserves the existing flag-over-env precedence;
+4. an HTTP error body containing the key remains redacted.
 
 Run the scoped upstream tests after applying it to a disposable clean checkout:
 
@@ -33,26 +36,22 @@ cd /path/to/AgentTeams-v1.2.2/agentteams-controller
 go test ./cmd/agt -run 'TestLLMPreflight' -count=1
 ```
 
-During ProofFlow authoring on 2026-08-20, this patch passed `git apply --check` against the pinned
-commit and the scoped Go command above passed in a disposable local clone. That is source-level patch
-evidence only; it does not say the observed Controller or Manager image contains the change.
+The repeatable source-only verifier is
+[`scripts/verify-llm-preflight-patch.sh`](../scripts/verify-llm-preflight-patch.sh). It requires a clean
+local checkout at the pinned commit, creates its own disposable clone, runs `git apply --check`, applies
+the patch, and runs only the scoped Go tests with `GOPROXY=off GOSUMDB=off` (a missing module cache fails
+closed rather than downloading). It emits no source path, test output, sentinel, or runtime configuration.
+The machine evidence is
+[`evidence/llm-preflight-patch-verification-2026-08-21.json`](../evidence/llm-preflight-patch-verification-2026-08-21.json)
+with patch SHA-256
+`5974fdcf569ae8a70392a151cec8ed38407408cdd5e0e9b556f732427b470567`.
+This is source-level patch evidence only; it does not say the observed Controller or Manager image
+contains the change.
 
-Until a rebuilt binary containing the fix is verified, rotate any credential that may have reached
-captured help output. Do not run `agt llm-preflight --help`, `agt help llm-preflight`, completion/help
-generators, `--api-key`, full container-env inspection, or environment-bearing process listings.
-For a required preflight, rely on the already configured container environment, suppress raw output,
-and retain only a fixed PASS/FAIL result:
-
-```bash
-if docker exec agentteams-manager agt llm-preflight --strict >/dev/null 2>&1; then
-  printf '%s\n' 'LLM_PREFLIGHT=PASS'
-else
-  printf '%s\n' 'LLM_PREFLIGHT=FAIL'
-fi
-```
-
-This command does not pass a key in host argv; it uses the container's already configured environment.
-It is a containment measure, not a binary fix. Do not capture raw command output. If static help is
-unavoidable, first remove the secret only for that process with
-`docker exec agentteams-manager env -u AGENTTEAMS_LLM_API_KEY agt llm-preflight --help` and still do
-not archive the output. The public evidence collector never invokes the vulnerable help path.
+Until a rebuilt binary containing the fix is verified, immediately revoke and rotate every credential
+that may have reached captured help, completion, error, log, or evidence output. Do not run the live
+v1.2.2 `agt llm-preflight` help/completion paths, pass a key with `--api-key`, inspect full container
+env/process state, or capture raw preflight output. This candidate patch is not deployed. Workers and
+LLM calls remain disabled until the Manager is rebuilt and replaced, a new SBOM and vulnerability scan
+are verified for that replacement, and the patched runtime is separately verified. Only then may the
+Worker-start gate be considered.

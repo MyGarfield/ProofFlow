@@ -1,11 +1,13 @@
 import json
 import re
+from copy import deepcopy
 from hashlib import sha256
 from importlib import metadata
 from pathlib import Path
 
 import pytest
 import yaml
+from jsonschema import Draft202012Validator, FormatChecker
 from pydantic import ValidationError
 
 from proofflow.contracts import EvidenceIngestToolCall
@@ -54,6 +56,55 @@ def test_agentteams_baseline_keeps_manager_smoke_claim_narrow() -> None:
         "mcp-proof-rules",
         "mcp-proof-calc",
     ]
+
+
+def test_llm_preflight_patch_verification_evidence_is_source_only() -> None:
+    evidence_path = DEPLOY / "evidence/llm-preflight-patch-verification-2026-08-21.json"
+    schema_path = DEPLOY / "evidence/llm-preflight-patch-verification.schema.json"
+    evidence = json.loads(evidence_path.read_text())
+    schema = json.loads(schema_path.read_text())
+    validator = Draft202012Validator(schema, format_checker=FormatChecker())
+    validator.validate(evidence)
+
+    patch_path = DEPLOY / "patches/v1.2.2-llm-preflight-help-redaction.patch"
+    assert evidence["patch"]["sha256"] == sha256(patch_path.read_bytes()).hexdigest()
+    assert evidence["status"] == "PASS"
+    assert evidence["source"]["commit"] == "849182af8e017168a5a200a87b1062142caf462d"
+    assert evidence["patch"]["git_apply_check"] == "PASS"
+    assert evidence["patch"]["applied_in_isolated_checkout"] is True
+    assert evidence["tests"]["status"] == "PASS"
+    assert evidence["runtime_boundary"] == {
+        "live_manager_env_read": False,
+        "live_manager_help_or_completion_run": False,
+        "worker_started": False,
+        "llm_started": False,
+        "runtime_binary_fixed": False,
+        "patch_deployed": False,
+    }
+    assert evidence["release_gate"]["workers_may_start"] is False
+
+    for section, field, value in (
+        ("source", "source_worktree_clean", False),
+        ("source", "isolated_clone_created", False),
+        ("source", "isolated_checkout_clean", False),
+        ("patch", "git_apply_check", "FAIL"),
+        ("patch", "applied_in_isolated_checkout", False),
+        ("tests", "status", "FAIL"),
+    ):
+        invalid = deepcopy(evidence)
+        invalid[section][field] = value
+        assert not validator.is_valid(invalid), (section, field, value)
+
+
+def test_llm_preflight_verifier_has_no_live_runtime_operations() -> None:
+    verifier = (DEPLOY / "scripts/verify-llm-preflight-patch.sh").read_text()
+    assert "docker exec" not in verifier
+    assert "docker inspect" not in verifier
+    assert "agt llm-preflight" not in verifier
+    assert "AGENTTEAMS_LLM_API_KEY" in verifier
+    assert "apply --check" in verifier
+    assert "go test ./cmd/agt -run 'TestLLMPreflight' -count=1" in verifier
+    assert "GOPROXY=off GOSUMDB=off" in verifier
 
 
 def test_six_workers_start_stopped_and_keep_mcp_least_privilege_shape() -> None:

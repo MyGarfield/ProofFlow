@@ -113,9 +113,15 @@ AgentTeams v1.2.2 先从 `AGENTTEAMS_LLM_API_KEY` 读取值，再把该值作为
 仓库提供候选上游补丁
 [`patches/v1.2.2-llm-preflight-help-redaction.patch`](patches/v1.2.2-llm-preflight-help-redaction.patch)：
 flag 默认值恒为空，只有进入 `RunE` 后才按“显式 flag 优先，否则读 env”解析。补丁还加入 help
-不含 sentinel、env-only 调用仍有效、flag 覆盖 env 的 Go 测试。它尚未重建或替换当前 v1.2.2 镜像，
-所以公开采集器明确禁止执行 `agt llm-preflight --help`、completion/help 生成或任何会打印完整容器
-环境的命令。若此前 help 输出已被捕获，应轮换相应凭证；不要尝试靠删日志恢复凭证安全性。
+不含 sentinel、`agt help llm-preflight`、Bash/Zsh completion、error 和递归 Flag 默认值扫描，
+env-only 调用仍有效、flag 覆盖 env 的 Go 测试，并保留 HTTP body redaction。可重复验证器与机器
+证据见 [`scripts/verify-llm-preflight-patch.sh`](scripts/verify-llm-preflight-patch.sh) 和
+[`evidence/llm-preflight-patch-verification-2026-08-21.json`](evidence/llm-preflight-patch-verification-2026-08-21.json)。
+该证据只证明 pinned 源码 patch 在隔离 checkout 可应用并通过定向 Go tests；它尚未重建或替换当前
+v1.2.2 镜像，所以公开采集器明确禁止执行 live `agt llm-preflight --help`、completion/help
+生成或任何会打印完整容器环境的命令。若此前 help、completion、error 或日志输出已被捕获，应
+立即撤销并轮换相应凭证；不要尝试靠删日志恢复凭证安全性。本候选 patch 未部署；只有重建并替换
+Manager、验证新 SBOM/漏洞扫描和完成运行验证后，才可开启 Worker/LLM。
 
 ## 分项健康检查
 

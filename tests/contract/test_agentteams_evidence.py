@@ -462,9 +462,12 @@ def test_llm_preflight_patch_documents_help_secret_regression_tests() -> None:
     collector = (DEPLOY / "scripts/collect-public-evidence.sh").read_text()
 
     assert "TestLLMPreflightHelpDoesNotExposeAPIKeyFromEnv" in patch
+    assert "TestLLMPreflightRootHelpAndSubcommandHelpDoNotExposeAPIKey" in patch
+    assert "TestLLMPreflightCompletionAndErrorDoNotExposeAPIKey" in patch
     assert "TestLLMPreflightCommandUsesAPIKeyFromEnvAtRunTime" in patch
     assert "TestLLMPreflightCommandFlagOverridesEnvironmentAPIKey" in patch
     assert 'StringVar(&apiKeyFlag, "api-key", ""' in patch
+    assert "assertCommandTreeDoesNotContain" in patch
     assert "agt llm-preflight --help" not in "\n".join(
         line for line in collector.splitlines() if not line.lstrip().startswith("#")
     )
