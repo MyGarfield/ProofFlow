@@ -1,0 +1,15 @@
+file '../snapshots/frame-00-at-5s.png'
+duration 10
+file '../snapshots/frame-01-at-18s.png'
+duration 16
+file '../snapshots/frame-02-at-33s.png'
+duration 15
+file '../snapshots/frame-03-at-49s.png'
+duration 17
+file '../snapshots/frame-04-at-62s.png'
+duration 8
+file '../snapshots/frame-05-at-70s.png'
+duration 9
+file '../snapshots/frame-06-at-84s.png'
+duration 17
+file '../snapshots/frame-06-at-84s.png'

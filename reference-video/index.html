@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="zh-CN" data-composition-variables='[{"id":"title","type":"string","label":"Title","default":"REFERENCE RUNTIME EVIDENCE ONLY"}]'>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ProofFlow — Reference Runtime Evidence Only</title>
+  <style>
+    :root { --bg:#FFFFFF; --fg:#000000; --blue:#0000FF; --red:#FF0000; --gold:#FFD700; --hair:#000000; --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif; --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace; }
+    * { box-sizing:border-box; }
+    html,body { margin:0; width:100%; height:100%; background:var(--bg); color:var(--fg); overflow:hidden; }
+    body { font-family:var(--sans); -webkit-font-smoothing:antialiased; }
+    .root { position:relative; width:100%; height:100%; background:#fff; overflow:hidden; }
+    .scene { position:absolute; inset:0; width:100%; height:100%; background:#fff; overflow:hidden; }
+    .scene-frame { display:flex; flex-direction:column; width:100%; height:100%; padding:28px 36px 24px; gap:14px; }
+    .header { display:grid; grid-template-columns:300px 1fr 360px; align-items:center; border-bottom:2px solid #000; padding-bottom:14px; min-height:72px; }
+    .brand { display:flex; gap:12px; align-items:center; font-size:34px; font-weight:900; letter-spacing:-.07em; }
+    .brand-mark { width:22px; height:22px; background:var(--red); display:block; }
+    .signal { color:var(--red); }
+    .mono { font-family:var(--mono); letter-spacing:.08em; text-transform:uppercase; }
+    .header .mono { font-size:15px; border-left:1px solid #000; padding-left:20px; }
+    .source-chip { display:flex; justify-content:flex-end; gap:22px; align-items:center; font-family:var(--mono); font-size:14px; }
+    .source-chip b { color:var(--blue); }
+    .boundary { display:grid; grid-template-columns:1.3fr 1fr 1fr 1.45fr; min-height:40px; border-bottom:2px solid #000; background:#000; color:#fff; font-family:var(--mono); font-size:15px; font-weight:800; letter-spacing:.08em; }
+    .boundary span { display:flex; align-items:center; padding:0 18px; border-right:1px solid #fff; }
+    .boundary span:first-child { background:var(--blue); }
+    .boundary span:last-child { border-right:0; }
+    .grid { flex:1; display:grid; grid-template-columns:1.05fr 2.25fr 1.05fr; grid-template-rows:1fr 180px; gap:14px; min-height:0; overflow:hidden; }
+    .rail, .truth, .ledger, .trace, .limit { border:2px solid #000; background:#fff; min-width:0; }
+    .rail { grid-row:1 / span 2; padding:20px; display:flex; flex-direction:column; justify-content:space-between; }
+    .rail h1 { margin:0; font-size:70px; line-height:.86; letter-spacing:-.08em; }
+    .rail p { margin:0; border-top:6px solid var(--red); padding-top:14px; font-size:20px; line-height:1.35; }
+    .rail .kicker { font-size:15px; }
+    .truth { padding:20px; }
+    .truth h2 { margin:4px 0 16px; font-size:42px; line-height:.9; letter-spacing:-.07em; }
+    .truth dl { margin:0; }
+    .truth dl div { display:flex; justify-content:space-between; border-top:1px solid #000; padding:7px 0; font-family:var(--mono); font-size:14px; }
+    .truth dd { margin:0; font-weight:800; }
+    .truth .stopped { color:var(--red); background:#000; padding:0 4px; }
+    .truth .blue { color:var(--blue); }
+    .truth .copy { margin:14px 0 0; font-size:15px; line-height:1.3; }
+    .ledger { grid-column:2; padding:20px; display:flex; flex-direction:column; gap:12px; }
+    .ledger-head { display:flex; justify-content:space-between; align-items:baseline; border-bottom:2px solid #000; padding-bottom:12px; }
+    .ledger-head h2 { margin:0; font-size:32px; letter-spacing:-.05em; }
+    .ledger-head strong { font-family:var(--mono); font-size:20px; background:var(--gold); padding:5px 8px; }
+    .steps { display:grid; grid-template-columns:repeat(5,1fr); border:2px solid #000; }
+    .step { min-height:78px; padding:10px; border-right:1px solid #000; display:flex; flex-direction:column; justify-content:space-between; }
+    .step:last-child { border-right:0; }
+    .step b { font-size:17px; }
+    .step small { font-family:var(--mono); font-size:11px; line-height:1.15; }
+    .step em { font-family:var(--mono); font-style:normal; font-size:13px; }
+    .step.active { box-shadow:inset 0 -7px 0 var(--gold); }
+    .step.blocked { box-shadow:inset 0 -7px 0 var(--red); }
+    .step.verified { box-shadow:inset 0 -7px 0 var(--blue); }
+    .evidence-row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+    .metric { border:1px solid #000; padding:10px; min-height:62px; }
+    .metric b { display:block; font-size:28px; line-height:1; }
+    .metric span { font-family:var(--mono); font-size:11px; }
+    .event { flex:1; border:2px solid #000; display:grid; grid-template-columns:180px 1fr 200px; align-items:center; padding:0 14px; font-family:var(--mono); font-size:16px; }
+    .event .code { font-size:22px; font-weight:900; }
+    .event .code.red { color:var(--red); }
+    .event .code.blue { color:var(--blue); }
+    .event .code.gold { background:var(--gold); padding:7px; width:max-content; }
+    .event .right { text-align:right; }
+    .trace { grid-column:2; padding:14px 20px; display:grid; grid-template-columns:160px 1fr; gap:20px; align-items:center; overflow:hidden; }
+    .trace h3 { margin:0; font-size:36px; letter-spacing:-.06em; }
+    .trace-lines { font-family:var(--mono); font-size:13px; line-height:1.55; }
+    .trace-lines div { display:grid; grid-template-columns:50px 160px 1fr 120px; border-top:1px solid #000; padding:5px 0; }
+    .trace-lines .ok { color:var(--blue); font-weight:800; }
+    .trace-lines span[style*="#f00"] { color:var(--red) !important; background:#000; padding:0 4px; }
+    .limit { grid-column:3; grid-row:2; padding:14px 18px; }
+    .limit h3 { margin:0 0 10px; font-size:22px; }
+    .limit p { margin:0; font-family:var(--mono); font-size:13px; line-height:1.55; }
+    .caption-safe { position:absolute; left:36px; right:36px; bottom:18px; min-height:52px; display:flex; align-items:center; justify-content:center; padding:9px 24px; border:2px solid #000; background:rgba(255,255,255,.96); font-size:20px; font-weight:700; text-align:center; z-index:5; }
+    .page-capture { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:#000; }
+    .page-capture img { width:100%; height:100%; object-fit:contain; }
+    .capture-label { position:absolute; top:32px; left:36px; padding:10px 16px; background:var(--blue); color:#fff; font-family:var(--mono); font-weight:800; font-size:18px; z-index:2; }
+    .capture-note { position:absolute; bottom:38px; right:36px; padding:12px 16px; background:#fff; border:3px solid var(--red); font-family:var(--mono); font-size:16px; z-index:2; }
+    .scanline { position:absolute; top:0; bottom:0; left:0; width:8px; background:var(--red); opacity:.9; z-index:3; }
+    .intro-lock { position:absolute; left:70px; bottom:96px; color:#fff; background:#000; padding:8px 12px; font-family:var(--mono); font-size:18px; z-index:2; }
+  </style>
+</head>
+<body>
+  <div id="root" class="root" data-composition-id="root" data-width="1920" data-height="1080" data-start="0" data-duration="92" data-no-timeline>
+    <div id="scene-intro" class="scene clip" data-start="0" data-duration="10" data-track-index="0">
+      <div class="page-capture scene-frame">
+        <img src="capture/screenshots/scroll-000.png" alt="Captured ProofFlow loopback console">
+        <div class="capture-label">PAGE-LEVEL CAPTURE / REFERENCE RUNTIME</div>
+        <div class="capture-note">NETWORK POLICY · NON-LOOPBACK: 0 SENT</div>
+        <div class="scanline"></div>
+        <div class="intro-lock">PUBLIC SYNTHETIC · NO LLM · WORKERS STOPPED · readyWorkers=0</div>
+      </div>
+      <div class="caption-safe">公开合成参考证据片｜只展示 loopback Demo，不声称六 Agent、Worker、LLM 或真实 Human 已运行</div>
+    </div>
+
+    <div id="scene-prepare" class="scene clip" data-start="10" data-duration="16" data-track-index="0">
+      <div class="scene-frame">
+        <header class="header"><div class="brand"><span class="brand-mark"></span>PROOF<span class="signal">FLOW</span></div><div class="mono">REFERENCE RUNTIME EVIDENCE ONLY / 01</div><div class="source-chip"><span>127.0.0.1:8765</span><b>NON-LOOPBACK: 0</b></div></header>
+        <div class="boundary"><span>PUBLIC SYNTHETIC</span><span>REFERENCE RUNTIME</span><span>NO LLM</span><span>Workers Stopped · readyWorkers=0</span></div>
+        <main class="grid"><section class="rail"><div><div class="mono kicker">01 / CONTROLLED USER JOURNEY</div><h1>PREPARE<span class="signal">.</span></h1></div><p>固定 fixture + rules 已封存。运行明确停在 <b>AWAITING_APPROVAL</b>。</p></section><section class="truth"><div class="mono">02 / RUNTIME TRUTH</div><h2>REFERENCE<br>RUNTIME</h2><dl><div><dt>STAGE</dt><dd>AWAITING_APPROVAL</dd></div><div><dt>WORKERS</dt><dd class="stopped">Stopped</dd></div><div><dt>readyWorkers</dt><dd class="stopped">0</dd></div><div><dt>LLM</dt><dd>OFF</dd></div><div><dt>NETWORK</dt><dd>127.0.0.1</dd></div></dl><p class="copy">PF-A1…PF-A6 只是确定性 trace actor，不是运行中的 Agent。</p></section><section class="ledger"><div class="ledger-head"><h2>证明链状态</h2><strong>AWAITING_APPROVAL</strong></div><div class="steps"><div class="step active"><b>PREPARE</b><small>fixed inputs</small><em>SEALED</em></div><div class="step"><b>HUMAN GATE</b><small>package → 409</small><em>WAIT</em></div><div class="step"><b>APPROVE</b><small>LOCAL_DEMO</small><em>WAIT</em></div><div class="step"><b>PACKAGE</b><small>manifest</small><em>WAIT</em></div><div class="step"><b>VERIFY</b><small>hash + trace</small><em>WAIT</em></div></div><div class="evidence-row"><div class="metric"><b>13</b><span>EVIDENCE</span></div><div class="metric"><b>4</b><span>RULES</span></div><div class="metric"><b>60000</b><span>CNY REF. / SYNTHETIC</span></div></div><div class="event"><span class="code gold">200 / PREPARE</span><span>input pins match · approval gate open</span><span class="right">package files · 0</span></div></section><section class="trace"><h3>TRACE</h3><div class="trace-lines"><div><span>001</span><b>PREPARE</b><span>AWAITING_APPROVAL</span><span class="ok">LOCAL</span></div><div><span>002</span><b>BOUNDARY</b><span>external_side_effects=false</span><span class="ok">SEALED</span></div></div></section><section class="limit"><h3>边界声明</h3><p>60000 不是法律结论。此片不测法律准确率，不证明 Worker/LLM 运行。</p></section></main>
+        <div class="caption-safe">PREPARE：固定 fixture + rules 封存，页面停在 AWAITING_APPROVAL；Workers Stopped，readyWorkers=0</div>
+      </div>
+    </div>
+
+    <div id="scene-gate" class="scene clip" data-start="26" data-duration="15" data-track-index="0">
+      <div class="scene-frame"><header class="header"><div class="brand"><span class="brand-mark"></span>PROOF<span class="signal">FLOW</span></div><div class="mono">REFERENCE RUNTIME EVIDENCE ONLY / 02</div><div class="source-chip"><span>127.0.0.1:8765</span><b>NON-LOOPBACK: 0</b></div></header><div class="boundary"><span>PUBLIC SYNTHETIC</span><span>REFERENCE RUNTIME</span><span>NO LLM</span><span>Workers Stopped · readyWorkers=0</span></div><main class="grid"><section class="rail"><div><div class="mono kicker">02 / FAIL-CLOSED PROBE</div><h1>409<span class="signal">.</span></h1></div><p>审批前调用 PACKAGE 被明确拒绝。Gate 保持锁定，未写入 package。</p></section><section class="truth"><div class="mono">02 / RUNTIME TRUTH</div><h2>GATE<br>LOCKED</h2><dl><div><dt>STAGE</dt><dd>AWAITING_APPROVAL</dd></div><div><dt>WORKERS</dt><dd class="stopped">Stopped</dd></div><div><dt>readyWorkers</dt><dd class="stopped">0</dd></div><div><dt>LLM</dt><dd>OFF</dd></div><div><dt>NETWORK</dt><dd>127.0.0.1</dd></div></dl><p class="copy">这是预期的 fail-closed 证据，不是演示故障。</p></section><section class="ledger"><div class="ledger-head"><h2>Human Gate</h2><strong style="background:#ff0000;color:#fff">409 BLOCKED</strong></div><div class="steps"><div class="step"><b>PREPARE</b><small>fixed inputs</small><em>SEALED</em></div><div class="step blocked"><b>HUMAN GATE</b><small>package → 409</small><em>BLOCKED</em></div><div class="step"><b>APPROVE</b><small>LOCAL_DEMO</small><em>WAIT</em></div><div class="step"><b>PACKAGE</b><small>manifest</small><em>WAIT</em></div><div class="step"><b>VERIFY</b><small>hash + trace</small><em>WAIT</em></div></div><div class="evidence-row"><div class="metric"><b class="signal">409</b><span>HTTP STATUS</span></div><div class="metric"><b>0</b><span>PACKAGE FILES</span></div><div class="metric"><b>1</b><span>BLOCK PROBE</span></div></div><div class="event"><span class="code red">409 / HUMAN_GATE_REQUIRED</span><span>package-before-approval → blocked as expected</span><span class="right">FAIL-CLOSED / PASS</span></div></section><section class="trace"><h3>TRACE</h3><div class="trace-lines"><div><span>003</span><b>PACKAGE</b><span>HUMAN_GATE_REQUIRED</span><span style="color:#f00">EXPECTED</span></div><div><span>004</span><b>STATE</b><span>AWAITING_APPROVAL</span><span style="color:#f00">UNCHANGED</span></div></div></section><section class="limit"><h3>边界声明</h3><p>409 证明门禁合同。它不证明法律准确率、Worker/LLM 质量或生产安全。</p></section></main><div class="caption-safe">审批前 PACKAGE → HTTP 409 HUMAN_GATE_REQUIRED；这是预期的 fail-closed 阻断，package files=0</div></div>
+    </div>
+
+    <div id="scene-approve" class="scene clip" data-start="41" data-duration="17" data-track-index="0">
+      <div class="scene-frame"><header class="header"><div class="brand"><span class="brand-mark"></span>PROOF<span class="signal">FLOW</span></div><div class="mono">REFERENCE RUNTIME EVIDENCE ONLY / 03</div><div class="source-chip"><span>127.0.0.1:8765</span><b>NON-LOOPBACK: 0</b></div></header><div class="boundary"><span>PUBLIC SYNTHETIC</span><span>REFERENCE RUNTIME</span><span>NO LLM</span><span>Workers Stopped · readyWorkers=0</span></div><main class="grid"><section class="rail"><div><div class="mono kicker">03 / EXPLICIT APPROVAL</div><h1>LOCAL<span class="signal">_DEMO.</span></h1></div><p>审批理由由本地 Demo 记录。它不是现实 Human 参与，也不触发外部系统。</p></section><section class="truth"><div class="mono">02 / RUNTIME TRUTH</div><h2>APPROVAL<br>BOUND</h2><dl><div><dt>STAGE</dt><dd>APPROVED</dd></div><div><dt>METHOD</dt><dd>LOCAL_DEMO</dd></div><div><dt>ROLE</dt><dd>legal-reviewer</dd></div><div><dt>WORKERS</dt><dd class="stopped">Stopped / 0</dd></div><div><dt>NETWORK</dt><dd>127.0.0.1</dd></div></dl><p class="copy">subject hash 已绑定。external_side_effects_enabled=false。</p></section><section class="ledger"><div class="ledger-head"><h2>Approval record</h2><strong style="background:#ffd700">LOCAL_DEMO</strong></div><div class="steps"><div class="step"><b>PREPARE</b><small>fixed inputs</small><em>SEALED</em></div><div class="step"><b>HUMAN GATE</b><small>package → 409</small><em>BLOCK PASS</em></div><div class="step active"><b>APPROVE</b><small>reason + role</small><em>RECORDED</em></div><div class="step"><b>PACKAGE</b><small>manifest</small><em>READY</em></div><div class="step"><b>VERIFY</b><small>hash + trace</small><em>WAIT</em></div></div><div class="evidence-row"><div class="metric"><b>LOCAL</b><span>APPROVAL METHOD</span></div><div class="metric"><b>BOUND</b><span>SUBJECT HASH</span></div><div class="metric"><b>0</b><span>EXTERNAL SIDE EFFECTS</span></div></div><div class="event"><span class="code gold">200 / APPROVE</span><span>reason recorded · role fixed to legal-reviewer</span><span class="right">LOCAL ONLY</span></div></section><section class="trace"><h3>TRACE</h3><div class="trace-lines"><div><span>005</span><b>APPROVE</b><span>LOCAL_DEMO</span><span style="color:#000">BOUND</span></div><div><span>006</span><b>SUBJECT</b><span>sha256:…f9d</span><span style="color:#000">SEALED</span></div></div></section><section class="limit"><h3>边界声明</h3><p>LOCAL_DEMO 是本地演示方法，不是现实 Human、签署、HR 写入或外部提交。</p></section></main><div class="caption-safe">LOCAL_DEMO：记录人工理由并绑定当前 subject hash；这里不是现实 Human 或外部副作用</div></div>
+    </div>
+
+    <div id="scene-package" class="scene clip" data-start="58" data-duration="8" data-track-index="0">
+      <div class="scene-frame"><header class="header"><div class="brand"><span class="brand-mark"></span>PROOF<span class="signal">FLOW</span></div><div class="mono">REFERENCE RUNTIME EVIDENCE ONLY / 04</div><div class="source-chip"><span>127.0.0.1:8765</span><b>NON-LOOPBACK: 0</b></div></header><div class="boundary"><span>PUBLIC SYNTHETIC</span><span>REFERENCE RUNTIME</span><span>NO LLM</span><span>Workers Stopped · readyWorkers=0</span></div><main class="grid"><section class="rail"><div><div class="mono kicker">04 / LOCAL PACKAGE</div><h1>PACKAGE<span class="signal">.</span></h1></div><p>审批绑定成功后，才创建两个本地评审文件。</p></section><section class="truth"><div class="mono">02 / RUNTIME TRUTH</div><h2>PACKAGE<br>SEALED</h2><dl><div><dt>STAGE</dt><dd>PACKAGED</dd></div><div><dt>FILES</dt><dd>2</dd></div><div><dt>WORKERS</dt><dd class="stopped">Stopped / 0</dd></div><div><dt>LLM</dt><dd>OFF</dd></div><div><dt>NETWORK</dt><dd>127.0.0.1</dd></div></dl><p class="copy">只生成本地 review-draft 与 manifest。</p></section><section class="ledger"><div class="ledger-head"><h2>Package manifest</h2><strong>PACKAGED</strong></div><div class="steps"><div class="step"><b>PREPARE</b><small>fixed inputs</small><em>SEALED</em></div><div class="step"><b>HUMAN GATE</b><small>package → 409</small><em>PASS</em></div><div class="step"><b>APPROVE</b><small>LOCAL_DEMO</small><em>BOUND</em></div><div class="step active"><b>PACKAGE</b><small>manifest</small><em>SEALED</em></div><div class="step"><b>VERIFY</b><small>hash + trace</small><em>READY</em></div></div><div class="evidence-row"><div class="metric"><b>2</b><span>PACKAGE FILES</span></div><div class="metric"><b>SHA</b><span>CONTENT HASH</span></div><div class="metric"><b>FALSE</b><span>EXTERNAL SIDE EFFECTS</span></div></div><div class="event"><span class="code">200 / PACKAGE</span><span>review-draft.md · review-manifest.json</span><span class="right">LOCAL FILES ONLY</span></div></section><section class="trace"><h3>TRACE</h3><div class="trace-lines"><div><span>007</span><b>PACKAGE</b><span>PACKAGED</span><span class="ok">SEALED</span></div><div><span>008</span><b>FILES</b><span>2 / HASHED</span><span class="ok">LOCAL</span></div></div></section><section class="limit"><h3>边界声明</h3><p>Package 是受控评审草案，不是对外发送、签署、付款或 HR 写入。</p></section></main><div class="caption-safe">PACKAGE：生成本地评审包；外部副作用仍为 false</div></div>
+    </div>
+
+    <div id="scene-verify" class="scene clip" data-start="66" data-duration="9" data-track-index="0">
+      <div class="scene-frame"><header class="header"><div class="brand"><span class="brand-mark"></span>PROOF<span class="signal">FLOW</span></div><div class="mono">REFERENCE RUNTIME EVIDENCE ONLY / 05</div><div class="source-chip"><span>127.0.0.1:8765</span><b>NON-LOOPBACK: 0</b></div></header><div class="boundary"><span>PUBLIC SYNTHETIC</span><span>REFERENCE RUNTIME</span><span>NO LLM</span><span>Workers Stopped · readyWorkers=0</span></div><main class="grid"><section class="rail"><div><div class="mono kicker">05 / INDEPENDENT CHECK</div><h1>VALID<span class="signal">.</span></h1></div><p>独立检查 hash、trace、approval binding 与 package files。</p></section><section class="truth"><div class="mono">02 / RUNTIME TRUTH</div><h2>VERIFY<br>PASS</h2><dl><div><dt>STAGE</dt><dd>PACKAGED</dd></div><div><dt>VALID</dt><dd class="blue">true</dd></div><div><dt>ARTIFACTS</dt><dd>25</dd></div><div><dt>PACKAGE FILES</dt><dd>2</dd></div><div><dt>NETWORK</dt><dd>127.0.0.1</dd></div></dl><p class="copy">VALID 只表示结构完整性通过，不表示法律准确率。</p></section><section class="ledger"><div class="ledger-head"><h2>Independent verification</h2><strong style="background:#0000ff;color:#fff">VALID</strong></div><div class="steps"><div class="step"><b>PREPARE</b><small>fixed inputs</small><em>SEALED</em></div><div class="step"><b>HUMAN GATE</b><small>package → 409</small><em>PASS</em></div><div class="step"><b>APPROVE</b><small>LOCAL_DEMO</small><em>BOUND</em></div><div class="step"><b>PACKAGE</b><small>manifest</small><em>SEALED</em></div><div class="step verified"><b>VERIFY</b><small>hash + trace</small><em>VALID</em></div></div><div class="evidence-row"><div class="metric"><b>25</b><span>CHECKED ARTIFACTS</span></div><div class="metric"><b>2</b><span>CHECKED PACKAGE FILES</span></div><div class="metric"><b>[]</b><span>ERRORS</span></div></div><div class="event"><span class="code blue">200 / VERIFY</span><span>hash + trace + files complete</span><span class="right">VALID / STRUCTURE</span></div></section><section class="trace"><h3>TRACE</h3><div class="trace-lines"><div><span>009</span><b>VERIFY</b><span>checked_artifacts=25</span><span class="ok">VALID</span></div><div><span>010</span><b>ERRORS</b><span>[]</span><span class="ok">EMPTY</span></div></div></section><section class="limit"><h3>边界声明</h3><p>VALID ≠ 法律正确率。这里检查结构与完整性，不执行 Worker/LLM 评测。</p></section></main><div class="caption-safe">VERIFY：独立检查 artifacts、trace、审批绑定与 package file hashes → VALID</div></div>
+    </div>
+
+    <div id="scene-benchmark" class="scene clip" data-start="75" data-duration="17" data-track-index="0">
+      <div class="scene-frame"><header class="header"><div class="brand"><span class="brand-mark"></span>PROOF<span class="signal">FLOW</span></div><div class="mono">REFERENCE RUNTIME EVIDENCE ONLY / 06</div><div class="source-chip"><span>127.0.0.1:8765</span><b>NON-LOOPBACK: 0</b></div></header><div class="boundary"><span>PUBLIC SYNTHETIC</span><span>REFERENCE RUNTIME</span><span>NO LLM</span><span>Workers Stopped · readyWorkers=0</span></div><main class="grid"><section class="rail"><div><div class="mono kicker">06 / PUBLIC CONTRACT SUITE</div><h1>11/11<span class="signal">.</span></h1></div><p>公开合同套件全部通过；结果只表示结构合同完整。</p></section><section class="truth"><div class="mono">02 / RUNTIME TRUTH</div><h2>LIMITS<br>VISIBLE</h2><dl><div><dt>BENCHMARK</dt><dd class="blue">11/11</dd></div><div><dt>ACCURACY</dt><dd>NOT MEASURED</dd></div><div><dt>WORKERS</dt><dd class="stopped">Stopped / 0</dd></div><div><dt>LLM EVAL</dt><dd>UNKNOWN</dd></div><div><dt>SCORES</dt><dd>null</dd></div></dl><p class="copy">11/11 不是准确率。Worker / LLM 评测仍为 UNKNOWN。</p></section><section class="ledger"><div class="ledger-head"><h2>Public contract suite</h2><strong style="background:#0000ff;color:#fff">11/11</strong></div><div class="steps"><div class="step"><b>PREPARE</b><small>fixed inputs</small><em>SEALED</em></div><div class="step"><b>HUMAN GATE</b><small>package → 409</small><em>PASS</em></div><div class="step"><b>APPROVE</b><small>LOCAL_DEMO</small><em>BOUND</em></div><div class="step"><b>PACKAGE</b><small>manifest</small><em>SEALED</em></div><div class="step verified"><b>VERIFY</b><small>hash + trace</small><em>VALID</em></div></div><div class="evidence-row"><div class="metric"><b class="blue">11/11</b><span>CONTRACT PASS</span></div><div class="metric"><b>60000</b><span>CNY REF. / SYNTHETIC</span></div><div class="metric"><b>UNKNOWN</b><span>WORKER / LLM EVAL</span></div></div><div class="event"><span class="code blue">11/11 / CONTRACT</span><span>strict closed-set comparison · no accuracy claim</span><span class="right">SCORES · null</span></div></section><section class="trace"><h3>TRACE</h3><div class="trace-lines"><div><span>011</span><b>BENCHMARK</b><span>11/11</span><span class="ok">PASS</span></div><div><span>012</span><b>LIMITS</b><span>accuracy / eval</span><span style="color:#f00">UNKNOWN</span></div></div></section><section class="limit"><h3>最终边界</h3><p>PUBLIC SYNTHETIC · REFERENCE RUNTIME · NO LLM · Workers Stopped · readyWorkers=0<br>60000 不是法律结论；11/11 不是准确率。</p></section></main><div class="caption-safe">边界保持不变：PUBLIC SYNTHETIC / REFERENCE RUNTIME / NO LLM / Workers Stopped / readyWorkers=0；Worker/LLM 评测 UNKNOWN，分值 null</div></div>
+    </div>
+
+    <audio id="placeholder-audio" src="silent-aac.m4a" data-start="0" data-duration="92" data-track-index="5" data-volume="0.01"></audio>
+  </div>
+</body>
+</html>

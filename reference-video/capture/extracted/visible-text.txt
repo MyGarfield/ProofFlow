@@ -1,0 +1,83 @@
+[a] 跳到证明链
+[span] PROOF
+[span] FLOW
+[div] GOAI / SEMIFINAL / LOCAL PROOF CONSOLE / V0.1
+[span] FIXTURE CLOCK
+[strong] 2026—08—20
+[strong] 04:00 UTC
+[span] PUBLIC SYNTHETIC
+[span] NO LLM
+[span] LOCAL ONLY
+[span] NO EXTERNAL SIDE EFFECTS
+[span] EVIDENCE BEFORE ACTION / 01—06
+[span] PF—S01
+[span] 01 / CONTROLLED USER JOURNEY
+[h1] 证明先于行动
+[p] 固定公开合成案例，从证据与规则进入 Human Gate；未审批打包必须失败，审批后才允许封装与独立校验。
+[strong] PREPARE
+[small] 固定 fixture + rules
+[output] READY
+[strong] HUMAN GATE
+[small] package-before-approval → 409
+[output] LOCKED
+[strong] APPROVE
+[small] reason + LOCAL_DEMO
+[output] WAIT
+[strong] PACKAGE
+[small] approval-bound manifest
+[output] WAIT
+[strong] VERIFY
+[small] hash + trace + files
+[output] WAIT
+[button] PREPARE → GATE
+[button] TRY PACKAGE / EXPECT 409
+[span] HUMAN APPROVAL REASON / REQUIRED
+[textarea] 已核验公开合成证据、规则时效、确定性计算、风险与不确定项，同意仅生成本地评审包。
+[button] APPROVE / LOCAL_DEMO
+[button] PACKAGE
+[button] VERIFY
+[span] LOCAL / READY
+[span] 固定输入 pin 已核验；等待显式用户动作。
+[span] 02 / RUNTIME TRUTH
+[h2] REFERENCE
+[h2] RUNTIME
+[dt] STAGE
+[dd] NOT_PREPARED
+[dt] WORKERS
+[dd] Stopped
+[dt] readyWorkers
+[dt] LIVE AGENTTEAMS
+[dt] LLM
+[dd] OFF
+[dt] NETWORK
+[dd] 127.0.0.1
+[p] PF-A1…PF-A6 是确定性角色身份与 trace actor；本页不把它们表述为已运行的多 Agent Worker。
+[span] 03 / SEALED FACTS
+[span] EVIDENCE
+[span] RULES
+[span] CNY REF.
+[span] PKG FILES
+[span] APPROVAL SUBJECT / SHA—256
+[code] not prepared
+[span] 04 / PUBLIC CONTRACT SUITE
+[span] —/11
+[h2] RED-TEAM
+[h2] FOCUS
+[button] RUN 11 CONTRACT SCENARIOS
+[span] INDEPENDENT TEMP WORKSPACE
+[b] READY
+[span] STRICT CLOSED-SET COMPARISON
+[b] READY
+[span] LEGAL ACCURACY / PERFORMANCE
+[b] NOT MEASURED
+[span] 05 / APPEND-ONLY VIEW
+[h2] TRACE
+[span] 000
+[b] SYSTEM
+[span] WAITING_FOR_PREPARE
+[em] LOCAL
+[span] PINNED INPUTS
+[code] fixture / sha256:60ce3111c813c8869e4be65ae5f4fcd9712e388769b35645393dc270184c7f9d
+[code] rules / sha256:27686c904451870dd5953ec6e47c155a395b2f279995e50f68aea984e6bf91de
+[p] 结构完整性演示，不衡量法律正确性，不构成法律意见，不连接 LLM、AgentTeams Worker、HR 或外部提交系统。
+[button] RESET TEMP RUN

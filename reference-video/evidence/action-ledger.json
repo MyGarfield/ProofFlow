@@ -1,0 +1,75 @@
+{
+  "actions": [
+    {
+      "action": "PREPARE",
+      "code": "prepare",
+      "evidence": "PASS",
+      "expected_code": null,
+      "expected_status": 200,
+      "http_status": 200,
+      "seq": 1,
+      "stage": "AWAITING_APPROVAL"
+    },
+    {
+      "action": "PACKAGE",
+      "code": "HUMAN_GATE_REQUIRED",
+      "evidence": "PASS",
+      "expected_code": "HUMAN_GATE_REQUIRED",
+      "expected_status": 409,
+      "http_status": 409,
+      "seq": 2,
+      "stage": "AWAITING_APPROVAL"
+    },
+    {
+      "action": "APPROVE",
+      "code": "approve",
+      "evidence": "PASS",
+      "expected_code": null,
+      "expected_status": 200,
+      "http_status": 200,
+      "seq": 3,
+      "stage": "APPROVED"
+    },
+    {
+      "action": "PACKAGE",
+      "code": "package",
+      "evidence": "PASS",
+      "expected_code": null,
+      "expected_status": 200,
+      "http_status": 200,
+      "seq": 4,
+      "stage": "PACKAGED"
+    },
+    {
+      "action": "VERIFY",
+      "code": "verify",
+      "evidence": "PASS",
+      "expected_code": null,
+      "expected_status": 200,
+      "http_status": 200,
+      "seq": 5,
+      "stage": "PACKAGED"
+    },
+    {
+      "action": "BENCHMARK",
+      "code": "benchmark",
+      "evidence": "PASS",
+      "expected_code": null,
+      "expected_status": 200,
+      "http_status": 200,
+      "seq": 6,
+      "stage": "PACKAGED"
+    }
+  ],
+  "benchmark_accuracy_claim": "NOT_MEASURED",
+  "benchmark_contract_pass_fraction": "11/11",
+  "captured_at": "2026-08-21T05:39:54.734852+00:00",
+  "classification": "PUBLIC_SYNTHETIC",
+  "fixture_pin": "sha256:60ce3111c813c8869e4be65ae5f4fcd9712e388769b35645393dc270184c7f9d",
+  "llm": "OFF",
+  "readyWorkers": 0,
+  "rule_pin": "sha256:27686c904451870dd5953ec6e47c155a395b2f279995e50f68aea984e6bf91de",
+  "runtime_status": "REFERENCE_RUNTIME_EVIDENCE_ONLY",
+  "schema": "proofflow.reference-runtime.action-ledger.v1",
+  "workers": "Stopped"
+}

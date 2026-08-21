@@ -1,0 +1,141 @@
+{
+  "actual_duration_seconds": 92.0,
+  "artifact_commit": null,
+  "artifact_hashes": {
+    "DESIGN.md": "sha256:701c7c7c794ace0b024f7659f2a6a5b67145a60a84cd66d028a9f79cbb538dde",
+    "SCRIPT.md": "sha256:79f20553fea9b6e6c2207981a00e9e89a33444bd1853bd26d4d69828a5cc4e5d",
+    "STORYBOARD.md": "sha256:d0df66560f290f2ae30256f13c64243917895c301d4df9d9ff7323a8a3fdacb6",
+    "capture/meta.json": "sha256:e40749df2df119adbc8d5d0dfdf8929c04999a87d8c2795feefa9c57e96b6c7c",
+    "capture/screenshots/scroll-000.png": "sha256:6bddbe1bc73e4f9e0f96a2a42ae811b6e66a41c51d26230583e3ed68e67e830a",
+    "evidence/action-ledger.json": "sha256:c04a0408d4eb9ef043cb131504d93f8c460f9db9578b76b4d0c20d3a5264041c",
+    "evidence/capture_sequence.py": "sha256:f56e9e2087c7d734555a1eab196ba5603054b5fdf887a9389c903e9b17a624c4",
+    "evidence/dom-states.json": "sha256:491ae932b5aa9e6f1400f3ac27ddd0b08d7d0008dd711882faa3d9f5de0a43c2",
+    "evidence/ffmpeg-image-sequence.txt": "sha256:ee2571c1cb99b2c01825cb56b753dcad65eea04d2151416905a0226f28d8bbec",
+    "evidence/network-ledger.json": "sha256:3ba17dce8937e00246afc65ed80d42bd25616bbc31f49a60fb8a5a2663293e80",
+    "index.html": "sha256:b87247da56cbb3696bf567f49fcbc67ffb79592358da9d7f150d4971eb93fa9e",
+    "renders/reference-runtime-evidence.mp4": "sha256:762cfb2ff021a625b8dda712c53bd10dd263da421a89eeb39fe3702fa21a8aab",
+    "silent-aac.m4a": "sha256:3908ad37b0207f786c47e344615be8a9012713b1797a90ce24e329257a2d6b42",
+    "subtitles.srt": "sha256:7de64f835bf05e8f52041fa97f41e7a3b2f5c4258222a3f89fa2cadeebb266a8"
+  },
+  "audio": "silent-aac.m4a",
+  "audio_role": "AAC_PLACEHOLDER_SILENCE_NOT_NARRATION",
+  "capture": "capture/",
+  "claims": {
+    "benchmark_11_of_11": "STRUCTURE_COMPLETE_ONLY",
+    "calculation_60000": "PUBLIC_SYNTHETIC_REFERENCE_VALUE_NOT_LEGAL_CONCLUSION",
+    "evaluation_scores": null,
+    "legal_accuracy": "UNKNOWN",
+    "worker_llm_evaluation": "UNKNOWN"
+  },
+  "classification": "PUBLIC_SYNTHETIC",
+  "duration_seconds": 92,
+  "external_side_effects_enabled": false,
+  "faststart": true,
+  "ffprobe": {
+    "format": {
+      "duration": "92.000000",
+      "format_name": "mov,mp4,m4a,3gp,3g2,mj2"
+    },
+    "programs": [],
+    "stream_groups": [],
+    "streams": [
+      {
+        "codec_name": "h264",
+        "codec_type": "video",
+        "height": 1080,
+        "index": 0,
+        "pix_fmt": "yuv420p",
+        "r_frame_rate": "30/1",
+        "width": 1920
+      },
+      {
+        "channels": 2,
+        "codec_name": "aac",
+        "codec_type": "audio",
+        "index": 1,
+        "r_frame_rate": "0/0",
+        "sample_rate": "48000"
+      }
+    ]
+  },
+  "fps": 30,
+  "keyframe_probes": [
+    {
+      "key_frame": 1,
+      "nearest_frame_seconds": 0.0,
+      "pict_type": "I",
+      "target_seconds": 0,
+      "within_one_frame": true
+    },
+    {
+      "key_frame": 1,
+      "nearest_frame_seconds": 15.0,
+      "pict_type": "I",
+      "target_seconds": 15,
+      "within_one_frame": true
+    },
+    {
+      "key_frame": 1,
+      "nearest_frame_seconds": 30.0,
+      "pict_type": "I",
+      "target_seconds": 30,
+      "within_one_frame": true
+    },
+    {
+      "key_frame": 1,
+      "nearest_frame_seconds": 42.0,
+      "pict_type": "I",
+      "target_seconds": 42,
+      "within_one_frame": true
+    },
+    {
+      "key_frame": 1,
+      "nearest_frame_seconds": 60.0,
+      "pict_type": "I",
+      "target_seconds": 60,
+      "within_one_frame": true
+    },
+    {
+      "key_frame": 1,
+      "nearest_frame_seconds": 72.0,
+      "pict_type": "I",
+      "target_seconds": 72,
+      "within_one_frame": true
+    },
+    {
+      "key_frame": 1,
+      "nearest_frame_seconds": 89.0,
+      "pict_type": "I",
+      "target_seconds": 89,
+      "within_one_frame": true
+    }
+  ],
+  "ledgers": [
+    "evidence/action-ledger.json",
+    "evidence/network-ledger.json",
+    "evidence/dom-states.json"
+  ],
+  "llm": "OFF",
+  "network_ledger_non_loopback_requests_sent": 0,
+  "network_policy": "allow only 127.0.0.1 or localhost; block non-loopback before socket creation",
+  "pixel_format": "yuv420p",
+  "readyWorkers": 0,
+  "recorded_source_commit": "b63eeb60d1072c73d2d0d1d6061b3c8f800487a4",
+  "resolution": "1920x1080",
+  "schema": "proofflow.reference-runtime-evidence-video.manifest.v1",
+  "sequence": [
+    "PREPARE",
+    "409_FAIL_CLOSED",
+    "LOCAL_DEMO",
+    "PACKAGE",
+    "VERIFY",
+    "11/11_BENCHMARK"
+  ],
+  "source_commit": "b63eeb60",
+  "source_url": "http://127.0.0.1:8765",
+  "status": "REFERENCE_RUNTIME_EVIDENCE_ONLY",
+  "subtitles": "subtitles.srt",
+  "video": "renders/reference-runtime-evidence.mp4",
+  "voiceover_status": "UNAVAILABLE_LOCAL_TTS",
+  "workers": "Stopped"
+}
