@@ -444,12 +444,6 @@ def gate_worker_execution_evidence(
             "score_status": "UNKNOWN",
             "reason_codes": ["WORKER_EXECUTION_EVIDENCE_MISSING"],
         }
-    if scenario_id is None:
-        return {
-            "status": "BLOCKED",
-            "score_status": "UNKNOWN",
-            "reason_codes": ["SCENARIO_ID_REQUIRED"],
-        }
     try:
         if isinstance(evidence, (str, bytes)):
             parsed = parse_strict_json(evidence)
@@ -477,6 +471,12 @@ def gate_worker_execution_evidence(
             "status": "BLOCKED",
             "score_status": "UNKNOWN",
             "reason_codes": ["EVIDENCE_SCHEMA_INVALID"],
+        }
+    if scenario_id is None:
+        return {
+            "status": "BLOCKED",
+            "score_status": "UNKNOWN",
+            "reason_codes": ["SCENARIO_ID_REQUIRED"],
         }
     try:
         manifest = validate_manifest()

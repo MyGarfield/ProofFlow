@@ -253,7 +253,7 @@ def test_current_manager_smoke_is_blocked_and_maps_to_unknown() -> None:
 
     assert gate["status"] == "BLOCKED"
     assert gate["score_status"] == "UNKNOWN"
-    assert gate["reason_codes"] == ["SCENARIO_ID_REQUIRED"]
+    assert gate["reason_codes"] == ["EVIDENCE_SCHEMA_INVALID"]
 
 
 def test_valid_provider_neutral_worker_evidence_opens_only_matching_arm() -> None:
