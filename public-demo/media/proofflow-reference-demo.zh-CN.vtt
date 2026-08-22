@@ -1,0 +1,21 @@
+WEBVTT
+
+NOTE ProofFlow PUBLIC_SYNTHETIC reference storyboard subtitles. No video is published in this snapshot.
+
+00:00:00.000 --> 00:00:12.000
+PUBLIC_SYNTHETIC；Workers Stopped；readyWorkers=0；LLM OFF；无外部副作用。
+
+00:00:12.000 --> 00:00:28.000
+固定合成输入完成 prepare，状态停在 AWAITING_APPROVAL；没有自动越过审批。
+
+00:00:28.000 --> 00:00:40.000
+审批前尝试 package 返回 HTTP 409 / HUMAN_GATE_REQUIRED，且没有生成交付包。
+
+00:00:40.000 --> 00:00:58.000
+LOCAL_DEMO 审批记录固定角色、理由和当前 subject hash；这不代表真实人员或外部授权。
+
+00:00:58.000 --> 00:01:15.000
+批准后 package 生成两个文件；verify 复核 25 个 artifact 与两个 package file，返回 valid=true。
+
+00:01:15.000 --> 00:01:30.000
+11/11 是固定闭集结构合同结果，不衡量法律准确率、LLM 效果、多 Agent 收益或生产安全。
