@@ -35,4 +35,8 @@ jobs:
         run: uv run python deploy/agentteams/scripts/validate_aliyun_official_skill_evidence.py deploy/agentteams/evidence/aliyun-official-skill-offline-preflight-2026-08-21.json
       - run: node --check demo/app.js
       - run: node --test tests/js/test_demo_view_state.cjs
+      - run: uv run python scripts/validate_public_demo_landing.py
+      - run: node --check public-demo/app.js
+      - run: node --check scripts/qa_public_demo_browser.mjs
+      - run: node --test tests/js/test_public_demo_storyboard.cjs
       - run: uv run pytest
