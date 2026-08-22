@@ -362,6 +362,19 @@ def test_extracted_offline_command_forwards_only_the_configured_uv_cache(
     assert "SHOULD_NOT_BE_FORWARDED" not in captured_env
 
 
+def test_offline_smoke_discloses_cache_and_wheelhouse_boundary() -> None:
+    readme = (ROOT / "submission/semifinal/README.md").read_text(encoding="utf-8")
+
+    for required_boundary in (
+        "hash-locked `uv.lock`",
+        "UV_CACHE_DIR",
+        "ZIP 不包含 wheelhouse",
+        "不证明空缓存",
+        "air-gapped",
+    ):
+        assert required_boundary in readme
+
+
 def test_manifest_inventory_tampering_is_rejected(
     tmp_path: Path, candidate_package: tuple[Path, dict]
 ) -> None:

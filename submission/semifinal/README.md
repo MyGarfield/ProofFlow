@@ -66,7 +66,10 @@ size/SHA-256 对照 manifest。验证器从外部 commit-pinned config/schema/ve
 inventory 与 gate，再逐字段对照 manifest；manifest 自报的 READY、evidence ref 或包内替换 schema 均不构成
 信任依据。随后在临时解压目录中执行 `uv sync --frozen --no-dev --offline`、
 `python -m demo.server --help` 和最小 HTTP loopback smoke；代理被指向不可达本机端口，除 127.0.0.1
-外不允许网络依赖。PPTX 除解析 ZIP/XML 外还必须由 `soffice --headless` 成功转成至少一页 PDF；缺少
+外不允许网络依赖。该检查只证明：调用方已经按同一 hash-locked `uv.lock` 预热 uv cache（CI 通过
+`UV_CACHE_DIR` 显式传入）后，解压目录无需联网即可安装并运行；ZIP 不包含 wheelhouse，也不证明空缓存或
+任意隔离机器能够完全离线安装。若需要 air-gapped 交付，必须另行生成、锁定并验证平台匹配的 wheelhouse。
+PPTX 除解析 ZIP/XML 外还必须由 `soffice --headless` 成功转成至少一页 PDF；缺少
 LibreOffice 或转换失败会硬阻断。PDF 用 `pdfinfo` 解析并用 `pdftotext` 抽取文本做 secret/PII
 扫描。光栅化图片中的文字不在自动扫描保证内，仍需人工复核。
 
