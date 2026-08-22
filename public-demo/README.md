@@ -70,8 +70,9 @@ validator 会检查：
 - 媒体合同保持 `NOT_PUBLISHED`，且不存在未绑定哈希的 MP4；
 - Swiss Style 字面令牌、方角、非对称网格、44px target 与 reduced-motion 合同。
 
-测试还用故障注入确认 validator 会拒绝远程脚本、伪造 `Workers Running`、断裂相对链接和没有文件/
-哈希却声称视频已发布的状态。
+测试还用故障注入确认 validator 会拒绝远程脚本、伪造运行态 claim、断裂相对链接和没有文件/
+哈希却声称视频已发布的状态；README、证据 JSON、媒体合同和字幕也接受相同的 claim、隐私、密钥与
+本机路径扫描。
 
 ## 视频上线门
 
@@ -103,10 +104,11 @@ validator 会检查：
 忽略目录）：
 
 ```bash
-PROOFFLOW_CHROME_BIN="/path/to/chrome" \
+PROOFFLOW_QA_OUTPUT="$(mktemp -d)"
+PROOFFLOW_CHROME_BIN="<chrome-executable>" \
   node scripts/qa_public_demo_browser.mjs \
   --url http://127.0.0.1:4173/ \
-  --output-dir /tmp/proofflow-public-demo-browser-qa
+  --output-dir "${PROOFFLOW_QA_OUTPUT}"
 ```
 
 脚本通过 Chrome DevTools Protocol 精确模拟 375×812、1280×720、1440×900，逐一检查

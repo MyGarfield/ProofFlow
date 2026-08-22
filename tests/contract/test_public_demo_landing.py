@@ -5,6 +5,9 @@ import shutil
 import sys
 from pathlib import Path
 
+import pytest
+import yaml
+
 ROOT = Path(__file__).parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -20,8 +23,30 @@ def _copy_site(tmp_path: Path) -> Path:
     return copied
 
 
+def _write_json(path: Path, value: object) -> None:
+    path.write_text(
+        json.dumps(value, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
 def test_public_demo_landing_passes_closed_static_contract() -> None:
     assert validate_public_demo(ROOT, SITE_ROOT) == []
+
+
+def test_ci_checkout_fetches_complete_fixed_baseline_history() -> None:
+    workflow = yaml.safe_load((ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8"))
+    checkout_steps = [
+        step
+        for step in workflow["jobs"]["contracts"]["steps"]
+        if step.get("uses") == "actions/checkout@v4"
+    ]
+
+    assert len(checkout_steps) == 1
+    assert checkout_steps[0]["with"] == {
+        "fetch-depth": 0,
+        "persist-credentials": False,
+    }
 
 
 def test_validator_rejects_remote_loaded_script(tmp_path: Path) -> None:
@@ -144,3 +169,163 @@ def test_validator_rejects_duplicate_json_keys(tmp_path: Path) -> None:
     errors = validate_public_demo(ROOT, copied)
 
     assert any("duplicate JSON key" in item for item in errors)
+
+
+@pytest.mark.parametrize(
+    "claim",
+    ("Workers Running", "LLM ON", "OFFICIAL SCORE: 100"),
+)
+@pytest.mark.parametrize(
+    "surface",
+    ("evidence-snapshot.json", "media/video-contract.json", "README.md"),
+)
+def test_validator_rejects_overclaims_in_every_non_html_claim_surface(
+    tmp_path: Path,
+    surface: str,
+    claim: str,
+) -> None:
+    copied = _copy_site(tmp_path)
+    target = copied / surface
+    if surface == "evidence-snapshot.json":
+        value = json.loads(target.read_text(encoding="utf-8"))
+        value["digest_disclaimer"] += f" {claim}"
+        _write_json(target, value)
+    elif surface == "media/video-contract.json":
+        value = json.loads(target.read_text(encoding="utf-8"))
+        value["publication_gate"][0] += f" {claim}"
+        _write_json(target, value)
+    else:
+        target.write_text(
+            target.read_text(encoding="utf-8") + f"\n{claim}\n",
+            encoding="utf-8",
+        )
+
+    errors = validate_public_demo(ROOT, copied)
+
+    assert any(
+        "forbidden claim token" in item and surface.split("/")[-1] in item for item in errors
+    )
+
+
+@pytest.mark.parametrize(
+    ("surface", "object_path"),
+    (
+        ("evidence-snapshot.json", ()),
+        ("evidence-snapshot.json", ("source",)),
+        ("evidence-snapshot.json", ("reference_flow", 0)),
+        ("evidence-snapshot.json", ("public_artifacts", 0)),
+        ("media/video-contract.json", ()),
+        ("media/video-contract.json", ("subtitles",)),
+        ("media/video-contract.json", ("claim_boundaries",)),
+    ),
+)
+def test_validator_rejects_nested_and_array_item_extra_fields(
+    tmp_path: Path,
+    surface: str,
+    object_path: tuple[str | int, ...],
+) -> None:
+    copied = _copy_site(tmp_path)
+    target = copied / surface
+    value = json.loads(target.read_text(encoding="utf-8"))
+    nested = value
+    for segment in object_path:
+        nested = nested[segment]
+    nested["unreviewed"] = "extra"
+    _write_json(target, value)
+
+    errors = validate_public_demo(ROOT, copied)
+
+    assert any(
+        "exact-key shape mismatch" in item and "unexpected=unreviewed" in item for item in errors
+    )
+
+
+@pytest.mark.parametrize(
+    ("surface", "sensitive_value"),
+    (
+        ("README.md", "contact 13800138000"),
+        ("README.md", "~/private-case.json"),
+        ("README.md", r"\\server\share\private-case.json"),
+        ("evidence-snapshot.json", "/Users/example/private-case.json"),
+        ("media/video-contract.json", "api_key=examplecredential123"),
+        ("media/proofflow-reference-demo.zh-CN.vtt", "contact person@example.com"),
+    ),
+)
+def test_validator_rejects_privacy_secret_and_machine_path_leaks(
+    tmp_path: Path,
+    surface: str,
+    sensitive_value: str,
+) -> None:
+    copied = _copy_site(tmp_path)
+    target = copied / surface
+    if surface == "evidence-snapshot.json":
+        value = json.loads(target.read_text(encoding="utf-8"))
+        value["digest_disclaimer"] += f" {sensitive_value}"
+        _write_json(target, value)
+    elif surface == "media/video-contract.json":
+        value = json.loads(target.read_text(encoding="utf-8"))
+        value["publication_gate"][0] += f" {sensitive_value}"
+        _write_json(target, value)
+    else:
+        target.write_text(
+            target.read_text(encoding="utf-8") + f"\n{sensitive_value}\n",
+            encoding="utf-8",
+        )
+
+    errors = validate_public_demo(ROOT, copied)
+
+    assert any("sensitive " in item and surface.split("/")[-1] in item for item in errors)
+
+
+@pytest.mark.parametrize(
+    "rendered_overclaim",
+    (
+        "Workers&#32;Running",
+        "Workers <span>Running</span>",
+        "L&#76;M <em>ON</em>",
+        "OFFICIAL **SCORE**: 100",
+    ),
+)
+def test_validator_rejects_markup_obfuscated_readme_overclaims(
+    tmp_path: Path,
+    rendered_overclaim: str,
+) -> None:
+    copied = _copy_site(tmp_path)
+    readme_path = copied / "README.md"
+    readme_path.write_text(
+        readme_path.read_text(encoding="utf-8") + f"\n{rendered_overclaim}\n",
+        encoding="utf-8",
+    )
+
+    errors = validate_public_demo(ROOT, copied)
+
+    assert any("forbidden claim token in loaded asset README.md" in item for item in errors)
+
+
+@pytest.mark.parametrize(
+    "credential",
+    (
+        "client_secret=examplecredential123",
+        "secret_key: examplecredential123",
+        "auth-token=examplecredential123",
+        "refresh_token=examplecredential123",
+        "PROOFFLOW_API_KEY=examplecredential123",
+        "DB_PASSWORD=examplecredential123",
+        "AWS_SECRET_ACCESS_KEY=examplecredential123",
+        "GITHUB_TOKEN=examplecredential123",
+    ),
+)
+def test_validator_rejects_common_assigned_credentials_in_readme(
+    tmp_path: Path,
+    credential: str,
+) -> None:
+    copied = _copy_site(tmp_path)
+    readme_path = copied / "README.md"
+    readme_path.write_text(
+        readme_path.read_text(encoding="utf-8") + f"\n{credential}\n",
+        encoding="utf-8",
+    )
+
+    errors = validate_public_demo(ROOT, copied)
+
+    assert any("sensitive assigned credential in loaded asset README.md" in item for item in errors)
