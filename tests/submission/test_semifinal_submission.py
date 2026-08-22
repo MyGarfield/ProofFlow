@@ -336,6 +336,32 @@ def test_structural_pptx_stub_must_render_with_soffice() -> None:
         _scan_bytes("structural-stub.pptx", _minimal_fake_pptx())
 
 
+def test_extracted_offline_command_forwards_only_the_configured_uv_cache(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import scripts.semifinal_submission as semifinal
+
+    captured_env: dict[str, str] = {}
+
+    def fake_run(*_args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
+        captured_env.update(kwargs["env"])  # type: ignore[arg-type]
+        return subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
+
+    monkeypatch.setenv("UV_CACHE_DIR", "/tmp/proofflow-ci-uv-cache")
+    monkeypatch.setenv("SHOULD_NOT_BE_FORWARDED", "sentinel-secret")
+    monkeypatch.setattr(semifinal.subprocess, "run", fake_run)
+
+    assert (
+        semifinal._run_extracted_command(
+            ["uv", "sync", "--offline"], cwd=tmp_path, timeout=1, label="offline uv sync"
+        )
+        is None
+    )
+    assert captured_env["UV_CACHE_DIR"] == "/tmp/proofflow-ci-uv-cache"
+    assert captured_env["UV_OFFLINE"] == "1"
+    assert "SHOULD_NOT_BE_FORWARDED" not in captured_env
+
+
 def test_manifest_inventory_tampering_is_rejected(
     tmp_path: Path, candidate_package: tuple[Path, dict]
 ) -> None:

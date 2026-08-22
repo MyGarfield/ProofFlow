@@ -1388,6 +1388,9 @@ def _run_extracted_command(
         "all_proxy": "http://127.0.0.1:9",
         "no_proxy": "127.0.0.1,localhost",
     }
+    uv_cache_dir = os.environ.get("UV_CACHE_DIR")
+    if uv_cache_dir:
+        env["UV_CACHE_DIR"] = uv_cache_dir
     try:
         result = subprocess.run(
             command,
