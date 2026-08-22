@@ -23,6 +23,7 @@
     "ffprobe",
     "fps",
     "frame_bindings",
+    "frame_commitment",
     "keyframe_probes",
     "ledgers",
     "lint_summary",
@@ -162,6 +163,67 @@
           "video_sample_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
           "sampled_mae": {"type": "number", "minimum": 0},
           "sampled_equal_ratio": {"type": "number", "minimum": 0, "maximum": 1}
+        }
+      }
+    },
+    "frame_commitment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "video_digest_path",
+        "audio_digest_path",
+        "video_framemd5_sha256",
+        "audio_framemd5_sha256",
+        "video_filter",
+        "video_codec",
+        "video_frame_count",
+        "video_width",
+        "video_height",
+        "video_pixel_format",
+        "video_time_base",
+        "audio_sample_rate",
+        "audio_sample_format",
+        "audio_channel_layout",
+        "audio_sample_count",
+        "audio_time_base",
+        "command",
+        "segments"
+      ],
+      "properties": {
+        "video_digest_path": {"type": "string"},
+        "audio_digest_path": {"type": "string"},
+        "video_framemd5_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "audio_framemd5_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "video_filter": {"type": "string"},
+        "video_codec": {"type": "string"},
+        "video_frame_count": {"type": "integer", "minimum": 1},
+        "video_width": {"type": "integer", "minimum": 1},
+        "video_height": {"type": "integer", "minimum": 1},
+        "video_pixel_format": {"type": "string"},
+        "video_time_base": {"type": "string"},
+        "audio_sample_rate": {"type": "integer", "minimum": 1},
+        "audio_sample_format": {"type": "string"},
+        "audio_channel_layout": {"type": "string"},
+        "audio_sample_count": {"type": "integer", "minimum": 1},
+        "audio_time_base": {"type": "string"},
+        "command": {"type": "string"},
+        "segments": {
+          "type": "array",
+          "minItems": 7,
+          "maxItems": 7,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["segment", "start_seconds", "end_seconds", "start_frame", "end_frame_exclusive", "snapshot"],
+            "properties": {
+              "segment": {"type": "integer", "minimum": 1},
+              "start_seconds": {"type": "integer", "minimum": 0},
+              "end_seconds": {"type": "integer", "minimum": 1},
+              "start_frame": {"type": "integer", "minimum": 0},
+              "end_frame_exclusive": {"type": "integer", "minimum": 1},
+              "snapshot": {"type": "string"}
+            }
+          }
         }
       }
     },

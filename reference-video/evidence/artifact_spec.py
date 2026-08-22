@@ -38,6 +38,8 @@ ARTIFACT_PATHS = (
     "evidence/action-ledger.json",
     "evidence/network-ledger.json",
     "evidence/dom-states.json",
+    "evidence/video-frames.framemd5",
+    "evidence/audio-pcm.framemd5",
     "evidence/capture_sequence.py",
     "evidence/ffmpeg-image-sequence.txt",
     "evidence/artifact_spec.py",

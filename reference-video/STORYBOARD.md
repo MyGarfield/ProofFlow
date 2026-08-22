@@ -3,6 +3,7 @@
 **Format:** 1920×1080, H.264 yuv420p, 30fps, faststart
 **Audio:** manual Chinese SRT + 92s AAC placeholder silence (local TTS unavailable)
 **VO direction:** no voiceover claim; subtitles are the authoritative narration layer
+**Release boundary:** this auxiliary evidence film is not the sole/main ProofFlow demonstration; produce a separate Chinese-voice demonstration film for that purpose later.
 **Style basis:** captured ProofFlow console tokens (`#FFFFFF`, `#000000`, `#0000FF`, `#FF0000`, `#FFD700`)
 
 ## Global safety frame

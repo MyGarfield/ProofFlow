@@ -2,8 +2,8 @@
   "actual_duration_seconds": 92.0,
   "artifact_hashes": {
     "DESIGN.md": "sha256:701c7c7c794ace0b024f7659f2a6a5b67145a60a84cd66d028a9f79cbb538dde",
-    "SCRIPT.md": "sha256:79f20553fea9b6e6c2207981a00e9e89a33444bd1853bd26d4d69828a5cc4e5d",
-    "STORYBOARD.md": "sha256:6974c7ac27f76de53ec9f1bfce3fa93443bc40171978d34a4da2813ff69893d1",
+    "SCRIPT.md": "sha256:53fd1542b506360d7d3b526decba3af2b8b44d42dd4db72a93f79d6ca61a0af4",
+    "STORYBOARD.md": "sha256:b8b5424a1abd73667a14a9859e034a573cd4702522490402f8721ef69cc8708b",
     "capture/extracted/animations.json": "sha256:108eecf8edd8e268d87c9c6a2305c7d15a1f2bfb182793d0e910d6f8ec1511ea",
     "capture/extracted/design-styles.json": "sha256:5cf5f3a2a4d94c3dc5b6560e9a8d36c9738b434ac469fca725fe52267b06d399",
     "capture/extracted/fonts-manifest.json": "sha256:0c71b4533e66a384ab1cb20de7e21293a46ab0f03e84607d9436fe5aad2aaec7",
@@ -15,19 +15,21 @@
     "capture/screenshots/full-page.png": "sha256:3c82145c9cb65e073621d548b66b28a49af938ecc5749e7f77a6a0c45719e297",
     "capture/screenshots/scroll-000.png": "sha256:6bddbe1bc73e4f9e0f96a2a42ae811b6e66a41c51d26230583e3ed68e67e830a",
     "evidence/action-ledger.json": "sha256:32f34b0537cd0795b94c87c2f112cae9893e751d94bd76469288e5d80eaaed4b",
-    "evidence/artifact_spec.py": "sha256:05453f97c3f74ef3c3ef3a4f111592241020bd4d4f3eb037c1bf2902b64586db",
+    "evidence/artifact_spec.py": "sha256:dcc5611f57e34f0bbe3cd5bc882f7e5a7807a2650e8a32b69df3e162a84b64f6",
+    "evidence/audio-pcm.framemd5": "sha256:8da4d8edd6db8e97691d40f33c7cf6bd71936b7545f36564484bca7d88dd23fb",
     "evidence/capture_sequence.py": "sha256:5ac3521234bde19554308ac481299306e548f163c62a8be434634e537bfa73ca",
     "evidence/dom-states.json": "sha256:14045b87342160137ec1d3189a95c689d87e7513fb0c828e94b0620aa61e8aa3",
-    "evidence/ffmpeg-image-sequence.txt": "sha256:11ba80d6b40cf26c4f256aa8f35358ec9f0e488e1aae174cbd239299028762b3",
-    "evidence/finalize_manifest.py": "sha256:e99d207a33e1045b5b0136dfa5f916ef885d6cfa165262fa1b74d12cf4e16cdd",
-    "evidence/lint-summary.json": "sha256:ca5ed021a1f9b8944cf177183355172fe6ee138dba8305c44256a108f925047c",
-    "evidence/manifest.schema.json": "sha256:11244541cb105d6d10fb52100403cd231859706a98420384cec2b24924a32427",
+    "evidence/ffmpeg-image-sequence.txt": "sha256:7351dc0f3d79373193651cf5e845f6d5c1f13396f8848303f9d232fd19a526d9",
+    "evidence/finalize_manifest.py": "sha256:4244358233a2416473f1aca56a47cd46eb91344e335d6b090b4ce2b4acac2eda",
+    "evidence/lint-summary.json": "sha256:2de33e6b316e0173ff4d86ea75011a0acbd2537fa17a644db2ffde6677675743",
+    "evidence/manifest.schema.json": "sha256:3af014e66ce304a5f205e5cb9b2900157d6469b72ff5601e1c7a1d447224c104",
     "evidence/network-ledger.json": "sha256:0ea4696637b8308e90fa78ba1fbeeb87d51bc1081869619bbb9dcfb047643bdf",
-    "evidence/privacy-scan.json": "sha256:e21a5af0aa29172dc35c5792bcbf60f994869294f07505b539422f0f36b5472a",
+    "evidence/privacy-scan.json": "sha256:4ad11920d602aaea568151807ad3de7e37d54689a709d95e4604c53e59c8d0f9",
     "evidence/run_final_lint.py": "sha256:f84e9349b809b7150857af290a25d64b74849c5fdaee538929576fa5b9813725",
     "evidence/run_privacy_scan.py": "sha256:738cc8bc5c6b3e2d3aa364a95926d4a469a9b485ae1bfce35f65a5752a2715cd",
-    "evidence/test_manifest_validator.py": "sha256:85d85411073054929285adcb9b89bb3e703597f7c2d17851db626ab8e4c92ca5",
-    "evidence/validate_manifest.py": "sha256:386bb7fe256b661f90fdcb3f5acfd657997e948a26c3c3f3ebad46c1b41dbbbe",
+    "evidence/test_manifest_validator.py": "sha256:0445fe74a0915ab68b57bcb6b7047fabbeb47a3be2ade4d316ad35bf67a01a27",
+    "evidence/validate_manifest.py": "sha256:4ab59e2f1330e19847e07375093478e053c0bb6c06f12c5784f0e4ff7e716252",
+    "evidence/video-frames.framemd5": "sha256:d7f1593cc4acccf2c630a878384952e547f281a508129c31c170450c6f13c1c0",
     "index.html": "sha256:c7d1032d17805c33f4d5515dffc28c56eb0a31f227a5a3c5590d8d69e52827af",
     "renders/reference-runtime-evidence.mp4": "sha256:9083e55e359d56a85c727d825545ad45a264b74f90b19dcff54a81348e4bf619",
     "silent-aac.m4a": "sha256:3908ad37b0207f786c47e344615be8a9012713b1797a90ce24e329257a2d6b42",
@@ -64,7 +66,7 @@
       "snapshots/frame-06-at-84s.png"
     ],
     "scanner": "trusted-validator-live+tesseract",
-    "scanner_sha256": "sha256:386bb7fe256b661f90fdcb3f5acfd657997e948a26c3c3f3ebad46c1b41dbbbe"
+    "scanner_sha256": "sha256:4ab59e2f1330e19847e07375093478e053c0bb6c06f12c5784f0e4ff7e716252"
   },
   "claims": {
     "benchmark_11_of_11": "STRUCTURE_COMPLETE_ONLY",
@@ -177,6 +179,83 @@
       "width": 1920
     }
   ],
+  "frame_commitment": {
+    "audio_channel_layout": "stereo",
+    "audio_digest_path": "evidence/audio-pcm.framemd5",
+    "audio_framemd5_sha256": "sha256:8da4d8edd6db8e97691d40f33c7cf6bd71936b7545f36564484bca7d88dd23fb",
+    "audio_sample_count": 4416512,
+    "audio_sample_format": "s16",
+    "audio_sample_rate": 48000,
+    "audio_time_base": "1/48000",
+    "command": "$FFMPEG_BIN -hide_banner -loglevel error -i renders/reference-runtime-evidence.mp4 -map 0:v:0 -an -vf scale=96:54:flags=bilinear,format=gray -f framemd5 pipe:1; $FFMPEG_BIN -hide_banner -loglevel error -i renders/reference-runtime-evidence.mp4 -map 0:a:0 -vn -af aformat=sample_fmts=s16:sample_rates=48000:channel_layouts=stereo -f framemd5 pipe:1",
+    "segments": [
+      {
+        "end_frame_exclusive": 300,
+        "end_seconds": 10,
+        "segment": 1,
+        "snapshot": "snapshots/frame-00-at-5s.png",
+        "start_frame": 0,
+        "start_seconds": 0
+      },
+      {
+        "end_frame_exclusive": 780,
+        "end_seconds": 26,
+        "segment": 2,
+        "snapshot": "snapshots/frame-01-at-18s.png",
+        "start_frame": 300,
+        "start_seconds": 10
+      },
+      {
+        "end_frame_exclusive": 1230,
+        "end_seconds": 41,
+        "segment": 3,
+        "snapshot": "snapshots/frame-02-at-33s.png",
+        "start_frame": 780,
+        "start_seconds": 26
+      },
+      {
+        "end_frame_exclusive": 1740,
+        "end_seconds": 58,
+        "segment": 4,
+        "snapshot": "snapshots/frame-03-at-49s.png",
+        "start_frame": 1230,
+        "start_seconds": 41
+      },
+      {
+        "end_frame_exclusive": 1980,
+        "end_seconds": 66,
+        "segment": 5,
+        "snapshot": "snapshots/frame-04-at-62s.png",
+        "start_frame": 1740,
+        "start_seconds": 58
+      },
+      {
+        "end_frame_exclusive": 2250,
+        "end_seconds": 75,
+        "segment": 6,
+        "snapshot": "snapshots/frame-05-at-70s.png",
+        "start_frame": 1980,
+        "start_seconds": 66
+      },
+      {
+        "end_frame_exclusive": 2760,
+        "end_seconds": 92,
+        "segment": 7,
+        "snapshot": "snapshots/frame-06-at-84s.png",
+        "start_frame": 2250,
+        "start_seconds": 75
+      }
+    ],
+    "video_codec": "rawvideo",
+    "video_digest_path": "evidence/video-frames.framemd5",
+    "video_filter": "scale=96:54:flags=bilinear,format=gray",
+    "video_frame_count": 2760,
+    "video_framemd5_sha256": "sha256:d7f1593cc4acccf2c630a878384952e547f281a508129c31c170450c6f13c1c0",
+    "video_height": 54,
+    "video_pixel_format": "gray",
+    "video_time_base": "1/30",
+    "video_width": 96
+  },
   "keyframe_probes": [
     {
       "key_frame": 1,
@@ -244,7 +323,7 @@
       "evidence/privacy-scan.json",
       "manifest.json"
     ],
-    "input_digest": "sha256:381475f8fb208f844d4a7c12cfb3fd5523e66c742dcb3813fe90be898fa7c70f",
+    "input_digest": "sha256:65ecca53e530d2158b29cabf9e8c9a886f476f7cc28ab4830a9ddf122079b502",
     "input_paths": [
       "DESIGN.md",
       "SCRIPT.md",
@@ -261,6 +340,7 @@
       "capture/meta.json",
       "evidence/action-ledger.json",
       "evidence/artifact_spec.py",
+      "evidence/audio-pcm.framemd5",
       "evidence/capture_sequence.py",
       "evidence/dom-states.json",
       "evidence/ffmpeg-image-sequence.txt",
@@ -272,19 +352,20 @@
       "evidence/run_privacy_scan.py",
       "evidence/test_manifest_validator.py",
       "evidence/validate_manifest.py",
+      "evidence/video-frames.framemd5",
       "index.html",
       "narration.txt",
       "subtitles.srt"
     ],
     "matches": [],
     "scanner": "trusted-validator-live",
-    "scanner_sha256": "sha256:386bb7fe256b661f90fdcb3f5acfd657997e948a26c3c3f3ebad46c1b41dbbbe"
+    "scanner_sha256": "sha256:4ab59e2f1330e19847e07375093478e053c0bb6c06f12c5784f0e4ff7e716252"
   },
   "readyWorkers": 0,
   "recorded_source_commit": "b63eeb60d1072c73d2d0d1d6061b3c8f800487a4",
-  "render_input_digest": "sha256:bc2ac12ce95354f089c5699213bbf7e4995624feb32de09006feefe42770ce76",
+  "render_input_digest": "sha256:6fe39a40de498f70cc6fce7007e32aa92e512b4b3c558651c4db330a8d269552",
   "render_input_hashes": {
-    "evidence/ffmpeg-image-sequence.txt": "sha256:11ba80d6b40cf26c4f256aa8f35358ec9f0e488e1aae174cbd239299028762b3",
+    "evidence/ffmpeg-image-sequence.txt": "sha256:7351dc0f3d79373193651cf5e845f6d5c1f13396f8848303f9d232fd19a526d9",
     "silent-aac.m4a": "sha256:3908ad37b0207f786c47e344615be8a9012713b1797a90ce24e329257a2d6b42",
     "snapshots/frame-00-at-5s.png": "sha256:61fbbb634c8b1dd1f3552cc5a0e07da26227598477246bd3068486643c1b11dd",
     "snapshots/frame-01-at-18s.png": "sha256:58a54d42b06bf6044b6b892d17687396e458509b4ef7976fbc8d718d8563562d",
@@ -297,7 +378,7 @@
   "render_method": "FFMPEG_FROM_HYPERFRAMES_SNAPSHOTS",
   "resolution": "1920x1080",
   "schema": "proofflow.reference-runtime-evidence-video.manifest.v2",
-  "schema_sha256": "sha256:11244541cb105d6d10fb52100403cd231859706a98420384cec2b24924a32427",
+  "schema_sha256": "sha256:3af014e66ce304a5f205e5cb9b2900157d6469b72ff5601e1c7a1d447224c104",
   "sequence": [
     "PREPARE",
     "409_FAIL_CLOSED",
@@ -313,26 +394,26 @@
     "ffmpeg": {
       "mode": "-r-xr-xr-x",
       "owner": "Zhuanz",
-      "path": "/usr/local/Cellar/ffmpeg/8.1.2_1/bin/ffmpeg",
+      "path": "/usr/local/bin/ffmpeg",
       "sha256": "sha256:434a59ef057cf847f497b95dd394208b61f2f1254728344442d3d2ad71f926bb",
       "version": "8.1.2"
     },
     "ffprobe": {
       "mode": "-r-xr-xr-x",
       "owner": "Zhuanz",
-      "path": "/usr/local/Cellar/ffmpeg/8.1.2_1/bin/ffprobe",
+      "path": "/usr/local/bin/ffprobe",
       "sha256": "sha256:501ae4034055451cbd993166b43b7764dd69553ccebbcf55c2730b732b82c570",
       "version": "8.1.2"
     },
     "tesseract": {
       "mode": "-r-xr-xr-x",
       "owner": "Zhuanz",
-      "path": "/usr/local/Cellar/tesseract/5.5.2/bin/tesseract",
+      "path": "/usr/local/bin/tesseract",
       "sha256": "sha256:b18c6b66694a47153a27978378c41333bd1fcb0260f2a64c2305450d825764a0",
       "version": "5.5.2"
     }
   },
-  "validator_sha256": "sha256:386bb7fe256b661f90fdcb3f5acfd657997e948a26c3c3f3ebad46c1b41dbbbe",
+  "validator_sha256": "sha256:4ab59e2f1330e19847e07375093478e053c0bb6c06f12c5784f0e4ff7e716252",
   "video": "renders/reference-runtime-evidence.mp4",
   "voiceover_status": "UNAVAILABLE_LOCAL_TTS",
   "workers": "Stopped"

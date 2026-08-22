@@ -12,7 +12,6 @@ import argparse
 import hashlib
 import json
 import math
-import os
 import pwd
 import re
 import stat
@@ -26,6 +25,7 @@ from jsonschema import Draft202012Validator, FormatChecker
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_VIDEO_ROOT = ROOT / "reference-video"
+GIT_ARTIFACT_PREFIX = "reference-video"
 SCHEMA_ID = "proofflow.reference-runtime-evidence-video.manifest.v2"
 RECORDED_SOURCE_COMMIT = "b63eeb60d1072c73d2d0d1d6061b3c8f800487a4"
 NETWORK_POLICY = (
@@ -55,6 +55,31 @@ RENDER_INPUT_PATHS = SNAPSHOT_PATHS + (
     "silent-aac.m4a",
     "evidence/ffmpeg-image-sequence.txt",
 )
+FRAME_VIDEO_PATH = "evidence/video-frames.framemd5"
+FRAME_AUDIO_PATH = "evidence/audio-pcm.framemd5"
+FRAME_VIDEO_FILTER = "scale=96:54:flags=bilinear,format=gray"
+FRAME_VIDEO_COUNT = 2760
+FRAME_VIDEO_WIDTH = 96
+FRAME_VIDEO_HEIGHT = 54
+FRAME_VIDEO_SIZE = FRAME_VIDEO_WIDTH * FRAME_VIDEO_HEIGHT
+FRAME_AUDIO_SAMPLE_RATE = 48000
+FRAME_AUDIO_SAMPLE_COUNT = 4416512
+FRAME_COMMITMENT_COMMAND = (
+    "$FFMPEG_BIN -hide_banner -loglevel error -i renders/reference-runtime-evidence.mp4 "
+    "-map 0:v:0 -an -vf scale=96:54:flags=bilinear,format=gray -f framemd5 pipe:1; "
+    "$FFMPEG_BIN -hide_banner -loglevel error -i renders/reference-runtime-evidence.mp4 "
+    "-map 0:a:0 -vn -af aformat=sample_fmts=s16:sample_rates=48000:channel_layouts=stereo "
+    "-f framemd5 pipe:1"
+)
+FRAME_SEGMENTS = (
+    {"segment": 1, "start_seconds": 0, "end_seconds": 10, "start_frame": 0, "end_frame_exclusive": 300, "snapshot": SNAPSHOT_PATHS[0]},
+    {"segment": 2, "start_seconds": 10, "end_seconds": 26, "start_frame": 300, "end_frame_exclusive": 780, "snapshot": SNAPSHOT_PATHS[1]},
+    {"segment": 3, "start_seconds": 26, "end_seconds": 41, "start_frame": 780, "end_frame_exclusive": 1230, "snapshot": SNAPSHOT_PATHS[2]},
+    {"segment": 4, "start_seconds": 41, "end_seconds": 58, "start_frame": 1230, "end_frame_exclusive": 1740, "snapshot": SNAPSHOT_PATHS[3]},
+    {"segment": 5, "start_seconds": 58, "end_seconds": 66, "start_frame": 1740, "end_frame_exclusive": 1980, "snapshot": SNAPSHOT_PATHS[4]},
+    {"segment": 6, "start_seconds": 66, "end_seconds": 75, "start_frame": 1980, "end_frame_exclusive": 2250, "snapshot": SNAPSHOT_PATHS[5]},
+    {"segment": 7, "start_seconds": 75, "end_seconds": 92, "start_frame": 2250, "end_frame_exclusive": 2760, "snapshot": SNAPSHOT_PATHS[6]},
+)
 ARTIFACT_PATHS = (
     "DESIGN.md",
     "SCRIPT.md",
@@ -76,6 +101,8 @@ ARTIFACT_PATHS = (
     "evidence/action-ledger.json",
     "evidence/network-ledger.json",
     "evidence/dom-states.json",
+    FRAME_VIDEO_PATH,
+    FRAME_AUDIO_PATH,
     "evidence/capture_sequence.py",
     "evidence/ffmpeg-image-sequence.txt",
     "evidence/artifact_spec.py",
@@ -107,6 +134,7 @@ EXPECTED_MANIFEST_KEYS = {
     "ffprobe",
     "fps",
     "frame_bindings",
+    "frame_commitment",
     "keyframe_probes",
     "ledgers",
     "lint_summary",
@@ -135,35 +163,11 @@ EXPECTED_MANIFEST_KEYS = {
     "workers",
 }
 
-FFPROBE_PATH = Path("/usr/local/Cellar/ffmpeg/8.1.2_1/bin/ffprobe")
-FFMPEG_PATH = Path("/usr/local/Cellar/ffmpeg/8.1.2_1/bin/ffmpeg")
-TESSERACT_PATH = Path("/usr/local/Cellar/tesseract/5.5.2/bin/tesseract")
-EXPECTED_TOOLING = {
-    "ffprobe": {
-        "path": str(FFPROBE_PATH),
-        "sha256": "sha256:501ae4034055451cbd993166b43b7764dd69553ccebbcf55c2730b732b82c570",
-        "version": "8.1.2",
-        "owner": "Zhuanz",
-        "mode": "-r-xr-xr-x",
-    },
-    "ffmpeg": {
-        "path": str(FFMPEG_PATH),
-        "sha256": "sha256:434a59ef057cf847f497b95dd394208b61f2f1254728344442d3d2ad71f926bb",
-        "version": "8.1.2",
-        "owner": "Zhuanz",
-        "mode": "-r-xr-xr-x",
-    },
-    "tesseract": {
-        "path": str(TESSERACT_PATH),
-        "sha256": "sha256:b18c6b66694a47153a27978378c41333bd1fcb0260f2a64c2305450d825764a0",
-        "version": "5.5.2",
-        "owner": "Zhuanz",
-        "mode": "-r-xr-xr-x",
-    },
-}
+TOOL_NAMES = ("ffprobe", "ffmpeg", "tesseract")
 
 SRT_TIMESTAMP = re.compile(r"^(\d{2}):(\d{2}):(\d{2}),(\d{3})$")
 SHA256_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
+COMMIT_SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+$")
 REPORT_HASH_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
 SECRET_PATTERNS = {
@@ -193,6 +197,32 @@ REPORT_HASH_PROVENANCE = (
     "server-generated synthetic report digest observed by the capture client; "
     "a replay does not independently reproduce this field"
 )
+RENDER_CONTRACT_TEXT = "\n".join(
+    [
+        "schema=proofflow.reference-runtime.render-contract.v2",
+        "method=ffmpeg_filter_concat",
+        "fps=30",
+        "pixel_format=yuv420p",
+        "segment=0-10s frames=0-299 snapshot=snapshots/frame-00-at-5s.png",
+        "segment=10-26s frames=300-779 snapshot=snapshots/frame-01-at-18s.png",
+        "segment=26-41s frames=780-1229 snapshot=snapshots/frame-02-at-33s.png",
+        "segment=41-58s frames=1230-1739 snapshot=snapshots/frame-03-at-49s.png",
+        "segment=58-66s frames=1740-1979 snapshot=snapshots/frame-04-at-62s.png",
+        "segment=66-75s frames=1980-2249 snapshot=snapshots/frame-05-at-70s.png",
+        "segment=75-92s frames=2250-2759 snapshot=snapshots/frame-06-at-84s.png",
+        "input=snapshots/frame-00-at-5s.png",
+        "input=snapshots/frame-01-at-18s.png",
+        "input=snapshots/frame-02-at-33s.png",
+        "input=snapshots/frame-03-at-49s.png",
+        "input=snapshots/frame-04-at-62s.png",
+        "input=snapshots/frame-05-at-70s.png",
+        "input=snapshots/frame-06-at-84s.png",
+        "input=silent-aac.m4a role=AAC_PLACEHOLDER_SILENCE_NOT_NARRATION",
+        "render_command=$FFMPEG_BIN -y -hide_banner -loglevel error -loop 1 -t 10 -i snapshots/frame-00-at-5s.png -loop 1 -t 16 -i snapshots/frame-01-at-18s.png -loop 1 -t 15 -i snapshots/frame-02-at-33s.png -loop 1 -t 17 -i snapshots/frame-03-at-49s.png -loop 1 -t 8 -i snapshots/frame-04-at-62s.png -loop 1 -t 9 -i snapshots/frame-05-at-70s.png -loop 1 -t 17 -i snapshots/frame-06-at-84s.png -i silent-aac.m4a -filter_complex [0:v][1:v][2:v][3:v][4:v][5:v][6:v]concat=n=7:v=1:a=0[v] -map [v] -map 7:a:0 -t 92 -r 30 -c:v libx264 -pix_fmt yuv420p -force_key_frames 0,15,30,42,60,72,89 -c:a aac -ar 48000 -ac 2 -movflags +faststart renders/reference-runtime-evidence.mp4",
+        "frame_commitment_video=$FFMPEG_BIN -hide_banner -loglevel error -i renders/reference-runtime-evidence.mp4 -map 0:v:0 -an -vf scale=96:54:flags=bilinear,format=gray -f framemd5 pipe:1",
+        "frame_commitment_audio=$FFMPEG_BIN -hide_banner -loglevel error -i renders/reference-runtime-evidence.mp4 -map 0:a:0 -vn -af aformat=sample_fmts=s16:sample_rates=48000:channel_layouts=stereo -f framemd5 pipe:1",
+    ]
+) + "\n"
 
 
 def fail(condition: bool, message: str) -> None:
@@ -244,6 +274,50 @@ def safe_path(root: Path, relative: str) -> Path:
     return path
 
 
+def absolute_directory(value: str, name: str) -> Path:
+    path = Path(value)
+    fail(path.is_absolute(), f"{name} must be an absolute path")
+    fail(path.is_dir(), f"{name} is not a directory: {path}")
+    return path.resolve()
+
+
+def git_output(git_binary: Path, trusted_git_root: Path, *args: str) -> str:
+    completed = subprocess.run(
+        [str(git_binary), "-C", str(trusted_git_root), *args],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    fail(completed.returncode == 0, f"git command failed: {' '.join(args)}")
+    return completed.stdout.strip()
+
+
+def validate_commit_binding(
+    video_root: Path,
+    manifest_path: Path,
+    expected_artifact_commit: str,
+    trusted_git_root: Path,
+    git_binary: Path,
+) -> None:
+    fail(COMMIT_SHA_PATTERN.fullmatch(expected_artifact_commit) is not None, "expected artifact commit must be a full 40-character SHA")
+    top_level = Path(git_output(git_binary, trusted_git_root, "rev-parse", "--show-toplevel")).resolve()
+    fail(top_level == trusted_git_root.resolve(), "trusted git root does not match the git worktree")
+    resolved = git_output(git_binary, trusted_git_root, "rev-parse", f"{expected_artifact_commit}^{{commit}}")
+    fail(resolved == expected_artifact_commit, "expected artifact commit is not an exact commit object")
+
+    package_paths = ("manifest.json", *ARTIFACT_PATHS)
+    for relative in package_paths:
+        package_path = manifest_path if relative == "manifest.json" else safe_path(video_root, relative)
+        git_path = f"{GIT_ARTIFACT_PREFIX}/{relative}"
+        completed = subprocess.run(
+            [str(git_binary), "-C", str(trusted_git_root), "cat-file", "blob", f"{expected_artifact_commit}:{git_path}"],
+            check=False,
+            capture_output=True,
+        )
+        fail(completed.returncode == 0, f"artifact commit is missing {git_path}")
+        fail(package_path.read_bytes() == completed.stdout, f"package bytes are not bound to artifact commit: {relative}")
+
+
 def normalize_sha(value: str) -> str:
     if value.startswith("sha256:"):
         normalized = value
@@ -253,41 +327,48 @@ def normalize_sha(value: str) -> str:
     return normalized
 
 
-def tool_version(path: Path) -> str:
-    flag = "--version" if path.name == "tesseract" else "-version"
+def absolute_tool_path(value: str, name: str) -> Path:
+    path = Path(value)
+    fail(path.is_absolute(), f"{name} path must be absolute; PATH lookup is forbidden")
+    fail(path.is_file(), f"{name} path is not a regular file: {path}")
+    fail(path.stat().st_mode & stat.S_IXUSR != 0, f"{name} path is not executable: {path}")
+    return path
+
+
+def tool_version(name: str, path: Path) -> str:
+    flag = "--version" if name == "tesseract" else "-version"
     output = subprocess.check_output([str(path), flag], stderr=subprocess.STDOUT, text=True)
-    first = output.splitlines()[0]
+    first = next((line for line in output.splitlines() if line.strip()), "")
     match = re.search(r"(?:version\s+|tesseract\s+)(\d+\.\d+\.\d+)", first, flags=re.IGNORECASE)
-    fail(match is not None, f"cannot parse tool version: {path}")
+    fail(match is not None, f"cannot parse {name} version from {path}")
     return match.group(1)
 
 
-def inspect_tool(name: str) -> dict[str, str]:
-    expected = EXPECTED_TOOLING[name]
-    path = Path(expected["path"])
-    fail(path.is_file() and not path.is_symlink(), f"trusted {name} binary is missing or symlinked")
+def inspect_tool(name: str, path: Path) -> dict[str, str]:
+    path = absolute_tool_path(str(path), name)
+    stat_result = path.stat()
     actual = {
         "path": str(path),
         "sha256": digest(path),
-        "version": tool_version(path),
-        "owner": pwd.getpwuid(path.stat().st_uid).pw_name,
-        "mode": stat.filemode(path.stat().st_mode),
+        "version": tool_version(name, path),
+        "owner": pwd.getpwuid(stat_result.st_uid).pw_name,
+        "mode": stat.filemode(stat_result.st_mode),
     }
-    fail(actual == expected, f"trusted {name} binary identity changed")
     return actual
 
 
-def inspect_tooling() -> dict[str, dict[str, str]]:
-    return {name: inspect_tool(name) for name in ("ffprobe", "ffmpeg", "tesseract")}
+def inspect_tooling(tool_paths: dict[str, Path]) -> dict[str, dict[str, str]]:
+    fail(set(tool_paths) == set(TOOL_NAMES), "tool path set drifted")
+    return {name: inspect_tool(name, tool_paths[name]) for name in TOOL_NAMES}
 
 
 def parse_tool_json(raw: str):
     return json.loads(raw, parse_constant=lambda value: (_ for _ in ()).throw(ValueError(f"non-finite ffprobe value: {value}")))
 
 
-def ffprobe(path: Path, *args: str) -> dict:
+def ffprobe(path: Path, ffprobe_path: Path, *args: str) -> dict:
     raw = subprocess.check_output(
-        [str(FFPROBE_PATH), "-v", "error", *args, "-of", "json", str(path)],
+        [str(ffprobe_path), "-v", "error", *args, "-of", "json", str(path)],
         text=True,
     )
     return parse_tool_json(raw)
@@ -314,9 +395,10 @@ def atom_positions(path: Path) -> dict[str, int]:
     return positions
 
 
-def keyframe_probes(path: Path) -> list[dict]:
+def keyframe_probes(path: Path, ffprobe_path: Path) -> list[dict]:
     frames = ffprobe(
         path,
+        ffprobe_path,
         "-select_streams",
         "v:0",
         "-show_frames",
@@ -340,8 +422,8 @@ def keyframe_probes(path: Path) -> list[dict]:
     return output
 
 
-def raw_rgb(path: Path, target_seconds: float | None = None) -> bytes:
-    args = [str(FFMPEG_PATH), "-v", "error", "-i", str(path)]
+def raw_rgb(path: Path, ffmpeg_path: Path, target_seconds: float | None = None) -> bytes:
+    args = [str(ffmpeg_path), "-v", "error", "-i", str(path)]
     if target_seconds is not None:
         args.extend(["-ss", f"{target_seconds:.6f}"])
     args.extend(["-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "pipe:1"])
@@ -352,9 +434,9 @@ def sampled_digest(raw: bytes) -> str:
     return "sha256:" + hashlib.sha256(raw[::97]).hexdigest()
 
 
-def compare_frame(video: Path, snapshot: Path, target_seconds: float) -> dict[str, object]:
-    snapshot_raw = raw_rgb(snapshot)
-    video_raw = raw_rgb(video, target_seconds)
+def compare_frame(video: Path, snapshot: Path, target_seconds: float, ffmpeg_path: Path) -> dict[str, object]:
+    snapshot_raw = raw_rgb(snapshot, ffmpeg_path)
+    video_raw = raw_rgb(video, ffmpeg_path, target_seconds)
     fail(len(snapshot_raw) == len(video_raw), f"frame dimensions differ at {target_seconds:g}s")
     sampled_snapshot = snapshot_raw[::97]
     sampled_video = video_raw[::97]
@@ -421,9 +503,9 @@ def claim_input_digest(root: Path) -> str:
     return aggregate_hash(hashes)
 
 
-def ocr_snapshot(path: Path) -> str:
+def ocr_snapshot(path: Path, tesseract_path: Path) -> str:
     completed = subprocess.run(
-        [str(TESSERACT_PATH), str(path), "stdout", "--psm", "6"],
+        [str(tesseract_path), str(path), "stdout", "--psm", "6"],
         check=False,
         capture_output=True,
         text=True,
@@ -433,7 +515,7 @@ def ocr_snapshot(path: Path) -> str:
     return completed.stdout
 
 
-def claim_scan(root: Path) -> tuple[list[dict[str, str]], str]:
+def claim_scan(root: Path, tesseract_path: Path) -> tuple[list[dict[str, str]], str]:
     matches: list[dict[str, str]] = []
     for relative in CLAIM_TEXT_PATHS + ("manifest.json",):
         text = safe_path(root, relative).read_text(encoding="utf-8", errors="replace")
@@ -441,11 +523,101 @@ def claim_scan(root: Path) -> tuple[list[dict[str, str]], str]:
             if pattern.search(text):
                 matches.append({"file": relative, "pattern": name})
     for relative in SNAPSHOT_PATHS:
-        text = ocr_snapshot(safe_path(root, relative))
+        text = ocr_snapshot(safe_path(root, relative), tesseract_path)
         for name, pattern in FORBIDDEN_CLAIM_PATTERNS.items():
             if pattern.search(text):
                 matches.append({"file": relative, "pattern": name})
     return matches, claim_input_digest(root)
+
+
+def run_framemd5(ffmpeg_path: Path, video: Path, args: list[str]) -> bytes:
+    completed = subprocess.run(
+        [str(ffmpeg_path), "-hide_banner", "-loglevel", "error", "-i", str(video), *args, "-f", "framemd5", "pipe:1"],
+        check=False,
+        capture_output=True,
+    )
+    fail(completed.returncode == 0, f"ffmpeg framemd5 failed: {completed.stderr.decode('utf-8', errors='replace')[:300]}")
+    return completed.stdout
+
+
+def parse_framemd5(raw: bytes, media: str) -> list[tuple[int, int, int, int, str]]:
+    lines = raw.decode("utf-8").splitlines()
+    fail(lines[:3] == ["#format: frame checksums", "#version: 2", "#hash: MD5"], f"{media} framemd5 header drifted")
+    fail(any(line.startswith("#software: ") for line in lines[:6]), f"{media} framemd5 has no software provenance")
+    if media == "video":
+        required = ["#tb 0: 1/30", "#media_type 0: video", "#codec_id 0: rawvideo", "#dimensions 0: 96x54", "#sar 0: 0/1"]
+    else:
+        required = ["#tb 0: 1/48000", "#media_type 0: audio", "#codec_id 0: pcm_s16le", "#sample_rate 0: 48000", "#channel_layout_name 0: stereo"]
+    for prefix in required:
+        fail(prefix in lines, f"{media} framemd5 is missing {prefix}")
+    try:
+        header_index = lines.index("#stream#, dts,        pts, duration,     size, hash")
+    except ValueError as error:
+        raise ValueError(f"{media} framemd5 row header drifted") from error
+    rows = []
+    for line in lines[header_index + 1 :]:
+        fail(line and not line.startswith("#"), f"{media} framemd5 has an unexpected comment")
+        fields = [field.strip() for field in line.split(",")]
+        fail(len(fields) == 6, f"{media} framemd5 row has the wrong column count")
+        stream, dts, pts, duration, size = (int(field) for field in fields[:5])
+        checksum = fields[5]
+        fail(re.fullmatch(r"[0-9a-f]{32}", checksum) is not None, f"{media} framemd5 checksum is invalid")
+        rows.append((stream, dts, pts, duration, size, checksum))
+    if media == "video":
+        fail(len(rows) == FRAME_VIDEO_COUNT, "decoded video frame count is not exactly 2760")
+        for index, (stream, dts, pts, duration, size, _checksum) in enumerate(rows):
+            fail((stream, dts, pts, duration, size) == (0, index, index, 1, FRAME_VIDEO_SIZE), f"video frame timeline drifted at {index}")
+    else:
+        fail(len(rows) == 4313, "decoded audio packet count drifted")
+        for index, (stream, dts, pts, duration, size, _checksum) in enumerate(rows):
+            fail((stream, dts, pts, duration, size) == (0, index * 1024, index * 1024, 1024, 4096), f"audio PCM timeline drifted at {index}")
+        fail((rows[-1][1] + rows[-1][3]) == FRAME_AUDIO_SAMPLE_COUNT, "decoded audio sample count drifted")
+    return rows
+
+
+def frame_commitment_payload(video_root: Path) -> dict[str, object]:
+    return {
+        "video_digest_path": FRAME_VIDEO_PATH,
+        "audio_digest_path": FRAME_AUDIO_PATH,
+        "video_framemd5_sha256": digest(safe_path(video_root, FRAME_VIDEO_PATH)),
+        "audio_framemd5_sha256": digest(safe_path(video_root, FRAME_AUDIO_PATH)),
+        "video_filter": FRAME_VIDEO_FILTER,
+        "video_codec": "rawvideo",
+        "video_frame_count": FRAME_VIDEO_COUNT,
+        "video_width": FRAME_VIDEO_WIDTH,
+        "video_height": FRAME_VIDEO_HEIGHT,
+        "video_pixel_format": "gray",
+        "video_time_base": "1/30",
+        "audio_sample_rate": FRAME_AUDIO_SAMPLE_RATE,
+        "audio_sample_format": "s16",
+        "audio_channel_layout": "stereo",
+        "audio_sample_count": FRAME_AUDIO_SAMPLE_COUNT,
+        "audio_time_base": "1/48000",
+        "command": FRAME_COMMITMENT_COMMAND,
+        "segments": [dict(segment) for segment in FRAME_SEGMENTS],
+    }
+
+
+def verify_frame_commitment(video_root: Path, video: Path, ffmpeg_path: Path) -> dict[str, object]:
+    contract = safe_path(video_root, "evidence/ffmpeg-image-sequence.txt").read_text(encoding="utf-8")
+    fail(contract == RENDER_CONTRACT_TEXT, "render contract text drifted from the trusted seven-segment contract")
+    generated_video = run_framemd5(
+        ffmpeg_path,
+        video,
+        ["-map", "0:v:0", "-an", "-vf", FRAME_VIDEO_FILTER],
+    )
+    generated_audio = run_framemd5(
+        ffmpeg_path,
+        video,
+        ["-map", "0:a:0", "-vn", "-af", "aformat=sample_fmts=s16:sample_rates=48000:channel_layouts=stereo"],
+    )
+    expected_video = safe_path(video_root, FRAME_VIDEO_PATH).read_bytes()
+    expected_audio = safe_path(video_root, FRAME_AUDIO_PATH).read_bytes()
+    fail(generated_video == expected_video, "decoded video framemd5 does not match the committed 2760-frame evidence")
+    fail(generated_audio == expected_audio, "decoded audio PCM framemd5 does not match the committed evidence")
+    parse_framemd5(generated_video, "video")
+    parse_framemd5(generated_audio, "audio")
+    return frame_commitment_payload(video_root)
 
 
 def parse_srt(path: Path) -> list[tuple[float, float, str]]:
@@ -486,7 +658,22 @@ def validate_manifest(
     video_root: Path,
     expected_schema_sha256: str,
     expected_validator_sha256: str,
+    expected_artifact_commit: str,
+    trusted_git_root: Path,
+    git_binary: Path,
+    ffprobe_path: Path,
+    ffmpeg_path: Path,
+    tesseract_path: Path,
 ) -> None:
+    video_root = video_root.resolve()
+    manifest_path = manifest_path.resolve()
+    trusted_git_root = absolute_directory(str(trusted_git_root), "trusted git root")
+    git_binary = absolute_tool_path(str(git_binary), "git")
+    ffprobe_path = absolute_tool_path(str(ffprobe_path), "ffprobe")
+    ffmpeg_path = absolute_tool_path(str(ffmpeg_path), "ffmpeg")
+    tesseract_path = absolute_tool_path(str(tesseract_path), "tesseract")
+    fail(manifest_path == video_root / "manifest.json", "manifest must be the package manifest.json")
+    validate_commit_binding(video_root, manifest_path, expected_artifact_commit, trusted_git_root, git_binary)
     expected_schema_sha256 = normalize_sha(expected_schema_sha256)
     expected_validator_sha256 = normalize_sha(expected_validator_sha256)
     schema_path = video_root / "evidence/manifest.schema.json"
@@ -504,9 +691,7 @@ def validate_manifest(
     fail(manifest["validator_sha256"] == expected_validator_sha256, "manifest validator digest is not externally pinned")
     fail(manifest["status"] == "REFERENCE_RUNTIME_EVIDENCE_ONLY", "status overclaim")
     fail(manifest["recorded_source_commit"] == RECORDED_SOURCE_COMMIT, "recorded source commit is not the pinned full commit")
-    resolved_commit = subprocess.check_output(
-        ["git", "rev-parse", f"{RECORDED_SOURCE_COMMIT}^{{commit}}"], cwd=ROOT, text=True
-    ).strip()
+    resolved_commit = git_output(git_binary, trusted_git_root, "rev-parse", f"{RECORDED_SOURCE_COMMIT}^{{commit}}")
     fail(resolved_commit == RECORDED_SOURCE_COMMIT, "recorded source commit does not exist")
     fail(manifest["sequence"] == FIXED_SEQUENCE, "sequence claim drifted from the trusted capture contract")
     fail(manifest["network_policy"] == NETWORK_POLICY, "manifest network policy differs from the trusted capture contract")
@@ -523,7 +708,7 @@ def validate_manifest(
     }, "claim set overclaim")
     fail("source_commit" not in manifest and "artifact_commit" not in manifest and "artifact_payload_commit" not in manifest, "legacy commit field present")
 
-    tooling = inspect_tooling()
+    tooling = inspect_tooling({"ffprobe": ffprobe_path, "ffmpeg": ffmpeg_path, "tesseract": tesseract_path})
     fail(manifest["tooling"] == tooling, "manifest tool provenance does not match the independently inspected binaries")
 
     artifact_hashes = manifest["artifact_hashes"]
@@ -602,7 +787,7 @@ def validate_manifest(
         "matches": [],
     }, "manifest privacy provenance is not bound to the live scanner")
 
-    live_claim_matches, live_claim_digest = claim_scan(video_root)
+    live_claim_matches, live_claim_digest = claim_scan(video_root, tesseract_path)
     claim = manifest["claim_provenance"]
     fail(live_claim_matches == [] and claim["forbidden_matches"] == [], "live visible-claim scan found an overclaim")
     fail(claim["scanner"] == CLAIM_SCANNER_NAME and claim["scanner_sha256"] == expected_validator_sha256, "claim scanner source is not pinned")
@@ -610,7 +795,7 @@ def validate_manifest(
     fail(claim["input_paths"] == claim_text_inputs(video_root) and claim["input_digest"] == live_claim_digest, "claim scanner input inventory is stale")
 
     video = safe_path(video_root, "renders/reference-runtime-evidence.mp4")
-    media = ffprobe(video, "-show_entries", "format=duration,format_name:stream=index,codec_name,codec_type,width,height,pix_fmt,r_frame_rate,channels,sample_rate")
+    media = ffprobe(video, ffprobe_path, "-show_entries", "format=duration,format_name:stream=index,codec_name,codec_type,width,height,pix_fmt,r_frame_rate,channels,sample_rate")
     fail(media == manifest["ffprobe"], "manifest ffprobe does not match the independently probed MP4")
     fail(media["format"] == {"duration": "92.000000", "format_name": "mov,mp4,m4a,3gp,3g2,mj2"}, "delivered MP4 format or duration is not pinned")
     fail(media["streams"] == [
@@ -623,7 +808,7 @@ def validate_manifest(
     fail("moov" in atoms and "mdat" in atoms and atoms["moov"] < atoms["mdat"], "MP4 is not faststart moov<mdat")
     fail(manifest["faststart"] is True and manifest["moov_atom_before_mdat"] is True, "manifest faststart flags drifted")
 
-    actual_keyframes = keyframe_probes(video)
+    actual_keyframes = keyframe_probes(video, ffprobe_path)
     declared_keyframes = manifest["keyframe_probes"]
     fail([item["target_seconds"] for item in declared_keyframes] == list(TARGETS), "keyframe target set drifted")
     for declared, actual in zip(declared_keyframes, actual_keyframes):
@@ -641,7 +826,7 @@ def validate_manifest(
         fail(relative not in seen_snapshots and target not in seen_targets, "frame binding is duplicated")
         seen_snapshots.add(relative)
         seen_targets.add(target)
-        actual = compare_frame(video, safe_path(video_root, relative), target)
+        actual = compare_frame(video, safe_path(video_root, relative), target, ffmpeg_path)
         actual["snapshot"] = relative
         for key in ("snapshot_sample_sha256", "video_sample_sha256"):
             fail(declared[key] == actual[key], f"frame binding digest was forged for {relative}")
@@ -649,6 +834,8 @@ def validate_manifest(
         fail(math.isclose(declared["sampled_equal_ratio"], actual["sampled_equal_ratio"], abs_tol=1e-6), f"frame binding equality was forged for {relative}")
 
     parse_srt(safe_path(video_root, "subtitles.srt"))
+    expected_frame_commitment = verify_frame_commitment(video_root, video, ffmpeg_path)
+    fail(manifest["frame_commitment"] == expected_frame_commitment, "frame commitment metadata is not independently bound")
 
 
 def main() -> None:
@@ -657,9 +844,26 @@ def main() -> None:
     parser.add_argument("--video-root", type=Path, default=DEFAULT_VIDEO_ROOT)
     parser.add_argument("--expected-schema-sha256", required=True, help="SHA-256 of the trusted manifest schema")
     parser.add_argument("--expected-validator-sha256", required=True, help="SHA-256 of this trusted validator source")
+    parser.add_argument("--expected-artifact-commit", required=True, help="full 40-character commit of the trusted artifact tree")
+    parser.add_argument("--trusted-git-root", type=Path, required=True, help="absolute trusted worktree containing the expected artifact commit")
+    parser.add_argument("--git-binary", type=Path, required=True, help="absolute git executable; PATH lookup is forbidden")
+    parser.add_argument("--ffprobe", type=Path, required=True, help="absolute ffprobe executable; PATH lookup is forbidden")
+    parser.add_argument("--ffmpeg", type=Path, required=True, help="absolute ffmpeg executable; PATH lookup is forbidden")
+    parser.add_argument("--tesseract", type=Path, required=True, help="absolute tesseract executable; PATH lookup is forbidden")
     args = parser.parse_args()
     try:
-        validate_manifest(args.manifest, args.video_root, args.expected_schema_sha256, args.expected_validator_sha256)
+        validate_manifest(
+            args.manifest,
+            args.video_root,
+            args.expected_schema_sha256,
+            args.expected_validator_sha256,
+            args.expected_artifact_commit,
+            args.trusted_git_root,
+            args.git_binary,
+            args.ffprobe,
+            args.ffmpeg,
+            args.tesseract,
+        )
     except Exception as error:
         print(f"manifest validation FAILED: {error}", file=sys.stderr)
         raise SystemExit(1) from error

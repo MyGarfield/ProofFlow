@@ -6,7 +6,7 @@
   "paths_redacted": true,
   "schema": "proofflow.reference-runtime.lint-summary.v1",
   "tool": "hyperframes",
-  "tool_version": "0.8.6",
+  "tool_version": "0.8.8",
   "warningCodes": [
     "timeline_track_too_dense"
   ],

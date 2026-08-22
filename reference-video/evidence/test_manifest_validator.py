@@ -8,7 +8,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from validate_manifest import aggregate_hash, digest, strict_load
+from validate_manifest import aggregate_hash, claim_scan, digest, strict_load
 
 
 EVIDENCE = Path(__file__).resolve().parent
@@ -18,6 +18,16 @@ SCHEMA = EVIDENCE / "manifest.schema.json"
 VALIDATOR = EVIDENCE / "validate_manifest.py"
 EXPECTED_SCHEMA = digest(SCHEMA)
 EXPECTED_VALIDATOR = digest(VALIDATOR)
+GIT_ROOT = VIDEO_ROOT.parent
+GIT_BINARY = Path(shutil.which("git") or "/usr/local/bin/git").resolve()
+EXPECTED_ARTIFACT_COMMIT = subprocess.check_output(
+    [str(GIT_BINARY), "-C", str(GIT_ROOT), "rev-parse", "HEAD"], text=True
+).strip()
+TOOL_PATHS = {
+    name: Path(json.loads(MANIFEST.read_text(encoding="utf-8"))["tooling"][name]["path"])
+    for name in ("ffprobe", "ffmpeg", "tesseract")
+}
+TEXT2IMAGE = TOOL_PATHS["tesseract"].with_name("text2image")
 
 
 def require(condition: bool, message: str) -> None:
@@ -25,7 +35,9 @@ def require(condition: bool, message: str) -> None:
         raise AssertionError(message)
 
 
-def command_for(manifest_path: Path, root: Path) -> list[str]:
+def command_for(manifest_path: Path, root: Path, tool_overrides: dict[str, Path] | None = None) -> list[str]:
+    tools = dict(TOOL_PATHS)
+    tools.update(tool_overrides or {})
     return [
         sys.executable,
         "-O",
@@ -38,6 +50,18 @@ def command_for(manifest_path: Path, root: Path) -> list[str]:
         EXPECTED_SCHEMA,
         "--expected-validator-sha256",
         EXPECTED_VALIDATOR,
+        "--expected-artifact-commit",
+        EXPECTED_ARTIFACT_COMMIT,
+        "--trusted-git-root",
+        str(GIT_ROOT),
+        "--git-binary",
+        str(GIT_BINARY),
+        "--ffprobe",
+        str(tools["ffprobe"]),
+        "--ffmpeg",
+        str(tools["ffmpeg"]),
+        "--tesseract",
+        str(tools["tesseract"]),
     ]
 
 
@@ -143,7 +167,10 @@ def test_overclaim_visible_text_is_rejected_even_after_rehash() -> None:
 def test_package_schema_cannot_define_truth() -> None:
     def mutate(value, root):
         schema = materialize_file(root, "evidence/manifest.schema.json")
-        schema.write_text(schema.read_text(encoding="utf-8").replace("Structural envelope only", "forged semantic truth"), encoding="utf-8")
+        schema.write_text(
+            schema.read_text(encoding="utf-8").replace('"additionalProperties": false', '"additionalProperties": true', 1),
+            encoding="utf-8",
+        )
         value["schema_sha256"] = digest(schema)
         value["artifact_hashes"]["evidence/manifest.schema.json"] = digest(schema)
 
@@ -151,20 +178,16 @@ def test_package_schema_cannot_define_truth() -> None:
 
 
 def test_path_fake_ffprobe_is_ignored_and_rejected() -> None:
-    def mutate(value, root):
-        value["ffprobe"]["format"]["duration"] = "1.000000"
-        fake = root.parent / "fake-bin"
-        fake.mkdir()
-        (fake / "ffprobe").write_text("#!/bin/sh\necho fake\n", encoding="utf-8")
-        (fake / "ffprobe").chmod(0o755)
-
     with tempfile.TemporaryDirectory(prefix="manifest-attack-fake-path-") as directory:
         fake_path = Path(directory) / "fake-bin"
         root = Path(directory) / "reference-video"
         clone_package(root)
         fake_path.mkdir()
         fake = fake_path / "ffprobe"
-        fake.write_text("#!/bin/sh\nprintf '{\"format\":{\"duration\":\"1.000000\"},\"streams\":[]}'\n", encoding="utf-8")
+        fake.write_text(
+            "#!/bin/sh\nif [ \"$1\" = \"-version\" ]; then echo 'ffprobe version 9.9.9'; exit 0; fi\nprintf '{\"format\":{\"duration\":\"1.000000\"},\"streams\":[]}'\n",
+            encoding="utf-8",
+        )
         fake.chmod(0o755)
         manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
         manifest["ffprobe"]["format"]["duration"] = "1.000000"
@@ -172,9 +195,13 @@ def test_path_fake_ffprobe_is_ignored_and_rejected() -> None:
         manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
         environment = dict(os.environ)
         environment["PYTHONPATH"] = str(EVIDENCE)
-        environment["PATH"] = str(fake_path)
-        result = subprocess.run(command_for(manifest_path, root), env=environment, capture_output=True, text=True)
-        require(result.returncode != 0, "PATH fake ffprobe was trusted")
+        result = subprocess.run(
+            command_for(manifest_path, root, {"ffprobe": fake}),
+            env=environment,
+            capture_output=True,
+            text=True,
+        )
+        require(result.returncode != 0, "caller-supplied fake ffprobe was trusted")
 
 
 def test_deleted_video_hash_is_rejected() -> None:
@@ -197,7 +224,7 @@ def test_hash_tamper_is_rejected() -> None:
     run_mutation("hash-tamper", lambda value, _root: value["artifact_hashes"].update({"index.html": "sha256:" + "0" * 64}))
 
 
-def test_frame_swap_is_rejected_after_hash_recalculation() -> None:
+def test_snapshot_duplicate_is_rejected_after_hash_recalculation() -> None:
     def mutate(value, root):
         snapshots = root / "snapshots"
         if snapshots.is_symlink():
@@ -206,7 +233,96 @@ def test_frame_swap_is_rejected_after_hash_recalculation() -> None:
         shutil.copy2(snapshots / "frame-00-at-5s.png", snapshots / "frame-01-at-18s.png")
         refresh_hashes(value, root, "snapshots/frame-01-at-18s.png")
 
-    run_mutation("frame-swap", mutate)
+    run_mutation("snapshot-duplicate", mutate)
+
+
+def test_srt_timing_tamper_is_rejected_after_hash_recalculation() -> None:
+    def mutate(value, root):
+        path = materialize_file(root, "subtitles.srt")
+        text = path.read_text(encoding="utf-8").replace("00:00:09,800", "00:00:11,000", 1)
+        path.write_text(text, encoding="utf-8")
+        refresh_hashes(value, root, "subtitles.srt")
+
+    run_mutation("srt-timing-tamper", mutate)
+
+
+def test_full_decoded_frame_commitment_tamper_is_rejected_after_rehash() -> None:
+    def mutate(value, root):
+        path = materialize_file(root, "evidence/video-frames.framemd5")
+        lines = path.read_text(encoding="utf-8").splitlines()
+        row = next(index for index, line in enumerate(lines) if line.startswith("0,"))
+        fields = lines[row].split(",")
+        fields[-1] = "0" * 32
+        lines[row] = ",".join(fields)
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        refresh_hashes(value, root, "evidence/video-frames.framemd5")
+
+    run_mutation("full-frame-commitment-tamper", mutate)
+
+
+def test_qa_6_to_7_second_overclaim_injection_is_caught_by_live_ocr() -> None:
+    with tempfile.TemporaryDirectory(prefix="manifest-attack-qa-overclaim-") as directory:
+        root = Path(directory) / "reference-video"
+        clone_package(root)
+        snapshot = materialize_file(root, "snapshots/frame-00-at-5s.png")
+        text_file = Path(directory) / "qa-overclaim.txt"
+        text_file.write_text("SIX AGENTS LIVE LEGAL ACCURACY 100%\n", encoding="utf-8")
+        outputbase = Path(directory) / "qa-overclaim"
+        require(TEXT2IMAGE.is_file(), f"missing explicit text2image helper beside tesseract: {TEXT2IMAGE}")
+        subprocess.run(
+            [
+                str(TEXT2IMAGE),
+                "--text",
+                str(text_file),
+                "--outputbase",
+                str(outputbase),
+                "--max_pages",
+                "1",
+                "--xsize",
+                "6000",
+                "--ysize",
+                "1080",
+                "--ptsize",
+                "80",
+                "--margin",
+                "50",
+                "--degrade_image",
+                "false",
+                "--rotate_image",
+                "false",
+                "--invert",
+                "false",
+                "--white_noise",
+                "false",
+                "--smooth_noise",
+                "false",
+                "--blur",
+                "false",
+            ],
+            cwd=directory,
+            check=True,
+        )
+        injected = Path(directory) / "qa-injected.png"
+        subprocess.run(
+            [
+                str(TOOL_PATHS["ffmpeg"]),
+                "-y",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-i",
+                str(outputbase) + ".tif",
+                "-frames:v",
+                "1",
+                str(injected),
+            ],
+            check=True,
+        )
+        shutil.copy2(injected, snapshot)
+        shutil.copy2(MANIFEST, root / "manifest.json")
+        matches, _digest = claim_scan(root, TOOL_PATHS["tesseract"])
+        patterns = {item["pattern"] for item in matches}
+        require({"six_agents_live", "legal_accuracy_100"}.issubset(patterns), f"live OCR missed QA overclaim: {matches}")
 
 
 def test_privacy_is_recomputed_not_read_from_stale_summary() -> None:

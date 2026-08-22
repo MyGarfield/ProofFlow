@@ -8,6 +8,8 @@ This is a page-level capture of the loopback ProofFlow Demo. It proves the order
 
 The local TTS attempt was blocked because `kokoro-onnx` is not installed. The film therefore ships manual Chinese timecoded subtitles and an explicit 92-second AAC placeholder silence track. The subtitle copy is the communication source of truth; no synthesized voice is claimed.
 
+This auxiliary evidence film is not the sole/main ProofFlow demonstration. A separate Chinese-voice demonstration film must be produced later.
+
 1. PUBLIC SYNTHETIC / REFERENCE RUNTIME / NO LLM / Workers Stopped / readyWorkers=0.
 2. PREPARE seals the fixed fixture and rules, then stops at AWAITING_APPROVAL.
 3. A package-before-approval call returns 409 HUMAN_GATE_REQUIRED. This is expected fail-closed evidence.

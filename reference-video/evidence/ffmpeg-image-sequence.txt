@@ -1,10 +1,22 @@
+schema=proofflow.reference-runtime.render-contract.v2
 method=ffmpeg_filter_concat
 fps=30
-segment=0-10s snapshots/frame-00-at-5s.png
-segment=10-26s snapshots/frame-01-at-18s.png
-segment=26-41s snapshots/frame-02-at-33s.png
-segment=41-58s snapshots/frame-03-at-49s.png
-segment=58-66s snapshots/frame-04-at-62s.png
-segment=66-75s snapshots/frame-05-at-70s.png
-segment=75-92s snapshots/frame-06-at-84s.png
-audio=silent-aac.m4a role=AAC_PLACEHOLDER_SILENCE_NOT_NARRATION
+pixel_format=yuv420p
+segment=0-10s frames=0-299 snapshot=snapshots/frame-00-at-5s.png
+segment=10-26s frames=300-779 snapshot=snapshots/frame-01-at-18s.png
+segment=26-41s frames=780-1229 snapshot=snapshots/frame-02-at-33s.png
+segment=41-58s frames=1230-1739 snapshot=snapshots/frame-03-at-49s.png
+segment=58-66s frames=1740-1979 snapshot=snapshots/frame-04-at-62s.png
+segment=66-75s frames=1980-2249 snapshot=snapshots/frame-05-at-70s.png
+segment=75-92s frames=2250-2759 snapshot=snapshots/frame-06-at-84s.png
+input=snapshots/frame-00-at-5s.png
+input=snapshots/frame-01-at-18s.png
+input=snapshots/frame-02-at-33s.png
+input=snapshots/frame-03-at-49s.png
+input=snapshots/frame-04-at-62s.png
+input=snapshots/frame-05-at-70s.png
+input=snapshots/frame-06-at-84s.png
+input=silent-aac.m4a role=AAC_PLACEHOLDER_SILENCE_NOT_NARRATION
+render_command=$FFMPEG_BIN -y -hide_banner -loglevel error -loop 1 -t 10 -i snapshots/frame-00-at-5s.png -loop 1 -t 16 -i snapshots/frame-01-at-18s.png -loop 1 -t 15 -i snapshots/frame-02-at-33s.png -loop 1 -t 17 -i snapshots/frame-03-at-49s.png -loop 1 -t 8 -i snapshots/frame-04-at-62s.png -loop 1 -t 9 -i snapshots/frame-05-at-70s.png -loop 1 -t 17 -i snapshots/frame-06-at-84s.png -i silent-aac.m4a -filter_complex [0:v][1:v][2:v][3:v][4:v][5:v][6:v]concat=n=7:v=1:a=0[v] -map [v] -map 7:a:0 -t 92 -r 30 -c:v libx264 -pix_fmt yuv420p -force_key_frames 0,15,30,42,60,72,89 -c:a aac -ar 48000 -ac 2 -movflags +faststart renders/reference-runtime-evidence.mp4
+frame_commitment_video=$FFMPEG_BIN -hide_banner -loglevel error -i renders/reference-runtime-evidence.mp4 -map 0:v:0 -an -vf scale=96:54:flags=bilinear,format=gray -f framemd5 pipe:1
+frame_commitment_audio=$FFMPEG_BIN -hide_banner -loglevel error -i renders/reference-runtime-evidence.mp4 -map 0:a:0 -vn -af aformat=sample_fmts=s16:sample_rates=48000:channel_layouts=stereo -f framemd5 pipe:1
