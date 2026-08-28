@@ -66,6 +66,15 @@ BUILD_INPUT_FILES = (
     "NOTICE",
 )
 BUILD_INPUT_DIRECTORIES = ("src", "data/rules")
+EXPECTED_SRC_DATA_FILES = {
+    "proofflow/demo_assets/README.md",
+    "proofflow/demo_assets/case/contract.json",
+    "proofflow/demo_assets/case/manifest.json",
+    "proofflow/demo_assets/case/payroll.json",
+    "proofflow/demo_assets/case/termination_notice.json",
+    "proofflow/demo_assets/rules/cn_labor_contract_law.catalog.json",
+    "proofflow/py.typed",
+}
 DIRECTORY_BUNDLE_FORMAT = "PATH_LENGTH_U64_BE_PATH_BYTES_CONTENT_LENGTH_U64_BE_CONTENT_BYTES_V1"
 
 
@@ -156,7 +165,9 @@ def _directory_input_files(relative_directory: str) -> list[Path]:
         if not candidate.is_file():
             raise CollectionError(f"build input is not a regular file: {candidate}")
         if relative_directory == "src":
-            allowed = candidate.suffix == ".py" or candidate.name == "py.typed"
+            allowed = candidate.suffix == ".py" or relative_path.as_posix() in (
+                EXPECTED_SRC_DATA_FILES
+            )
         else:
             allowed = candidate.suffix == ".json"
         if not allowed:
