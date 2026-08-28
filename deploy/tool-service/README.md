@@ -34,5 +34,10 @@ rate limiter, token rotation controller, or durable idempotency store. Put a tru
 front of it, keep the Docker network private, and accept only `PUBLIC_SYNTHETIC` fixtures.
 
 The point-in-time CycloneDX/SPDX SBOMs, Trivy report, unsigned reproducible build-input hashes,
-strict evidence schema, validator, exact tool pins, and limitations are documented in
+strict historical-consistency and v1.2 freshness contracts, fail-closed validator, exact tool pins,
+atomic staged collector, and limitations are documented in
 [SUPPLY_CHAIN_EVIDENCE.md](SUPPLY_CHAIN_EVIDENCE.md).
+
+The committed 2026-08-20 evidence is historical and cannot authorize a release. No v1.2 evidence
+or release-policy instance is committed; creating either requires a new exact-source image build
+and database refresh. The disabled workflow design contains no publication step.

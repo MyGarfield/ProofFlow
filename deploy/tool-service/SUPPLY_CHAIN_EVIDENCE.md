@@ -54,9 +54,10 @@ The complete database is not committed; its version, update/download times, byte
 are recorded in the evidence manifest.
 
 The database declared its next update at `2026-08-21T07:02:00Z`. As of 2026-08-29 this is a
-historical consistency snapshot, not a current release scan. The validator's optional
-`--release-gate` only rejects HIGH/CRITICAL records inside this snapshot; it does not enforce a
-maximum age or prove that no newer advisory exists.
+historical consistency snapshot, not a current release scan. Consistency mode reports
+`release_eligible=false`; release mode rejects Schema v1.1 with the stable code
+`HISTORICAL_SCHEMA_NOT_RELEASE_ELIGIBLE` before considering any finding count. It does not prove
+that no newer advisory exists.
 
 ## Unsigned build-input hashes
 
@@ -72,14 +73,17 @@ signatures, SLSA provenance, a registry attestation, or cryptographic proof that
 was produced from those inputs. The manifest therefore records both
 `hashes_are_digital_signatures=false` and `build_relationship_attested=false`.
 
-## Published artifacts
+## Published historical artifacts
 
 - `evidence/sbom.cyclonedx.json`: CycloneDX 1.7 SBOM, 937 components.
 - `evidence/sbom.spdx.json`: SPDX 2.3 SBOM, 45 packages.
 - `evidence/vulnerabilities.trivy.json`: Trivy JSON vulnerability report.
 - `evidence/supply-chain-evidence.json`: subject, tool, database, artifact-hash, count, and
   limitation manifest.
-- `evidence/supply-chain-evidence.schema.json`: strict Draft 2020-12 schema.
+- `evidence/supply-chain-evidence.schema.json`: strict Draft 2020-12 contract accepting the frozen
+  v1.1 historical shape and the separately gated v1.2 release-binding shape.
+- `evidence/supply-chain-release-policy.schema.json`: strict external policy shape for v1.2 release
+  verification. It is a schema, not a policy instance and not release evidence.
 
 Artifact SHA-256 values and byte counts live in `supply-chain-evidence.json`. The semantic
 validator recomputes them, reconciles both SBOMs and the Trivy report, verifies severity and target
@@ -97,19 +101,57 @@ analysis runs with `--network none`, `--offline-scan`, and `--skip-db-update`. I
 temporary Docker volume is removed after collection.
 
 ```bash
-uv run python deploy/tool-service/scripts/collect_supply_chain_evidence.py
-uv run python deploy/tool-service/scripts/validate_supply_chain_evidence.py --expect-stale-build-inputs
+uv run python deploy/tool-service/scripts/validate_supply_chain_evidence.py --mode consistency
+uv run python deploy/tool-service/scripts/validate_supply_chain_evidence.py \
+  --mode release \
+  --release-policy /approved/external/release-policy.json \
+  --release-policy-sha256 'sha256:<independently-approved-policy-digest>'
 uv run pytest tests/contract/test_tool_service_supply_chain.py -q
 ```
 
-The ordinary validator mode and `--release-gate` intentionally fail while the recorded build
-inputs differ from repository bytes. `--expect-stale-build-inputs` pins and validates the exact
-historical provenance snapshot, requires that it be stale, and cannot be combined with the release
-gate.
+The first command validates the exact v1.1 historical manifest, raw artifacts and historical
+build-input snapshot, then returns `HISTORICAL_CONSISTENT_STALE` with
+`release_eligible=false`. `--expect-stale-build-inputs` remains only as a compatibility assertion
+for that v1.1 path. The second command intentionally fails because v1.1 can never become release
+eligible. No release-policy instance is committed.
 
-The optional `--release-gate` rejects any recomputed HIGH or CRITICAL record, but still does not
-check snapshot age. A real release must rebuild the exact image, refresh the database and evidence,
-and enforce an explicit maximum-age policy before treating the result as a release decision.
+The collector is not run by ordinary CI. When an operator deliberately runs it, it writes a v1.2
+candidate into a same-filesystem staging directory, validates consistency, and only then promotes
+the directory. It cannot accept or create a release policy and cannot assert release eligibility.
+A different trust domain must review the candidate, fix an external policy and independently pass
+the exact policy-file SHA-256 to a later release-verifier invocation. A scan, refresh, or validation
+failure leaves the previous historical directory intact. This repository change did not run the
+networked collector and did not rewrite any SBOM or Trivy report.
+
+## v1.2 freshness and release binding contract
+
+No v1.2 evidence instance is committed. The schema and verifier define what a later exact-build
+run must produce:
+
+- one scan window, exact source commit and tree, deterministic aggregate build-input digest,
+  immutable image subject and platform;
+- one exact raw-artifact set, vulnerability-database identity and explicit refresh result;
+- one `evidence_set_id` recomputed over those fields with canonical JSON SHA-256;
+- an external policy binding the expected source, build-input digest, subject, exact SHA-256/media
+  type/byte count for every raw artifact, exact database identity and timestamps, and the expected
+  `evidence_set_id`;
+- maximum ages of six hours for the completed snapshot and 24 hours for the database, a maximum
+  30-minute scan window and at most five minutes of future clock skew;
+- strict `now < database.next_update`; equality is refresh-due, while equality at a maximum-age or
+  duration limit remains valid;
+- recomputation of HIGH/CRITICAL findings from the bound raw Trivy report.
+
+Only library callers and tests may inject `now`. The production CLI has no `--now` option and uses
+the system UTC clock. A path-based production policy is rejected unless its raw file bytes match a
+separately supplied `sha256:<64hex>` trust anchor. A self-consistent digest inside evidence is not
+an external trust anchor. Release validation checks all policy pins before the finding decision and
+fails closed with stable codes for missing/invalid policy, historical schema, timestamp order,
+future skew, expired snapshot/database, due or failed database refresh,
+source/build/subject/artifact/binding mismatch, and HIGH/CRITICAL findings.
+
+The disabled workflow design in `.github/workflows/release-supply-chain-evidence.yml` documents the
+intended exact-SHA sequence, separate external policy digest input and approval environment. It has
+no publication step and cannot publish historical or merely consistency-valid evidence.
 
 ## Rejected Debian baseline and remediation
 

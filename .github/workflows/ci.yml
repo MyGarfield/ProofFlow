@@ -29,7 +29,7 @@ jobs:
       - run: uv run mypy
       - run: uv run python scripts/export_schemas.py --check
       - name: Validate historical supply-chain snapshot consistency
-        run: uv run python deploy/tool-service/scripts/validate_supply_chain_evidence.py --expect-stale-build-inputs
+        run: uv run python deploy/tool-service/scripts/validate_supply_chain_evidence.py --mode consistency
       - run: uv run python deploy/agentteams/scripts/validate_public_evidence.py --strict deploy/agentteams/evidence/local-infra-smoke-2026-08-20.json
       - run: uv run python deploy/agentteams/scripts/validate_mcp_smoke_evidence.py --strict deploy/agentteams/evidence/mcp-manager-operator-smoke-2026-08-20.json
       - name: Validate pinned Aliyun official Skill offline evidence

@@ -1,0 +1,49 @@
+name: Release supply-chain evidence (disabled design)
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Exact reviewed 40-hex commit to build
+        required: true
+        type: string
+      release_policy_sha256:
+        description: SHA-256 from the separately approved external release policy
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  exact-sha-candidate-design:
+    # Deliberately disabled until a reviewed job creates the external policy independently.
+    # Enabling collection does not authorize a registry, release, Pages, or package publication.
+    if: ${{ false }}
+    runs-on: ubuntu-latest
+    environment: supply-chain-release-approval
+    steps:
+      - name: Checkout exact reviewed source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Assert exact SHA and clean tracked tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ inputs.commit_sha }}"
+          test -z "$(git status --porcelain)"
+      - name: Design checkpoint — build immutable candidate
+        run: echo "A reviewed implementation must build and record the exact image subject here."
+      - name: Design checkpoint — collect consistency-only candidate
+        run: echo "Collect into staging, refresh DB, self-check consistency, then retain candidate."
+      - name: Design checkpoint — retrieve separately approved policy
+        run: |
+          echo "A different trust domain must supply the exact policy file."
+          echo "Verifier must match it to ${{ inputs.release_policy_sha256 }} before release mode."
+      - name: Design checkpoint — release-validate in a separate step
+        run: echo "Policy pins raw digests, DB metadata, evidence-set ID, source, build, and subject."
+      - name: Publication intentionally absent
+        run: echo "This workflow has no publish, push, upload-release, or deployment step."
