@@ -77,6 +77,23 @@ def test_validator_rejects_false_live_worker_claim(tmp_path: Path) -> None:
     assert any("forbidden visible claim" in item for item in errors)
 
 
+def test_validator_rejects_removal_of_historical_snapshot_boundary(tmp_path: Path) -> None:
+    copied = _copy_site(tmp_path)
+    index_path = copied / "index.html"
+    html = index_path.read_text(encoding="utf-8")
+    index_path.write_text(
+        html.replace("不代表当前 Core alpha", "当前产品", 1),
+        encoding="utf-8",
+    )
+
+    errors = validate_public_demo(ROOT, copied)
+
+    assert any(
+        "required visible claim boundary is missing: 不代表当前 Core alpha" in item
+        for item in errors
+    )
+
+
 def test_validator_rejects_broken_relative_link(tmp_path: Path) -> None:
     copied = _copy_site(tmp_path)
     index_path = copied / "index.html"

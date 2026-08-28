@@ -1047,6 +1047,7 @@ def validate_public_demo(
         errors.append("storyboard range must be the fixed 0-90 second timeline")
 
     required_text = (
+        "HISTORICAL BASELINE / PUBLIC EVIDENCE SHEET",
         "PUBLIC_SYNTHETIC",
         "Workers Stopped",
         "readyWorkers=0",
@@ -1058,6 +1059,7 @@ def validate_public_demo(
         "STORYBOARD_FALLBACK",
         "LEGAL ACCURACY: NOT MEASURED",
         "OFFICIAL SCORE UNKNOWN / null",
+        "不代表当前 Core alpha",
     )
     for phrase in required_text:
         if phrase not in visible_text:
