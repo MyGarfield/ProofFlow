@@ -203,6 +203,7 @@ uv run pytest
 
 ## 路线图与证据边界
 
+- [全球产品路线图](docs/12_GLOBAL_PRODUCT_ROADMAP.md)
 - [状态与范围](docs/00_STATUS_AND_SCOPE.md)
 - [技术设计](docs/01_TECHNICAL_DESIGN.md)
 - [安全与 Human Gate](docs/02_SECURITY_AND_HUMAN_GATE.md)
@@ -222,6 +223,14 @@ uv run pytest
 
 不要提交 API Key、Token、Cookie、私钥、连接串、真实个人信息、客户材料或受限规则库。公开样例
 只能使用合成、合法授权或合规脱敏数据。当前程序不应处理真实案件。
+
+## 社区与支持
+
+- [贡献指南](CONTRIBUTING.md)
+- [支持边界](SUPPORT.md)
+- [安全报告](SECURITY.md)
+- [社区行为准则](CODE_OF_CONDUCT.md)
+- [治理与发布责任](GOVERNANCE.md)
 
 ## License
 

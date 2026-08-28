@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Confidential security report
+    url: https://github.com/MyGarfield/ProofFlow/security/advisories/new
+    about: Report vulnerabilities, secrets, tenant leaks, approval bypasses, or exploit details privately.
+  - name: Support boundary
+    url: https://github.com/MyGarfield/ProofFlow/blob/main/SUPPORT.md
+    about: Read supported use, reproduction requirements, and non-production limits.

@@ -1,0 +1,32 @@
+name: Feature request
+description: Propose a focused capability that strengthens proof governance.
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Describe the high-risk action or verifier gap, not only a preferred implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: proof_value
+    attributes:
+      label: Proof-governance value
+      description: Explain how this improves authorization, approval, receipts, provenance, replay safety, or outcome closure.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Verifiable acceptance criteria
+      description: Include negative tests, evidence source, and UNKNOWN/fail-closed behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives and strongest objection
+    validations:
+      required: true
