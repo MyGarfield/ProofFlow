@@ -60,7 +60,7 @@ ProofFlow 不以“法律聊天更聪明”为核心，而以以下命题参赛�
   Schema v1.1、SBOM、固定数据库点时漏洞扫描和八项 unsigned build-input hashes；
 - [x] 替换本地运行容器并刷新 AgentTeams MCP Schema v1.2 证据；严格语义 validator 已强制供应链
   subject、MCP 快照根级和运行观察三处 image ID 相等；
-- [x] 当前格式、类型、Schema、证据 validator 与稳定全仓 `507 passed` 门禁通过；
+- [x] 当前格式、类型、Schema、证据 validator 与稳定全仓 `516 passed` 门禁通过；
 - [ ] 加入缺参、冲突、异地/过期规则、审批后修改、越权角色异常样例；
 - [x] 建立本地演示 UI、90 秒 runbook 与 `19 passed` 定向套件；它不运行 Worker/LLM 或产生外部副作用；
 - [x] 集成三臂评测协议、Schema、CLI 与合同测试；当前状态为
@@ -124,7 +124,7 @@ ProofFlow 不以“法律聊天更聪明”为核心，而以以下命题参赛�
   `tool_service_runtime.image_id` 三方相等。摘要、交叉绑定与点时零 finding 不是 clean 结论、签名、
   build attestation、构建关系证明、持续运行证明或生产安全认证；Debian 4 Critical/22 High 仅是未附
   原始报告的操作员历史观察；
-- 稳定全仓测试为 `507 passed`，本地 Demo 定向测试为 `19 passed`；
+- 稳定全仓测试为 `516 passed`，本地 Demo 定向测试为 `19 passed`；
 - [`10_EVALUATION_PROTOCOL.md`](10_EVALUATION_PROTOCOL.md) 与
   [`benchmarks/evaluation/`](../benchmarks/evaluation/) 已集成，但报告状态仍为
   `PROTOCOL_VALIDATED_NOT_EXECUTED`；`deterministic_reference`、`single_agent`、`six_agent` 三臂和
