@@ -13,7 +13,7 @@ GitHub private vulnerability reporting is enabled. Submit a confidential report 
 [New repository security advisory](https://github.com/MyGarfield/ProofFlow/security/advisories/new).
 Do not open a public issue containing an exploit, secret, personal information, customer material or a real
 case. If GitHub reports that the private form is unavailable, do not publish the details; open a content-free
-support issue asking the maintainer to restore the private channel.
+`Security channel unavailable` issue asking the maintainer to restore the private channel.
 
 Include the affected Git SHA, environment, minimal synthetic reproduction, expected/actual control, and whether
 any external side effect occurred. Never attach production credentials or restricted data.

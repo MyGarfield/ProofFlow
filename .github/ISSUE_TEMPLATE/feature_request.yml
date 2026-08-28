@@ -3,6 +3,9 @@ description: Propose a focused capability that strengthens proof governance.
 title: "feat: "
 labels: ["enhancement"]
 body:
+  - type: markdown
+    attributes:
+      value: Do not include secrets, personal information, real cases, customer material, workstation paths, or exploit details. Use private vulnerability reporting for security-sensitive content.
   - type: textarea
     id: problem
     attributes:
@@ -30,3 +33,10 @@ body:
       label: Alternatives and strongest objection
     validations:
       required: true
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Data safety
+      options:
+        - label: I removed secrets, personal information, real cases, customer material, workstation paths, and exploit details.
+          required: true

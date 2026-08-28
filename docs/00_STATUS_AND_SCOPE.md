@@ -46,7 +46,7 @@ LLM，不能证明 Team/Matrix 协作、运行中 Skill 消费、模型质量或
   Evidence 被接受的风险；单次 smoke 不能量化风险降低幅度。
 - **未验证事项**：LLM Worker 协作、Matrix/TeamHarness 任务链、真实 Human 身份映射、MCP 长稳与
   故障恢复、法律准确率、生产容量和 SLA。模型 API Key 轮换完成前不启动 Worker 或触发 LLM。
-- **供应链门状态**：公开机器证据绑定当前最小化 Alpine 镜像
+- **供应链门状态**：公开机器证据绑定 2026-08-20 点时观察的最小化 Alpine 镜像
   `sha256:1a4c4efb2d4e4fe37503ba0082282218e0b8c978dd22c1bd1488b5942d087775`；其固定数据库点时扫描的
   Unknown/Low/Medium/High/Critical 均为 0，CycloneDX 为 937 components，verdict 仅为
   `NO_HIGH_OR_CRITICAL_FOUND`。供应链 Schema v1.1 绑定八项当前构建输入摘要；AgentTeams MCP

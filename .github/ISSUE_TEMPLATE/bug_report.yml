@@ -49,3 +49,5 @@ body:
       options:
         - label: I removed secrets, personal information, real cases, customer material, and workstation paths.
           required: true
+        - label: This public report contains no external-effect incident, tenant breach, approval bypass, or exploit detail; those go to private vulnerability reporting.
+          required: true

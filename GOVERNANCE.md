@@ -19,6 +19,14 @@ The current repository maintainer is `@MyGarfield`. This is a project role, not 
 - Core scope is cross-runtime proof governance. Generic runtime, chat, memory and tool-calling features require a
   written reason they strengthen authorization, receipts or outcome closure.
 
+## Bootstrap exception
+
+The repository currently has one maintainer. Until a second trusted human reviewer is appointed, a
+security-sensitive bootstrap change may merge only when its pull request records exact-head CI, a separate
+read-only review with no unresolved P0/P1 finding, and the absence of sensitive data. This is a temporary
+single-maintainer exception, not an independent human audit. Issue #16 tracks adding a second maintainer and
+branch-protection review policy; the exception ends when that policy is active.
+
 ## Releases
 
 A release requires a clean, reviewed commit; current tests; fresh supply-chain evidence; reproducible assets;

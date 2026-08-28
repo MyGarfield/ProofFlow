@@ -1,0 +1,15 @@
+name: Security channel unavailable
+description: Report only that GitHub private vulnerability reporting cannot be opened.
+title: "support: restore private security channel"
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: Do not include vulnerability details, exploit steps, secrets, personal information, real cases, or customer material in this public issue.
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Public-content boundary
+      options:
+        - label: I am reporting only that the private channel is unavailable and have included no security details or sensitive data.
+          required: true
