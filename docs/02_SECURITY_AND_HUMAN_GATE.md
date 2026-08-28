@@ -49,7 +49,7 @@ Manager 操作员工具链；Human/Matrix 的真实身份映射仍未验证。
 | 审批后篡改 | 待批对象摘要变化后批准失败；有 E2E 测试 | 并发数据库事务和跨服务 TOCTOU 未做 |
 | Trace 缺失 | Audit 强制 BLOCK | OTel、append-only ledger、保留策略未做 |
 | 包文件篡改 | 独立 verify 发现文件哈希变化；有 E2E 测试 | 签名发布、SBOM/provenance 和托管验证器未做 |
-| 镜像供应链 | 2026-08-20 观察的最小化 Alpine 镜像 `sha256:1a4c4efb2d4e4fe37503ba0082282218e0b8c978dd22c1bd1488b5942d087775` 的供应链 Schema v1.1 点时扫描为全 severity 0、CycloneDX 937 components、verdict `NO_HIGH_OR_CRITICAL_FOUND`，并绑定八项构建输入摘要；AgentTeams MCP Schema v1.2 与严格语义 validator 已强制供应链 subject、MCP 快照根级和运行观察三处 image ID 相等 | 漏洞数据库已超过声明的下一更新时间；这些未签名历史摘要与交叉绑定不是当前 release scan、clean 结论、数字签名、build attestation、构建关系证明、持续运行证明或生产安全认证。当前稳定全仓测试为 `651 passed`；Debian 4 Critical/22 High 仅是未附原始报告的操作员历史观察 |
+| 镜像供应链 | 2026-08-20 观察的最小化 Alpine 镜像 `sha256:1a4c4efb2d4e4fe37503ba0082282218e0b8c978dd22c1bd1488b5942d087775` 的供应链 Schema v1.1 点时扫描为全 severity 0、CycloneDX 937 components、verdict `NO_HIGH_OR_CRITICAL_FOUND`，并绑定八项构建输入摘要；AgentTeams MCP Schema v1.2 与严格语义 validator 已强制供应链 subject、MCP 快照根级和运行观察三处 image ID 相等 | 漏洞数据库已超过声明的下一更新时间；这些未签名历史摘要与交叉绑定不是当前 release scan、clean 结论、数字签名、build attestation、构建关系证明、持续运行证明或生产安全认证。当前 main CI 为 `650 passed + 1 skipped = 651 collected`；Debian 4 Critical/22 High 仅是未附原始报告的操作员历史观察 |
 
 ## AgentTeams 点时安全证据边界
 

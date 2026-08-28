@@ -69,7 +69,8 @@ AgentTeams MCP Schema v1.2 与严格语义 validator 已强制供应链 `subject
 finding 都只是未签名的历史点时证据；其漏洞数据库已超过声明的下一更新时间。ActionCertificate
 新增密码学依赖并改变 `src/` 后，这套镜像/SBOM/扫描与构建输入证据已明确标记为 `STALE`，普通模式
 与 release gate 都会失败，只有专用模式可验证“历史快照完整且确实已过时”。它不证明构建关系、数字签名、attestation、远端 registry 状态、
-持续可用性或生产安全，也绝不等于镜像“clean”或无漏洞。当前稳定全仓测试为 `651 passed`。
+持续可用性或生产安全，也绝不等于镜像“clean”或无漏洞。当前 main CI 为
+`650 passed + 1 skipped = 651 collected`（[run 33219867413](https://github.com/MyGarfield/ProofFlow/actions/runs/33219867413)）。
 
 脱敏点时证据见 [AgentTeams 本地证据](deploy/agentteams/LOCAL_INFRA_EVIDENCE.md)、
 [MCP Manager 操作员冒烟](deploy/agentteams/evidence/mcp-manager-operator-smoke-2026-08-20.json)、
@@ -236,7 +237,8 @@ uv run mypy
 uv run pytest
 ```
 
-当前稳定全仓测试为 `651 passed`，其中 ActionCertificate 定向套件为 `53 passed`、Demo 定向套件为
+当前 main CI 为 `650 passed + 1 skipped = 651 collected`，其中 ActionCertificate 定向套件为
+`53 passed`、Demo 定向套件为
 `19 passed`。测试覆盖正常链、文件哈希、
 提示注入字段、地区/时态规则过滤、缺参阻断、确定性重放、冲突检测、Trace 缺失、越权审批、批准后
 篡改、包文件篡改和未执行评测的 `UNKNOWN`/`null` 合同。
