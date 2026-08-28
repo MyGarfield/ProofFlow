@@ -59,13 +59,13 @@ GOAI 于 2026 年 8 月 25 日确认初赛作品有效，但项目未晋级复�
 
 因此，当前运行结果只能证明这个合成参考切片的结构合同与确定性属性，不能外推为法律准确性、
 生产安全性或比赛最终成绩。本机同进程 HTTP 基准虽为 300/300 functional success，但它不测 MCP、
-AgentTeams 或 LLM，也不是 SLA。仓库发布的供应链证据绑定当前最小化 Alpine 镜像
+AgentTeams 或 LLM，也不是 SLA。仓库发布的历史供应链点时证据绑定 2026-08-20 观察的最小化 Alpine 镜像
 `sha256:1a4c4efb2d4e4fe37503ba0082282218e0b8c978dd22c1bd1488b5942d087775`：固定数据库点时扫描的
 Unknown/Low/Medium/High/Critical 均为 0，CycloneDX 记录 937 个 components，verdict 仅为
 `NO_HIGH_OR_CRITICAL_FOUND`。供应链 Schema v1.1 还绑定八项当前构建输入的可复核 SHA-256；
 AgentTeams MCP Schema v1.2 与严格语义 validator 已强制供应链 `subject.image_id`、MCP 快照根级
 `tool_service_image_id` 和脱敏运行观察 `tool_service_runtime.image_id` 三方相等。该交叉绑定与零
-finding 都只是未签名的点时证据，不证明构建关系、数字签名、attestation、远端 registry 状态、
+finding 都只是未签名的历史点时证据；其漏洞数据库已超过声明的下一更新时间。它不证明构建关系、数字签名、attestation、远端 registry 状态、
 持续可用性或生产安全，也绝不等于镜像“clean”或无漏洞。当前稳定全仓测试为 `507 passed`。
 
 脱敏点时证据见 [AgentTeams 本地证据](deploy/agentteams/LOCAL_INFRA_EVIDENCE.md)、
@@ -78,8 +78,8 @@ finding 都只是未签名的点时证据，不证明构建关系、数字签名
 `PROTOCOL_VALIDATED_NOT_EXECUTED`；三臂和五项官方评分均为 `UNKNOWN`，分值为 `null`，不得写成
 已经完成消融实验或获得比赛分数。
 
-海外前沿研究、反对理由与冠军证据实验见
-[冠军证据策略](docs/11_FRONTIER_RESEARCH_AND_CHAMPION_STRATEGY.md)；21 条一手来源及 30 个分层 claim
+竞赛期海外前沿研究、反对理由与证据实验见
+[历史研究与证据策略](docs/11_FRONTIER_RESEARCH_AND_CHAMPION_STRATEGY.md)；21 条一手来源及 30 个分层 claim
 登记在 [`research/frontier_sources.json`](research/frontier_sources.json)。外部研究只用于形成可检验
 假设，不等于 ProofFlow 已实现或已取得效果。
 
@@ -103,7 +103,7 @@ uv run python -m demo.server --port 8765
 ```
 
 浏览器打开 `http://127.0.0.1:8765`。完整 90 秒路径、安全边界和故障处理见
-[复赛 Demo Runbook](docs/09_SEMIFINAL_DEMO_RUNBOOK.md)；当前 Demo 定向测试为 `19 passed`。
+[本地证明链 Demo Runbook](docs/09_SEMIFINAL_DEMO_RUNBOOK.md)；当前 Demo 定向测试为 `19 passed`。
 
 如需直接复现 CLI 参考链：
 
@@ -206,14 +206,14 @@ uv run pytest
 - [状态与范围](docs/00_STATUS_AND_SCOPE.md)
 - [技术设计](docs/01_TECHNICAL_DESIGN.md)
 - [安全与 Human Gate](docs/02_SECURITY_AND_HUMAN_GATE.md)
-- [复赛验证计划](docs/03_SEMIFINAL_VALIDATION_PLAN.md)
-- [冠军执行计划](docs/04_CHAMPIONSHIP_EXECUTION_PLAN.md)
+- [历史 GOAI 验证计划](docs/03_SEMIFINAL_VALIDATION_PLAN.md)
+- [历史 GOAI 执行计划](docs/04_CHAMPIONSHIP_EXECUTION_PLAN.md)
 - [国际前沿研究雷达](docs/05_FRONTIER_RESEARCH.md)
 - [REST 工具服务](docs/07_REST_TOOL_SERVICE.md)
 - [本地性能基准](docs/08_PERFORMANCE_BENCHMARK.md)
-- [复赛 Demo Runbook](docs/09_SEMIFINAL_DEMO_RUNBOOK.md)
+- [本地证明链 Demo Runbook（历史文件名）](docs/09_SEMIFINAL_DEMO_RUNBOOK.md)
 - [三臂评测协议](docs/10_EVALUATION_PROTOCOL.md)
-- [海外前沿研究与冠军证据策略](docs/11_FRONTIER_RESEARCH_AND_CHAMPION_STRATEGY.md)
+- [竞赛期海外前沿研究与证据策略](docs/11_FRONTIER_RESEARCH_AND_CHAMPION_STRATEGY.md)
 - [机器可读一手来源登记](research/frontier_sources.json)
 - [Agent Identity](specs/06_AGENT_IDENTITY.yaml)
 - [Skill 规格](specs/07_SKILL_SPEC.yaml)

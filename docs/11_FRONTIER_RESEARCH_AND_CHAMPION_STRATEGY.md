@@ -2,6 +2,10 @@
 
 文档状态：`RESEARCH_COMPLETE / EXPERIMENTS_NOT_EXECUTED`
 
+本文件保留 2026 年 8 月 21 日的竞赛期研究快照；“冠军”是历史语境，不是当前项目目标或
+能力声明。长期定位、标准锚点和 30/60/90 天验收门以
+[全球产品路线图](12_GLOBAL_PRODUCT_ROADMAP.md)为准。
+
 研究访问日：`2026-08-21`（对来源版本、claim 映射和公开材料安全边界完成纠错复核）
 
 机器可读来源登记：[`research/frontier_sources.json`](../research/frontier_sources.json)

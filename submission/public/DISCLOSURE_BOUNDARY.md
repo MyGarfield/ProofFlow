@@ -28,9 +28,9 @@ GOAI 初赛作品已通过有效性审核，但未晋级复赛；公开目录中
 0；Team 虽为 `Active` 但 `operational_ready=false`，没有 LLM 或 Human 参与。模型 API Key 安全
 轮换仍是启动 Worker 的硬门禁。
 
-供应链 Schema v1.1 与 AgentTeams MCP Schema v1.2 严格语义 validator 已把当前最小化镜像
+供应链 Schema v1.1 与 AgentTeams MCP Schema v1.2 严格语义 validator 已把 2026-08-20 历史点时镜像
 `sha256:1a4c4efb2d4e4fe37503ba0082282218e0b8c978dd22c1bd1488b5942d087775` 的供应链 subject、MCP 快照
-根级和脱敏运行观察三处 image ID 交叉绑定。固定数据库点时扫描的所有 severity 均为 0，但摘要、
+根级和脱敏运行观察三处 image ID 交叉绑定。固定数据库点时扫描的所有 severity 均为 0，但数据库已超过声明的下一更新时间；摘要、
 交叉绑定和零 finding 不是 clean 结论、签名、build attestation、构建关系证明、持续运行证明或
 生产安全认证。当前稳定全仓测试为 `507 passed`，Demo 定向测试为 `19 passed`。
 

@@ -2,8 +2,10 @@
 
 ## 结论与边界
 
-`public-demo/` 是一个匿名、只读、零构建依赖的静态外层。它用于在未来获得单独发布授权后承载
-GOAI Demo URL，但它不连接、不反向代理也不复制 `demo/server.py` 的 loopback runtime。
+`public-demo/` 是一个匿名、只读、零构建依赖的历史证据外层。它固定到
+`main@b63eeb60d1072c73d2d0d1d6061b3c8f800487a4` 的 2026-08-22 点时材料，不代表当前
+Core alpha，也不再作为 GOAI 复赛 Demo URL。它不连接、不反向代理也不复制
+`demo/server.py` 的 loopback runtime。
 
 页面固定披露：
 
@@ -45,8 +47,8 @@ https://<account>.github.io/ProofFlow/
 如需在本地精确模拟该前缀，可把目录内容复制到一个临时 staging 目录的 `ProofFlow/` 子目录，再从
 staging 根目录启动标准库 HTTP server。不要修改页面 URL 来适配本机绝对路径。
 
-本分支刻意不包含 GitHub Pages workflow、Pages 设置或任何部署动作。未来发布必须在独立授权、
-独立部署审查和准确公网 URL 验收后进行。
+本分支刻意不包含 GitHub Pages workflow、Pages 设置或任何部署动作。只有重新生成并绑定当前
+产品 commit、独立部署审查和准确公网 URL 验收后，新的产品 Demo 才可发布。
 
 ## 自动化合同
 

@@ -1,10 +1,10 @@
 # Tool-service supply-chain evidence
 
-Document status: `CURRENT_IMAGE_POINT_IN_TIME_PACKAGE_SCAN / UNSIGNED_INPUT_HASHES`
+Document status: `HISTORICAL_POINT_IN_TIME_PACKAGE_SCAN / UNSIGNED_INPUT_HASHES`
 
 ## Point-in-time result
 
-The published evidence set covers the current local `linux/amd64` image
+The published evidence set covers the `linux/amd64` image observed on 2026-08-20,
 `proofflow-tool-service:0.1.0a0` with image ID
 `sha256:1a4c4efb2d4e4fe37503ba0082282218e0b8c978dd22c1bd1488b5942d087775`.
 The Dockerfile pins the official Python platform manifest directly:
@@ -46,6 +46,11 @@ The Trivy database used by the snapshot report was updated at
 The complete database is not committed; its version, update/download times, byte count, and hash
 are recorded in the evidence manifest.
 
+The database declared its next update at `2026-08-21T07:02:00Z`. As of 2026-08-29 this is a
+historical consistency snapshot, not a current release scan. The validator's optional
+`--release-gate` only rejects HIGH/CRITICAL records inside this snapshot; it does not enforce a
+maximum age or prove that no newer advisory exists.
+
 ## Unsigned build-input hashes
 
 Schema version 1.1 records strict SHA-256 and byte-count entries for `.dockerignore`, the
@@ -86,12 +91,13 @@ temporary Docker volume is removed after collection.
 
 ```bash
 uv run python deploy/tool-service/scripts/collect_supply_chain_evidence.py
-uv run python deploy/tool-service/scripts/validate_supply_chain_evidence.py --release-gate
+uv run python deploy/tool-service/scripts/validate_supply_chain_evidence.py
 uv run pytest tests/contract/test_tool_service_supply_chain.py -q
 ```
 
-The release gate rejects any recomputed HIGH or CRITICAL record. A successful gate is still only a
-policy result over this scan snapshot.
+The optional `--release-gate` rejects any recomputed HIGH or CRITICAL record, but still does not
+check snapshot age. A real release must rebuild the exact image, refresh the database and evidence,
+and enforce an explicit maximum-age policy before treating the result as a release decision.
 
 ## Rejected Debian baseline and remediation
 

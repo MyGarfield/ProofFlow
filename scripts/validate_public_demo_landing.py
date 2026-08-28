@@ -664,7 +664,7 @@ def _validate_evidence(repository_root: Path, site_root: Path) -> list[str]:
     }
     if top_level_facts != {
         "schema_version": "1.0",
-        "snapshot_scope": "REFERENCE_CORE_AND_PUBLIC_MATERIALS",
+        "snapshot_scope": "HISTORICAL_REFERENCE_CORE_AND_PUBLIC_MATERIALS",
         "observed_on": "2026-08-22",
         "classification": "PUBLIC_SYNTHETIC",
         "repository": "https://github.com/MyGarfield/ProofFlow",
@@ -1192,6 +1192,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"- {error}")
         return 1
     print("PUBLIC_DEMO_VALID")
+    print("scope=HISTORICAL_REFERENCE_BASELINE_NOT_CURRENT_CORE")
     print(f"source_commit={SOURCE_COMMIT}")
     print("flow=prepare->409->approve->package->verify->11/11")
     print("media=STORYBOARD_FALLBACK/NOT_PUBLISHED")

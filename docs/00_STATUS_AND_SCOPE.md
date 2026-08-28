@@ -120,5 +120,5 @@ LLM，不能证明 Team/Matrix 协作、运行中 Skill 消费、模型质量或
 
 本机同进程性能报告的 300/300 functional success 只覆盖三个 REST 路径各 100 次请求；它不覆盖
 MCP、AgentTeams、LLM、服务端容器资源或生产网络，因此不构成 SLA 或容量承诺。详见
-[`docs/08_PERFORMANCE_BENCHMARK.md`](08_PERFORMANCE_BENCHMARK.md)。供应链发布门详见
+[`docs/08_PERFORMANCE_BENCHMARK.md`](08_PERFORMANCE_BENCHMARK.md)。历史供应链点时证据详见
 [`deploy/tool-service/evidence/supply-chain-evidence.json`](../deploy/tool-service/evidence/supply-chain-evidence.json)。

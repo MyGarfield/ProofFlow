@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "snapshot_scope": "REFERENCE_CORE_AND_PUBLIC_MATERIALS",
+  "snapshot_scope": "HISTORICAL_REFERENCE_CORE_AND_PUBLIC_MATERIALS",
   "observed_on": "2026-08-22",
   "classification": "PUBLIC_SYNTHETIC",
   "repository": "https://github.com/MyGarfield/ProofFlow",
