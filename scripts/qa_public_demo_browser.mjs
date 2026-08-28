@@ -198,7 +198,7 @@ async function inspectViewport({ debuggingPort, outputDirectory, url, viewport }
     const evaluation = await client.send("Runtime.evaluate", {
       expression: `(() => {
         const root = document.documentElement;
-        const interactive = [...document.querySelectorAll('a[href], input[type="range"]')]
+        const interactive = [...document.querySelectorAll('a[href]')]
           .filter((node) => {
             const style = getComputedStyle(node);
             return style.display !== 'none' && style.visibility !== 'hidden';
@@ -212,15 +212,48 @@ async function inspectViewport({ debuggingPort, outputDirectory, url, viewport }
               width: Math.round(rect.width * 100) / 100,
             };
           });
+        const boxes = [...document.querySelectorAll('[data-qa-box]')]
+          .filter((node) => {
+            const rect = node.getBoundingClientRect();
+            const style = getComputedStyle(node);
+            return rect.width > 0 && rect.height > 0 && style.display !== 'none';
+          })
+          .map((node, index) => {
+            const rect = node.getBoundingClientRect();
+            return {
+              bottom: rect.bottom,
+              index,
+              label: node.textContent.trim().slice(0, 60),
+              left: rect.left,
+              right: rect.right,
+              top: rect.top,
+            };
+          });
+        const collisions = [];
+        for (let leftIndex = 0; leftIndex < boxes.length; leftIndex += 1) {
+          for (let rightIndex = leftIndex + 1; rightIndex < boxes.length; rightIndex += 1) {
+            const left = boxes[leftIndex];
+            const right = boxes[rightIndex];
+            const overlapWidth = Math.min(left.right, right.right) - Math.max(left.left, right.left);
+            const overlapHeight = Math.min(left.bottom, right.bottom) - Math.max(left.top, right.top);
+            if (overlapWidth > 1 && overlapHeight > 1) {
+              collisions.push([left.label, right.label]);
+            }
+          }
+        }
+        const clippedContent = [...document.querySelectorAll('[data-qa-box], a[href]')]
+          .filter((node) => node.scrollWidth > node.clientWidth + 1)
+          .map((node) => node.textContent.trim().slice(0, 60));
         const fragmentErrors = [...document.querySelectorAll('a[href^="#"]')]
           .map((anchor) => anchor.getAttribute('href').slice(1))
           .filter((id) => id && !document.getElementById(id));
         const resources = performance.getEntriesByType('resource').map((entry) => entry.name);
-        const slider = document.querySelector('#story-scrubber');
-        slider.value = '75';
-        slider.dispatchEvent(new Event('input', { bubbles: true }));
+        const heroStyle = getComputedStyle(document.querySelector('.hero-copy'));
+        const bodyText = document.body.textContent;
         return {
           clientWidth: root.clientWidth,
+          clippedContent,
+          collisions,
           externalResources: resources.filter((resource) => new URL(resource).origin !== location.origin),
           fragmentErrors,
           horizontalOverflow: root.scrollWidth > root.clientWidth,
@@ -228,10 +261,15 @@ async function inspectViewport({ debuggingPort, outputDirectory, url, viewport }
           innerWidth,
           interactive,
           reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches,
+          reducedMotionAnimationName: heroStyle.animationName,
+          requiredBoundaryVisible:
+            bodyText.includes('CURRENT CORE ALPHA SNAPSHOT') &&
+            bodyText.includes('Workers Stopped') &&
+            bodyText.includes('LLM OFF') &&
+            bodyText.includes('SUPPLY EVIDENCE STALE'),
           resourceCount: resources.length,
           scrollWidth: root.scrollWidth,
-          storyboardCaption: document.querySelector('#story-caption').textContent.trim(),
-          storyboardHeading: document.querySelector('#story-heading').textContent.trim(),
+          sourceCommit: root.dataset.sourceCommit,
         };
       })()`,
       returnByValue: true,
@@ -255,6 +293,15 @@ async function inspectViewport({ debuggingPort, outputDirectory, url, viewport }
     if (undersized.length) {
       errors.push(`interactive targets below 44px: ${JSON.stringify(undersized)}`);
     }
+    if (facts.interactive.length < 17) {
+      errors.push(`expected at least 17 visible interactive targets, found ${facts.interactive.length}`);
+    }
+    if (facts.collisions.length) {
+      errors.push(`layout collisions: ${JSON.stringify(facts.collisions)}`);
+    }
+    if (facts.clippedContent.length) {
+      errors.push(`content overflows its own box: ${JSON.stringify(facts.clippedContent)}`);
+    }
     if (facts.externalResources.length) {
       errors.push(`external resources loaded: ${JSON.stringify(facts.externalResources)}`);
     }
@@ -264,11 +311,14 @@ async function inspectViewport({ debuggingPort, outputDirectory, url, viewport }
     if (!facts.reducedMotion) {
       errors.push("prefers-reduced-motion emulation was not observed by the page");
     }
-    if (
-      facts.storyboardHeading !== "11/11 只证明结构合同" ||
-      !facts.storyboardCaption.startsWith("11/11 是固定闭集结构合同结果")
-    ) {
-      errors.push("draggable storyboard did not move to the 75 second subtitle cue");
+    if (facts.reducedMotionAnimationName !== "none") {
+      errors.push(`reduced-motion did not disable hero animation: ${facts.reducedMotionAnimationName}`);
+    }
+    if (facts.sourceCommit !== "610f5d87006567055c658ca8adb66b61284f7603") {
+      errors.push(`visible page source pin drifted: ${facts.sourceCommit}`);
+    }
+    if (!facts.requiredBoundaryVisible) {
+      errors.push("current runtime, evaluation, or supply boundary is not visible");
     }
 
     async function capture(label) {
@@ -287,8 +337,8 @@ async function inspectViewport({ debuggingPort, outputDirectory, url, viewport }
 
     const screenshots = { top: await capture("top") };
     for (const [label, selector] of [
-      ["proof", "#proof-path"],
-      ["media", "#reference-media"],
+      ["core", "#current-core"],
+      ["evidence", "#evidence"],
     ]) {
       await client.send("Runtime.evaluate", {
         expression: `document.querySelector(${JSON.stringify(selector)}).scrollIntoView()`,
@@ -302,6 +352,7 @@ async function inspectViewport({ debuggingPort, outputDirectory, url, viewport }
     }
     return {
       clientWidth: facts.clientWidth,
+      collisionCount: facts.collisions.length,
       errors,
       externalResourceCount: facts.externalResources.length,
       horizontalOverflow: facts.horizontalOverflow,
@@ -312,7 +363,7 @@ async function inspectViewport({ debuggingPort, outputDirectory, url, viewport }
       resourceCount: facts.resourceCount,
       screenshots,
       scrollWidth: facts.scrollWidth,
-      storyboardCueAt75: facts.storyboardHeading,
+      sourceCommit: facts.sourceCommit,
       viewport: viewport.label,
     };
   } finally {

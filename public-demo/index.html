@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN" data-horizontal-overflow="unchecked">
+<html lang="zh-CN" data-source-commit="610f5d87006567055c658ca8adb66b61284f7603" data-horizontal-overflow="unchecked">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,36 +7,36 @@
   <meta name="referrer" content="no-referrer">
   <meta
     http-equiv="Content-Security-Policy"
-    content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; media-src 'self'; connect-src 'none'; font-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'"
+    content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'"
   >
   <meta
     name="description"
-    content="ProofFlow 的只读公开合成证据页：固定提交、Human Gate 参考闭环与明确运行边界。"
+    content="ProofFlow 当前 Core alpha 的只读公开快照：ActionCertificate v0.1 与严格的非声明边界。"
   >
-  <title>ProofFlow / Evidence Before Action</title>
+  <title>ProofFlow / Current Core Alpha Snapshot</title>
   <link rel="icon" type="image/svg+xml" href="./favicon.svg">
   <link rel="stylesheet" href="./styles.css">
   <script src="./app.js" defer></script>
 </head>
 <body>
-  <a class="skip-link" href="#proof-path">跳到证明路径</a>
+  <a class="skip-link target" href="#current-core">跳到当前 Core</a>
 
-  <header class="site-header grid12 page-pad">
-    <a class="brand target" href="#top" aria-label="ProofFlow 首页">
+  <header class="site-header grid12 page-pad" id="top">
+    <a class="brand target" href="#top" aria-label="ProofFlow 页面顶部">
       <span class="brand-square" aria-hidden="true"></span>
       <span>PROOF<span class="signal">FLOW</span></span>
     </a>
-    <p class="edition mono">HISTORICAL BASELINE / PUBLIC EVIDENCE SHEET</p>
+    <p class="edition mono">CURRENT CORE ALPHA SNAPSHOT / SOURCE-BOUND</p>
     <nav class="site-nav" aria-label="页内导航">
-      <a class="target" href="#proof-path">PATH</a>
-      <a class="target" href="#reference-media">MEDIA</a>
+      <a class="target" href="#current-core">CORE</a>
+      <a class="target" href="#proof-plane">PLANE</a>
       <a class="target" href="#evidence">EVIDENCE</a>
       <a class="target" href="#materials">FILES</a>
     </nav>
   </header>
 
-  <div class="truth-strip" id="top" role="note" aria-label="公开演示边界">
-    <span><i class="red-dot" aria-hidden="true"></i>PUBLIC_SYNTHETIC</span>
+  <div class="truth-strip" role="note" aria-label="公开快照边界">
+    <span><i class="status-dot status-blue" aria-hidden="true"></i>PUBLIC_SYNTHETIC</span>
     <span>Workers Stopped</span>
     <span>readyWorkers=0</span>
     <span>LLM OFF</span>
@@ -46,234 +46,191 @@
 
   <main>
     <section class="hero grid12 page-pad" aria-labelledby="hero-title">
-      <p class="vertical-label mono">EVIDENCE BEFORE ACTION / PF—01</p>
-      <div class="hero-copy">
-        <p class="kicker mono">REFERENCE CORE / STATIC READ-ONLY OUTER LAYER</p>
+      <p class="vertical-label mono">EVIDENCE BEFORE ACTION / PF—610</p>
+      <div class="hero-copy" data-qa-box>
+        <p class="kicker mono">CURRENT CORE ALPHA SNAPSHOT</p>
         <h1 id="hero-title">PROOF<br>BEFORE<br><span>ACTION</span><i aria-hidden="true"></i></h1>
       </div>
-      <div class="hero-statement">
+      <div class="hero-statement" data-qa-box>
         <p class="lede">
-          ProofFlow 把证据、规则、确定性计算、Human Gate、交付物与独立验真绑定为可复核证明链。
-          本页只陈列 2026-08-22 固定公开基线，不连接现有 loopback runtime，也不代表当前 Core alpha。
+          ProofFlow 正在成为跨 Runtime 的可验证授权、ExecutionReceipt 与 OutcomeClosure 平面，
+          不是另一个通用 Agent Runtime。当前已合入 ActionCertificate v0.1 的预执行授权切片。
         </p>
         <dl class="hero-facts">
           <div>
-            <dt class="mono">SNAPSHOT</dt>
-            <dd><code>b63eeb60…</code></dd>
+            <dt class="mono">SOURCE</dt>
+            <dd><code>main@610f5d8</code></dd>
           </div>
           <div>
-            <dt class="mono">RUNTIME</dt>
-            <dd>NOT LIVE</dd>
+            <dt class="mono">LANDING RELATION</dt>
+            <dd>LANDING POST-DATES SOURCE</dd>
           </div>
           <div>
-            <dt class="mono">OFFICIAL SCORE</dt>
-            <dd>UNKNOWN / null</dd>
+            <dt class="mono">RELEASE</dt>
+            <dd class="danger-text">NOT RELEASE ELIGIBLE</dd>
           </div>
         </dl>
+        <div class="hero-actions">
+          <a
+            class="button target"
+            href="https://github.com/MyGarfield/ProofFlow/commit/610f5d87006567055c658ca8adb66b61284f7603"
+            target="_blank"
+            rel="noreferrer noopener"
+          >检查固定提交 →</a>
+          <a class="button button-quiet target" href="./evidence-snapshot.json">读取机器快照 →</a>
+        </div>
       </div>
       <div class="hero-index mono" aria-hidden="true">P.01 / 05</div>
     </section>
 
-    <section class="section page-pad" id="proof-path" aria-labelledby="path-title">
+    <section class="section page-pad" id="current-core" aria-labelledby="core-title">
       <div class="section-head grid12">
         <p class="section-no">01</p>
         <div class="section-title">
-          <p class="kicker mono">RECORDED REFERENCE OUTCOME</p>
-          <h2 id="path-title">一条先阻断、再授权的证明路径</h2>
+          <p class="kicker mono">SOURCE DECLARATIONS / NOT SELF-AUTHENTICATING</p>
+          <h2 id="core-title">当前实现，不把路线图写成完成项</h2>
         </div>
-        <p class="section-note mono">READ-ONLY FLOW / NOT LIVE RUNTIME / P.02</p>
+        <p class="section-note mono">MAIN@610F5D8 / P.02</p>
       </div>
 
-      <ol class="proof-flow" aria-label="只读参考流程：prepare 到 11/11">
-        <li data-flow-step="prepare">
-          <span class="flow-no mono">01</span>
-          <strong>PREPARE</strong>
-          <p>固定合成输入形成可哈希对象。</p>
-          <output>AWAITING_APPROVAL</output>
-        </li>
-        <li class="blocked-step" data-flow-step="409">
-          <span class="flow-no mono">02</span>
-          <strong>409</strong>
-          <p>审批前打包被 fail-closed 阻断。</p>
-          <output>HUMAN_GATE_REQUIRED</output>
-        </li>
-        <li class="approval-step" data-flow-step="approve">
-          <span class="flow-no mono">03</span>
-          <strong>APPROVE</strong>
-          <p>本地演示理由绑定 subject hash。</p>
-          <output>LOCAL_DEMO</output>
-        </li>
-        <li data-flow-step="package">
-          <span class="flow-no mono">04</span>
-          <strong>PACKAGE</strong>
-          <p>批准后生成两个本地评审文件。</p>
-          <output>2 FILES</output>
-        </li>
-        <li class="verified-step" data-flow-step="verify">
-          <span class="flow-no mono">05</span>
-          <strong>VERIFY</strong>
-          <p>复核 artifact、trace 与文件哈希。</p>
-          <output>valid=true</output>
-        </li>
-        <li class="verified-step" data-flow-step="11/11">
-          <span class="flow-no mono">06</span>
-          <strong>11/11</strong>
-          <p>固定闭集结构合同全部满足。</p>
-          <output>STRUCTURAL ONLY</output>
-        </li>
-      </ol>
+      <div class="metric-grid grid12">
+        <article class="metric implemented" data-qa-box>
+          <p class="metric-index mono">A—01 / IMPLEMENTED SLICE</p>
+          <strong>v0.1</strong>
+          <h3>ActionCertificate</h3>
+          <p>DSSE + in-toto + Ed25519；TrustPolicy、审批撤销、租户绑定与进程内防重放。</p>
+        </article>
+        <article class="metric source-declared" data-qa-box>
+          <p class="metric-index mono">T—53 / SOURCE README</p>
+          <strong>53</strong>
+          <h3>certificate tests</h3>
+          <p>源提交 README 声明的定向通过数；快照生成器没有执行测试。</p>
+        </article>
+        <article class="metric source-declared" data-qa-box>
+          <p class="metric-index mono">T—569 / SOURCE README</p>
+          <strong>569</strong>
+          <h3>full repo tests</h3>
+          <p>源提交 README 声明的全仓通过数；以固定提交 CI 与独立复现为准。</p>
+        </article>
+        <article class="metric blocked" data-qa-box>
+          <p class="metric-index mono">S—00 / RELEASE GATE</p>
+          <strong>STALE</strong>
+          <h3>Supply evidence</h3>
+          <p>密码学依赖与源码已变化；历史镜像、SBOM 和扫描不能支持当前发布。</p>
+        </article>
+      </div>
 
       <div class="claim-boundary grid12" role="note">
-        <p class="boundary-mark">!</p>
+        <p class="boundary-mark" aria-hidden="true">!</p>
         <p>
-          <strong>11/11 不是准确率。</strong>
-          它仅表示固定公开合成输入上的 11 个结构、完整性与安全合同通过；不测法律正确性、LLM、
-          AgentTeams Worker 编排、外部系统写入或生产可用性。
+          <strong>测试数不是产品成熟度。</strong>
+          这些数字是固定源 README 的声明，不是本页面签发的证明，也不证明生产安全、客户采用、
+          法律准确性或真实外部效果。
         </p>
-        <p class="mono">LEGAL ACCURACY: NOT MEASURED<br>PERFORMANCE: NOT MEASURED</p>
+        <p class="mono">GENERATOR EXECUTED TESTS: FALSE<br>COMMIT SIGNATURE VERIFIED: FALSE</p>
       </div>
     </section>
 
-    <section class="section media-section page-pad" id="reference-media" aria-labelledby="media-title">
+    <section class="section plane-section page-pad" id="proof-plane" aria-labelledby="plane-title">
       <div class="section-head grid12">
         <p class="section-no">02</p>
         <div class="section-title">
-          <p class="kicker mono">VIDEO / SUBTITLE AREA</p>
-          <h2 id="media-title">可拖动字幕故事板</h2>
+          <p class="kicker mono">PRODUCT THESIS / THREE PRIMITIVES</p>
+          <h2 id="plane-title">授权、执行、结果必须分别举证</h2>
         </div>
-        <p class="section-note mono">VIDEO FILE: NOT PUBLISHED / P.03</p>
+        <p class="section-note mono">CROSS-RUNTIME GOVERNANCE / P.03</p>
       </div>
 
-      <div class="media-grid grid12">
-        <div class="storyboard" data-media-status="NOT_PUBLISHED">
-          <div class="story-frame" id="story-frame" aria-live="polite">
-            <div class="frame-top mono">
-              <span id="story-time">00:00 / 01:30</span>
-              <span class="not-published">VIDEO NOT PUBLISHED</span>
-            </div>
-            <div class="frame-center">
-              <p class="frame-step mono" id="story-step">BOUNDARY / 00</p>
-              <h3 id="story-heading">先说明边界</h3>
-            </div>
-            <p class="caption" id="story-caption">
-              PUBLIC_SYNTHETIC；Workers Stopped；readyWorkers=0；LLM OFF；无外部副作用。
-            </p>
-          </div>
-
-          <label class="scrubber" for="story-scrubber">
-            <span class="mono">DRAG SUBTITLE TIMELINE</span>
-            <input
-              id="story-scrubber"
-              type="range"
-              min="0"
-              max="90"
-              step="1"
-              value="0"
-              aria-describedby="media-disclosure"
-              aria-valuetext="00:00，先说明边界"
-            >
-          </label>
-
-          <p class="media-disclosure" id="media-disclosure">
-            这是可拖动的字幕故事板 fallback，不是视频播放、录屏证据或 live runtime。
-            只有 MP4、VTT、SHA-256 与隐私/claim QA 同时满足构建合同后，才可标记视频已发布。
-          </p>
-        </div>
-
-        <aside class="media-contract" aria-labelledby="contract-title">
-          <p class="kicker mono">BUILD CONTRACT / FAIL CLOSED</p>
-          <h3 id="contract-title">媒体发布门</h3>
-          <dl>
-            <div><dt>STATUS</dt><dd>NOT_PUBLISHED</dd></div>
-            <div><dt>PLAYBACK</dt><dd>STORYBOARD_FALLBACK</dd></div>
-            <div><dt>MP4 SHA—256</dt><dd>null</dd></div>
-            <div><dt>SUBTITLES</dt><dd>6 CUES / zh-CN</dd></div>
-          </dl>
-          <a class="text-link target" href="./media/video-contract.json">读取机器可读媒体合同 →</a>
-          <a class="text-link target" href="./media/proofflow-reference-demo.zh-CN.vtt">读取 VTT 字幕 →</a>
-        </aside>
-      </div>
-
-      <ol class="transcript" id="storyboard-transcript" aria-label="90 秒完整字幕">
-        <li data-start="0" data-end="12" data-step="BOUNDARY / 00" data-heading="先说明边界">
-          <time>00:00—00:12</time>
-          <span>PUBLIC_SYNTHETIC；Workers Stopped；readyWorkers=0；LLM OFF；无外部副作用。</span>
+      <ol class="primitive-grid grid12">
+        <li class="primitive implemented" data-qa-box>
+          <span class="primitive-no mono">01 / PRE-EXECUTION</span>
+          <h3>ActionCertificate</h3>
+          <p>把 S/A/R/C、tenant、policy、approval、effect target 与 idempotency intent 绑定到签名载荷。</p>
+          <output>v0.1 IMPLEMENTED SLICE</output>
         </li>
-        <li data-start="12" data-end="28" data-step="PREPARE / 01" data-heading="停在 Human Gate">
-          <time>00:12—00:28</time>
-          <span>固定合成输入完成 prepare，状态停在 AWAITING_APPROVAL；没有自动越过审批。</span>
+        <li class="primitive pending" data-qa-box>
+          <span class="primitive-no mono">02 / EXECUTION</span>
+          <h3>ExecutionReceipt</h3>
+          <p>路线图目标：由可信观察者绑定实际 runtime、tool、trace、artifact、cost 与 effect。</p>
+          <output>ExecutionReceipt 未实现</output>
         </li>
-        <li data-start="28" data-end="40" data-step="BLOCK / 02" data-heading="409 是预期证据">
-          <time>00:28—00:40</time>
-          <span>审批前尝试 package 返回 HTTP 409 / HUMAN_GATE_REQUIRED，且没有生成交付包。</span>
-        </li>
-        <li data-start="40" data-end="58" data-step="APPROVE / 03" data-heading="理由绑定对象哈希">
-          <time>00:40—00:58</time>
-          <span>LOCAL_DEMO 审批记录固定角色、理由和当前 subject hash；这不代表真实人员或外部授权。</span>
-        </li>
-        <li data-start="58" data-end="75" data-step="VERIFY / 04—05" data-heading="封装后独立验真">
-          <time>00:58—01:15</time>
-          <span>批准后 package 生成两个文件；verify 复核 25 个 artifact 与两个 package file，返回 valid=true。</span>
-        </li>
-        <li data-start="75" data-end="91" data-step="CONTRACTS / 06" data-heading="11/11 只证明结构合同">
-          <time>01:15—01:30</time>
-          <span>11/11 是固定闭集结构合同结果，不衡量法律准确率、LLM 效果、多 Agent 收益或生产安全。</span>
+        <li class="primitive pending" data-qa-box>
+          <span class="primitive-no mono">03 / POST-EFFECT</span>
+          <h3>OutcomeClosure</h3>
+          <p>路线图目标：独立核验效果发生一次、符合授权且没有未闭合副作用。</p>
+          <output>OutcomeClosure 未实现</output>
         </li>
       </ol>
+
+      <div class="verdict-line grid12" data-qa-box>
+        <p class="mono">CLOSED VERDICTS</p>
+        <p>PASS</p>
+        <p>FAIL</p>
+        <p class="unknown">UNKNOWN</p>
+        <p class="unsafe">UNSAFE_SUCCESS</p>
+        <p class="verdict-note">缺证不变成 0 成本、0 延迟或通过结果。</p>
+      </div>
     </section>
 
-    <section class="section page-pad" id="evidence" aria-labelledby="evidence-title">
+    <section class="section evidence-section page-pad" id="evidence" aria-labelledby="evidence-title">
       <div class="section-head grid12">
         <p class="section-no">03</p>
         <div class="section-title">
-          <p class="kicker mono">FIXED SNAPSHOT / UNSIGNED CONTENT DIGESTS</p>
-          <h2 id="evidence-title">可以逐项复核，而不是相信口号</h2>
+          <p class="kicker mono">RUNTIME / EVALUATION / SUPPLY</p>
+          <h2 id="evidence-title">三道仍然关闭的门</h2>
         </div>
-        <p class="section-note mono">MAIN@B63EEB60 / P.04</p>
+        <p class="section-note mono">FAIL CLOSED / P.04</p>
       </div>
 
-      <div class="evidence-ledger">
-        <article>
-          <p class="ledger-index mono">E—01 / SOURCE</p>
-          <h3>Git commit</h3>
-          <code>b63eeb60d1072c73d2d0d1d6061b3c8f800487a4</code>
-          <p>基线 tree：<code>2e58bc7cf5a2677ec156490108ad91f35d5c41c1</code></p>
+      <div class="boundary-table" role="table" aria-label="当前证据边界">
+        <div class="boundary-row boundary-header" role="row">
+          <span role="columnheader">PLANE</span>
+          <span role="columnheader">OBSERVED STATE</span>
+          <span role="columnheader">CLAIM LIMIT</span>
+          <span role="columnheader">GATE</span>
+        </div>
+        <div class="boundary-row" role="row" data-qa-box>
+          <strong role="cell">RUNTIME</strong>
+          <span role="cell">Workers Stopped / readyWorkers=0 / containers=0 / LLM OFF</span>
+          <span role="cell">没有 Worker 或 LLM 执行证据</span>
+          <output role="cell">CLOSED</output>
+        </div>
+        <div class="boundary-row" role="row" data-qa-box>
+          <strong role="cell">EVALUATION</strong>
+          <span role="cell">EVALUATION NOT_EXECUTED / UNKNOWN</span>
+          <span role="cell">三臂与官方分值全部 null</span>
+          <output role="cell">UNKNOWN</output>
+        </div>
+        <div class="boundary-row" role="row" data-qa-box>
+          <strong role="cell">SUPPLY</strong>
+          <span role="cell">SUPPLY EVIDENCE STALE</span>
+          <span role="cell">不是当前镜像或发布安全证据</span>
+          <output role="cell">BLOCKED</output>
+        </div>
+      </div>
+
+      <div class="source-ledger grid12">
+        <article data-qa-box>
+          <p class="mono">SOURCE COMMIT</p>
+          <code>610f5d87006567055c658ca8adb66b61284f7603</code>
         </article>
-        <article>
-          <p class="ledger-index mono">E—02 / INPUT</p>
-          <h3>Fixture bundle</h3>
-          <code>sha256:60ce3111c813c8869e4be65ae5f4fcd9712e388769b35645393dc270184c7f9d</code>
-          <p>四个公开合成 fixture 的规范化 bundle digest。</p>
+        <article data-qa-box>
+          <p class="mono">SOURCE TREE</p>
+          <code>883d36075bb9149bddb1122c0b4b401a34d38d05</code>
         </article>
-        <article>
-          <p class="ledger-index mono">E—03 / RULES</p>
-          <h3>Rule catalog</h3>
-          <code>sha256:27686c904451870dd5953ec6e47c155a395b2f279995e50f68aea984e6bf91de</code>
-          <p>本地受控规则目录内容 pin；不是法规真实性签名。</p>
+        <article data-qa-box>
+          <p class="mono">PRODUCT ASSET BUNDLE / UNSIGNED</p>
+          <code>72febbf664d2889a9f433b88ebc78bb6c42d3007f41aa62f99f643ab5a34f6f2</code>
         </article>
-        <article>
-          <p class="ledger-index mono">E—04 / CONTRACTS</p>
-          <h3>11/11 report</h3>
-          <code>sha256:f81883cca94268e35375e8fcb7eb6afb60b769e15040130cbe7359c6bb23bc17</code>
-          <p>clean baseline 点时报告；法律准确率和性能均未测量。</p>
-        </article>
-        <article>
-          <p class="ledger-index mono">E—05 / DECK</p>
-          <h3>PPTX</h3>
-          <code>fabe3102c1ef6550b131d0d230fed3a4eef46c579886ec268fc6c11c298f55a5</code>
-          <p>12 页可编辑公开答辩材料。</p>
-        </article>
-        <article>
-          <p class="ledger-index mono">E—06 / DECK</p>
-          <h3>PDF</h3>
-          <code>6c45562bd6b7fa1a813bac0d713dfa3a3a2d7f54f6e07a3763bbb1306d12e773</code>
-          <p>12 页静态高分辨率公开交付版。</p>
+        <article data-qa-box>
+          <p class="mono">SYNTHETIC FIXTURE BUNDLE / UNSIGNED</p>
+          <code>a050229692db496056f26fd9af52bbb41f0e53f96c8446c93ae3bd87a0d887f5</code>
         </article>
       </div>
 
       <p class="digest-warning">
-        SHA-256 在这里仅表示 unsigned content digest：可发现内容变化，但不是数字签名、发布者真实性、
-        法律正确性、官方验收或比赛成绩证明。
+        SHA-256 只绑定固定 Git blob 内容。它不是数字签名，不证明来源真实性、语义正确性、
+        测试执行、发布关系或真实世界结果。本 landing 不在源提交中，且明确 self_authenticating=false。
       </p>
     </section>
 
@@ -281,64 +238,64 @@
       <div class="section-head grid12">
         <p class="section-no">04</p>
         <div class="section-title">
-          <p class="kicker mono">PUBLIC MATERIALS / FIXED LINKS</p>
-          <h2 id="materials-title">审阅入口</h2>
+          <p class="kicker mono">CURRENT SOURCE MATERIALS / EXACT COMMIT</p>
+          <h2 id="materials-title">从结论回到原始文件</h2>
         </div>
-        <p class="section-note mono">NO TRACKING / NO ACCOUNT REQUIRED / P.05</p>
+        <p class="section-note mono">NO TRACKING / P.05</p>
       </div>
 
       <div class="material-links">
-        <a class="material-card" href="https://github.com/MyGarfield/ProofFlow" target="_blank" rel="noreferrer noopener">
-          <span class="mono">01 / SOURCE</span>
-          <strong>公开 GitHub 仓库</strong>
-          <em>github.com/MyGarfield/ProofFlow →</em>
+        <a class="material-card target" href="https://github.com/MyGarfield/ProofFlow/blob/610f5d87006567055c658ca8adb66b61284f7603/README.md" target="_blank" rel="noreferrer noopener" data-qa-box>
+          <span class="mono">01 / CURRENT STATE</span><strong>README</strong><em>源状态与 569 / 53 声明 →</em>
         </a>
-        <a class="material-card" href="https://github.com/MyGarfield/ProofFlow/commit/b63eeb60d1072c73d2d0d1d6061b3c8f800487a4" target="_blank" rel="noreferrer noopener">
-          <span class="mono">02 / SNAPSHOT</span>
-          <strong>历史固定基线 commit</strong>
-          <em>b63eeb60… →</em>
+        <a class="material-card target" href="https://github.com/MyGarfield/ProofFlow/blob/610f5d87006567055c658ca8adb66b61284f7603/docs/12_GLOBAL_PRODUCT_ROADMAP.md" target="_blank" rel="noreferrer noopener" data-qa-box>
+          <span class="mono">02 / STRATEGY</span><strong>Global Roadmap</strong><em>30 / 60 / 90 天验收门 →</em>
         </a>
-        <a class="material-card" href="https://github.com/MyGarfield/ProofFlow/blob/b63eeb60d1072c73d2d0d1d6061b3c8f800487a4/submission/public/ProofFlow_GOAI_%E5%A4%8D%E8%B5%9B%E7%AD%94%E8%BE%A9_v2.0.pptx" target="_blank" rel="noreferrer noopener">
-          <span class="mono">03 / PPTX</span>
-          <strong>12 页历史公开候选</strong>
-          <em>SHA fabe3102… →</em>
+        <a class="material-card target" href="https://github.com/MyGarfield/ProofFlow/blob/610f5d87006567055c658ca8adb66b61284f7603/docs/13_ACTION_CERTIFICATE_V0P1.md" target="_blank" rel="noreferrer noopener" data-qa-box>
+          <span class="mono">03 / CONTRACT</span><strong>ActionCertificate v0.1</strong><em>验签顺序与非声明 →</em>
         </a>
-        <a class="material-card" href="https://github.com/MyGarfield/ProofFlow/blob/b63eeb60d1072c73d2d0d1d6061b3c8f800487a4/submission/public/ProofFlow_GOAI_%E5%A4%8D%E8%B5%9B%E7%AD%94%E8%BE%A9_v2.0.pdf" target="_blank" rel="noreferrer noopener">
-          <span class="mono">04 / PDF</span>
-          <strong>12 页历史候选静态版</strong>
-          <em>SHA 6c45562b… →</em>
+        <a class="material-card target" href="https://github.com/MyGarfield/ProofFlow/tree/610f5d87006567055c658ca8adb66b61284f7603/schemas" target="_blank" rel="noreferrer noopener" data-qa-box>
+          <span class="mono">04 / SCHEMAS</span><strong>Machine contracts</strong><em>七份 ActionCertificate Schema →</em>
         </a>
-        <a class="material-card" href="https://github.com/MyGarfield/ProofFlow/blob/b63eeb60d1072c73d2d0d1d6061b3c8f800487a4/docs/09_SEMIFINAL_DEMO_RUNBOOK.md" target="_blank" rel="noreferrer noopener">
-          <span class="mono">05 / LOOPBACK</span>
-          <strong>本地 runtime Runbook</strong>
-          <em>仅 127.0.0.1，不得公网代理 →</em>
+        <a class="material-card target" href="https://github.com/MyGarfield/ProofFlow/blob/610f5d87006567055c658ca8adb66b61284f7603/.github/workflows/ci.yml" target="_blank" rel="noreferrer noopener" data-qa-box>
+          <span class="mono">05 / CI DEFINITION</span><strong>Workflow source</strong><em>定义不是运行结果 →</em>
         </a>
-        <a class="material-card" href="./evidence-snapshot.json">
-          <span class="mono">06 / JSON</span>
-          <strong>机器可读证据快照</strong>
-          <em>PUBLIC_SYNTHETIC / unsigned →</em>
-        </a>
-        <a class="material-card" href="./README.md">
-          <span class="mono">07 / SERVE</span>
-          <strong>静态托管与本地检查</strong>
-          <em>/ProofFlow/ path contract →</em>
-        </a>
-        <a class="material-card" href="https://github.com/MyGarfield/ProofFlow/blob/b63eeb60d1072c73d2d0d1d6061b3c8f800487a4/submission/public/submission-manifest.json" target="_blank" rel="noreferrer noopener">
-          <span class="mono">08 / MANIFEST</span>
-          <strong>历史公开材料清单</strong>
-          <em>固定材料与披露边界 →</em>
+        <a class="material-card target" href="https://github.com/MyGarfield/ProofFlow/blob/610f5d87006567055c658ca8adb66b61284f7603/deploy/tool-service/SUPPLY_CHAIN_EVIDENCE.md" target="_blank" rel="noreferrer noopener" data-qa-box>
+          <span class="mono">06 / BLOCKER</span><strong>Supply-chain boundary</strong><em>为什么当前证据过期 →</em>
         </a>
       </div>
+
+      <div class="schema-section">
+        <p class="kicker mono">ACTIONCERTIFICATE V0.1 / SEVEN EXPORTED SCHEMAS</p>
+        <div class="schema-links">
+          <a class="target" href="https://github.com/MyGarfield/ProofFlow/blob/610f5d87006567055c658ca8adb66b61284f7603/schemas/action-certificate-dsse-envelope.schema.json" target="_blank" rel="noreferrer noopener">DSSE envelope</a>
+          <a class="target" href="https://github.com/MyGarfield/ProofFlow/blob/610f5d87006567055c658ca8adb66b61284f7603/schemas/action-certificate-expected-binding.schema.json" target="_blank" rel="noreferrer noopener">Expected binding</a>
+          <a class="target" href="https://github.com/MyGarfield/ProofFlow/blob/610f5d87006567055c658ca8adb66b61284f7603/schemas/action-certificate-predicate-v0p1.schema.json" target="_blank" rel="noreferrer noopener">Predicate v0.1</a>
+          <a class="target" href="https://github.com/MyGarfield/ProofFlow/blob/610f5d87006567055c658ca8adb66b61284f7603/schemas/action-certificate-revocation-snapshot.schema.json" target="_blank" rel="noreferrer noopener">Revocation snapshot</a>
+          <a class="target" href="https://github.com/MyGarfield/ProofFlow/blob/610f5d87006567055c658ca8adb66b61284f7603/schemas/action-certificate-statement-v0p1.schema.json" target="_blank" rel="noreferrer noopener">Statement v0.1</a>
+          <a class="target" href="https://github.com/MyGarfield/ProofFlow/blob/610f5d87006567055c658ca8adb66b61284f7603/schemas/action-certificate-trust-policy-v0p1.schema.json" target="_blank" rel="noreferrer noopener">Trust policy v0.1</a>
+          <a class="target" href="https://github.com/MyGarfield/ProofFlow/blob/610f5d87006567055c658ca8adb66b61284f7603/schemas/action-certificate-verification-result-v0p1.schema.json" target="_blank" rel="noreferrer noopener">Verification result</a>
+        </div>
+      </div>
+
+      <aside class="history-note grid12" aria-labelledby="history-title">
+        <p class="history-mark mono">HISTORY</p>
+        <div>
+          <h3 id="history-title">GOAI 材料只保留为演进记录</h3>
+          <p>初赛作品有效，但项目未晋级 GOAI 复赛；历史候选 PPT/PDF 不是当前产品主材料、官方提交或评分证明。</p>
+        </div>
+        <a class="text-link target" href="https://github.com/MyGarfield/ProofFlow/blob/610f5d87006567055c658ca8adb66b61284f7603/submission/public/README.md" target="_blank" rel="noreferrer noopener">查看历史披露 →</a>
+      </aside>
     </section>
   </main>
 
   <footer class="site-footer grid12 page-pad">
-    <p class="footer-mark">PF<span>—</span>01</p>
-    <p>
-      ProofFlow / 可证智能 VeriAgent。此静态页面无账号、无表单、无遥测、无远程字体与脚本；
-      不执行案件处理，不触发 LLM、Worker、审批、发送、签署、付款或任何外部写入。
-    </p>
-    <p class="mono">PUBLIC EVIDENCE SHEET<br>END / 05</p>
+    <p class="footer-brand">PROOF<span>FLOW</span></p>
+    <p>Static read-only source snapshot.<br>No runtime proxy. No account. No telemetry.</p>
+    <a class="target" href="./evidence-snapshot.json">EVIDENCE JSON</a>
+    <a class="target" href="./README.md">RUNBOOK</a>
+    <a class="target" href="#top">TOP ↑</a>
+    <p class="footer-end mono">P.05 / END — APACHE-2.0 SOURCE</p>
   </footer>
 </body>
 </html>

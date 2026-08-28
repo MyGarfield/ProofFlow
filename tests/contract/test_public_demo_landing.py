@@ -2,17 +2,30 @@ from __future__ import annotations
 
 import json
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
 import pytest
-import yaml
 
 ROOT = Path(__file__).parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from scripts.validate_public_demo_landing import validate_public_demo  # noqa: E402
+from scripts.generate_public_demo_snapshot import (  # noqa: E402
+    SOURCE_COMMIT,
+    SOURCE_TREE,
+    SnapshotGenerationError,
+    build_snapshot,
+    serialize_snapshot,
+)
+from scripts.validate_public_demo_landing import (  # noqa: E402
+    EXPECTED_ACTION_PINS,
+    LANDING_CHECK_COMMAND,
+    SNAPSHOT_CHECK_COMMAND,
+    _validate_pages_workflow,
+    validate_public_demo,
+)
 
 SITE_ROOT = ROOT / "public-demo"
 
@@ -25,277 +38,124 @@ def _copy_site(tmp_path: Path) -> Path:
 
 def _write_json(path: Path, value: object) -> None:
     path.write_text(
-        json.dumps(value, ensure_ascii=False, indent=2) + "\n",
+        json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
         encoding="utf-8",
     )
 
 
-def test_public_demo_landing_passes_closed_static_contract() -> None:
+def test_current_public_demo_passes_source_bound_static_contract() -> None:
     assert validate_public_demo(ROOT, SITE_ROOT) == []
 
 
-def test_ci_checkout_fetches_complete_fixed_baseline_history() -> None:
-    workflow = yaml.safe_load((ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8"))
-    checkout_steps = [
-        step
-        for step in workflow["jobs"]["contracts"]["steps"]
-        if step.get("uses") == "actions/checkout@v4"
-    ]
+def test_snapshot_is_exact_deterministic_git_object_derivation() -> None:
+    snapshot = build_snapshot(ROOT, source_commit=SOURCE_COMMIT)
 
-    assert len(checkout_steps) == 1
-    assert checkout_steps[0]["with"] == {
-        "fetch-depth": 0,
-        "persist-credentials": False,
+    assert (SITE_ROOT / "evidence-snapshot.json").read_bytes() == serialize_snapshot(snapshot)
+    assert snapshot["source"]["commit"] == SOURCE_COMMIT
+    assert snapshot["source"]["tree"] == SOURCE_TREE
+    assert snapshot["landing"]["included_in_source_commit"] is False
+    assert snapshot["landing"]["self_authenticating"] is False
+    assert snapshot["current_core"]["test_counts"] == {
+        "provenance": "SOURCE_README_DECLARATION",
+        "full_repo_passed": 569,
+        "action_certificate_passed": 53,
+        "generator_executed_tests": False,
     }
 
 
-def test_validator_rejects_remote_loaded_script(tmp_path: Path) -> None:
+def test_snapshot_generator_rejects_unreviewed_source_commit() -> None:
+    with pytest.raises(SnapshotGenerationError, match="outside the reviewed snapshot contract"):
+        build_snapshot(ROOT, source_commit="b63eeb60d1072c73d2d0d1d6061b3c8f800487a4")
+
+
+def test_product_asset_records_match_pinned_git_blobs() -> None:
+    snapshot = build_snapshot(ROOT)
+    for record in snapshot["product_assets"]["entries"]:
+        blob = subprocess.run(
+            ["git", "cat-file", "blob", f"{SOURCE_COMMIT}:{record['path']}"],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+        ).stdout
+        assert len(blob) == record["bytes"]
+
+
+def test_pages_workflow_is_static_main_only_and_full_sha_pinned() -> None:
+    workflow = (ROOT / ".github/workflows/pages.yml").read_text(encoding="utf-8")
+
+    assert _validate_pages_workflow(ROOT) == []
+    assert all(len(pin.rsplit("@", maxsplit=1)[1]) == 40 for pin in EXPECTED_ACTION_PINS)
+    assert workflow.count("if: github.ref == 'refs/heads/main'") == 2
+    assert "path: ./public-demo" in workflow
+    assert "persist-credentials: false" in workflow
+
+
+def test_public_demo_readme_uses_exact_locked_uv_commands() -> None:
+    readme = (SITE_ROOT / "README.md").read_text(encoding="utf-8")
+    unfolded = readme.replace("\\\n  ", "")
+
+    assert "python3 scripts/generate_public_demo_snapshot.py" not in readme
+    assert "python3 scripts/validate_public_demo_landing.py" not in readme
+    assert SNAPSHOT_CHECK_COMMAND in unfolded
+    assert LANDING_CHECK_COMMAND in unfolded
+    assert "从仓库根目录运行" in readme
+    assert "已提交的 `uv.lock`" in readme
+
+
+def test_validator_rejects_removed_current_snapshot_boundary(tmp_path: Path) -> None:
     copied = _copy_site(tmp_path)
-    index_path = copied / "index.html"
-    html = index_path.read_text(encoding="utf-8")
-    index_path.write_text(
-        html.replace("./app.js", "https://cdn.example.invalid/app.js", 1),
+    index = copied / "index.html"
+    index.write_text(
+        index.read_text(encoding="utf-8").replace("CURRENT CORE ALPHA SNAPSHOT", "CORE PAGE"),
         encoding="utf-8",
     )
 
     errors = validate_public_demo(ROOT, copied)
 
-    assert any("loaded resource script[src] must be path-relative" in item for item in errors)
+    assert any("CURRENT CORE ALPHA SNAPSHOT" in error for error in errors)
 
 
-def test_validator_rejects_false_live_worker_claim(tmp_path: Path) -> None:
+@pytest.mark.parametrize("surface", ("index.html", "evidence-snapshot.json"))
+def test_validator_rejects_source_commit_substitution(tmp_path: Path, surface: str) -> None:
     copied = _copy_site(tmp_path)
-    index_path = copied / "index.html"
-    html = index_path.read_text(encoding="utf-8")
-    index_path.write_text(
-        html.replace("</footer>", "<p>Workers Running / readyWorkers=6</p></footer>"),
+    target = copied / surface
+    target.write_text(
+        target.read_text(encoding="utf-8").replace(SOURCE_COMMIT, "0" * 40, 1),
         encoding="utf-8",
     )
 
     errors = validate_public_demo(ROOT, copied)
 
-    assert any("forbidden visible claim" in item for item in errors)
-
-
-def test_validator_rejects_removal_of_historical_snapshot_boundary(tmp_path: Path) -> None:
-    copied = _copy_site(tmp_path)
-    index_path = copied / "index.html"
-    html = index_path.read_text(encoding="utf-8")
-    index_path.write_text(
-        html.replace("不代表当前 Core alpha", "当前产品", 1),
-        encoding="utf-8",
-    )
-
-    errors = validate_public_demo(ROOT, copied)
-
-    assert any(
-        "required visible claim boundary is missing: 不代表当前 Core alpha" in item
-        for item in errors
-    )
-
-
-def test_validator_rejects_broken_relative_link(tmp_path: Path) -> None:
-    copied = _copy_site(tmp_path)
-    index_path = copied / "index.html"
-    html = index_path.read_text(encoding="utf-8")
-    index_path.write_text(
-        html.replace('href="./README.md"', 'href="./MISSING.md"', 1),
-        encoding="utf-8",
-    )
-
-    errors = validate_public_demo(ROOT, copied)
-
-    assert any("local anchor target is missing" in item for item in errors)
-
-
-def test_validator_rejects_unbacked_published_video_claim(tmp_path: Path) -> None:
-    copied = _copy_site(tmp_path)
-    contract_path = copied / "media/video-contract.json"
-    contract = json.loads(contract_path.read_text(encoding="utf-8"))
-    contract["publication_status"] = "PUBLISHED"
-    contract_path.write_text(
-        json.dumps(contract, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
-
-    errors = validate_public_demo(ROOT, copied)
-
-    assert any("video must remain NOT_PUBLISHED" in item for item in errors)
-
-
-def test_validator_rejects_public_artifact_hash_drift(tmp_path: Path) -> None:
-    copied = _copy_site(tmp_path)
-    evidence_path = copied / "evidence-snapshot.json"
-    evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
-    evidence["public_artifacts"][0]["sha256"] = "0" * 64
-    evidence_path.write_text(
-        json.dumps(evidence, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
-
-    errors = validate_public_demo(ROOT, copied)
-
-    assert any("public artifact hash mismatch" in item for item in errors)
-
-
-def test_validator_rejects_css_generated_overclaim(tmp_path: Path) -> None:
-    copied = _copy_site(tmp_path)
-    styles_path = copied / "styles.css"
-    styles_path.write_text(
-        styles_path.read_text(encoding="utf-8")
-        + '\n.brand::after { content: "Workers Running"; }\n',
-        encoding="utf-8",
-    )
-
-    errors = validate_public_demo(ROOT, copied)
-
-    assert any("forbidden claim token in loaded asset styles.css" in item for item in errors)
-
-
-def test_validator_requires_exact_fixed_material_links(tmp_path: Path) -> None:
-    copied = _copy_site(tmp_path)
-    index_path = copied / "index.html"
-    html = index_path.read_text(encoding="utf-8")
-    index_path.write_text(
-        html.replace(
-            "/submission/public/ProofFlow_GOAI_%E5%A4%8D%E8%B5%9B%E7%AD%94%E8%BE%A9_v2.0.pdf",
-            "/README.md",
-            1,
-        ),
-        encoding="utf-8",
-    )
-
-    errors = validate_public_demo(ROOT, copied)
-
-    assert any("exact reviewed GitHub closed set" in item for item in errors)
-
-
-def test_validator_rejects_duplicate_json_keys(tmp_path: Path) -> None:
-    copied = _copy_site(tmp_path)
-    contract_path = copied / "media/video-contract.json"
-    contract = contract_path.read_text(encoding="utf-8")
-    contract_path.write_text(
-        contract.replace(
-            '"publication_status": "NOT_PUBLISHED",',
-            '"publication_status": "NOT_PUBLISHED",\n  "publication_status": "PUBLISHED",',
-            1,
-        ),
-        encoding="utf-8",
-    )
-
-    errors = validate_public_demo(ROOT, copied)
-
-    assert any("duplicate JSON key" in item for item in errors)
+    assert any("source commit" in error or ".source.commit" in error for error in errors)
 
 
 @pytest.mark.parametrize(
     "claim",
-    ("Workers Running", "LLM ON", "OFFICIAL SCORE: 100"),
-)
-@pytest.mark.parametrize(
-    "surface",
-    ("evidence-snapshot.json", "media/video-contract.json", "README.md"),
-)
-def test_validator_rejects_overclaims_in_every_non_html_claim_surface(
-    tmp_path: Path,
-    surface: str,
-    claim: str,
-) -> None:
-    copied = _copy_site(tmp_path)
-    target = copied / surface
-    if surface == "evidence-snapshot.json":
-        value = json.loads(target.read_text(encoding="utf-8"))
-        value["digest_disclaimer"] += f" {claim}"
-        _write_json(target, value)
-    elif surface == "media/video-contract.json":
-        value = json.loads(target.read_text(encoding="utf-8"))
-        value["publication_gate"][0] += f" {claim}"
-        _write_json(target, value)
-    else:
-        target.write_text(
-            target.read_text(encoding="utf-8") + f"\n{claim}\n",
-            encoding="utf-8",
-        )
-
-    errors = validate_public_demo(ROOT, copied)
-
-    assert any(
-        "forbidden claim token" in item and surface.split("/")[-1] in item for item in errors
-    )
-
-
-@pytest.mark.parametrize(
-    ("surface", "object_path"),
     (
-        ("evidence-snapshot.json", ()),
-        ("evidence-snapshot.json", ("source",)),
-        ("evidence-snapshot.json", ("reference_flow", 0)),
-        ("evidence-snapshot.json", ("public_artifacts", 0)),
-        ("media/video-contract.json", ()),
-        ("media/video-contract.json", ("subtitles",)),
-        ("media/video-contract.json", ("claim_boundaries",)),
+        "Workers Running",
+        "readyWorkers=6",
+        "LLM ON",
+        "OFFICIAL SCORE: 100",
+        "SUPPLY EVIDENCE FRESH",
+        "ExecutionReceipt IMPLEMENTED",
+        "OutcomeClosure READY",
     ),
 )
-def test_validator_rejects_nested_and_array_item_extra_fields(
-    tmp_path: Path,
-    surface: str,
-    object_path: tuple[str | int, ...],
-) -> None:
+def test_validator_rejects_visible_overclaims(tmp_path: Path, claim: str) -> None:
     copied = _copy_site(tmp_path)
-    target = copied / surface
-    value = json.loads(target.read_text(encoding="utf-8"))
-    nested = value
-    for segment in object_path:
-        nested = nested[segment]
-    nested["unreviewed"] = "extra"
-    _write_json(target, value)
-
-    errors = validate_public_demo(ROOT, copied)
-
-    assert any(
-        "exact-key shape mismatch" in item and "unexpected=unreviewed" in item for item in errors
+    index = copied / "index.html"
+    index.write_text(
+        index.read_text(encoding="utf-8").replace("</footer>", f"<p>{claim}</p></footer>"),
+        encoding="utf-8",
     )
 
-
-@pytest.mark.parametrize(
-    ("surface", "sensitive_value"),
-    (
-        ("README.md", "contact 13800138000"),
-        ("README.md", "~/private-case.json"),
-        ("README.md", r"\\server\share\private-case.json"),
-        ("evidence-snapshot.json", "/Users/example/private-case.json"),
-        ("media/video-contract.json", "api_key=examplecredential123"),
-        ("media/proofflow-reference-demo.zh-CN.vtt", "contact person@example.com"),
-    ),
-)
-def test_validator_rejects_privacy_secret_and_machine_path_leaks(
-    tmp_path: Path,
-    surface: str,
-    sensitive_value: str,
-) -> None:
-    copied = _copy_site(tmp_path)
-    target = copied / surface
-    if surface == "evidence-snapshot.json":
-        value = json.loads(target.read_text(encoding="utf-8"))
-        value["digest_disclaimer"] += f" {sensitive_value}"
-        _write_json(target, value)
-    elif surface == "media/video-contract.json":
-        value = json.loads(target.read_text(encoding="utf-8"))
-        value["publication_gate"][0] += f" {sensitive_value}"
-        _write_json(target, value)
-    else:
-        target.write_text(
-            target.read_text(encoding="utf-8") + f"\n{sensitive_value}\n",
-            encoding="utf-8",
-        )
-
     errors = validate_public_demo(ROOT, copied)
 
-    assert any("sensitive " in item and surface.split("/")[-1] in item for item in errors)
+    assert any("forbidden claim token" in error for error in errors)
 
 
 @pytest.mark.parametrize(
-    "rendered_overclaim",
+    "claim",
     (
         "Workers&#32;Running",
         "Workers <span>Running</span>",
@@ -303,46 +163,367 @@ def test_validator_rejects_privacy_secret_and_machine_path_leaks(
         "OFFICIAL **SCORE**: 100",
     ),
 )
-def test_validator_rejects_markup_obfuscated_readme_overclaims(
-    tmp_path: Path,
-    rendered_overclaim: str,
-) -> None:
+def test_validator_rejects_markup_obfuscated_overclaims(tmp_path: Path, claim: str) -> None:
     copied = _copy_site(tmp_path)
-    readme_path = copied / "README.md"
-    readme_path.write_text(
-        readme_path.read_text(encoding="utf-8") + f"\n{rendered_overclaim}\n",
+    readme = copied / "README.md"
+    readme.write_text(readme.read_text(encoding="utf-8") + f"\n{claim}\n", encoding="utf-8")
+
+    errors = validate_public_demo(ROOT, copied)
+
+    assert any("forbidden claim token" in error for error in errors)
+
+
+def test_validator_rejects_remote_loaded_script(tmp_path: Path) -> None:
+    copied = _copy_site(tmp_path)
+    index = copied / "index.html"
+    index.write_text(
+        index.read_text(encoding="utf-8").replace(
+            "./app.js", "https://cdn.example.invalid/app.js", 1
+        ),
         encoding="utf-8",
     )
 
     errors = validate_public_demo(ROOT, copied)
 
-    assert any("forbidden claim token in loaded asset README.md" in item for item in errors)
+    assert any("loaded resources" in error or "must be path-relative" in error for error in errors)
+
+
+def test_validator_rejects_remote_css_resource(tmp_path: Path) -> None:
+    copied = _copy_site(tmp_path)
+    styles = copied / "styles.css"
+    styles.write_text(
+        styles.read_text(encoding="utf-8")
+        + "\n.remote { background-image: url(https://example.invalid/pixel.png); }\n",
+        encoding="utf-8",
+    )
+
+    errors = validate_public_demo(ROOT, copied)
+
+    assert any("CSS contains forbidden" in error for error in errors)
+
+
+@pytest.mark.parametrize(
+    "path",
+    (
+        (),
+        ("source",),
+        ("current_core", "action_certificate"),
+        ("product_assets", "entries", 0),
+        ("fixture_bundle", "entries", 0),
+        ("non_claims",),
+    ),
+)
+def test_validator_rejects_json_extra_fields(tmp_path: Path, path: tuple[str | int, ...]) -> None:
+    copied = _copy_site(tmp_path)
+    target = copied / "evidence-snapshot.json"
+    snapshot = json.loads(target.read_text(encoding="utf-8"))
+    nested = snapshot
+    for segment in path:
+        nested = nested[segment]
+    nested["unreviewed"] = "extra"
+    _write_json(target, snapshot)
+
+    errors = validate_public_demo(ROOT, copied)
+
+    assert any(
+        "exact-key shape mismatch" in error and "unexpected=unreviewed" in error for error in errors
+    )
+
+
+def test_validator_rejects_duplicate_json_keys(tmp_path: Path) -> None:
+    copied = _copy_site(tmp_path)
+    target = copied / "evidence-snapshot.json"
+    target.write_text(
+        target.read_text(encoding="utf-8").replace(
+            '"schema_version": "2.0",',
+            '"schema_version": "2.0",\n  "schema_version": "9.9",',
+            1,
+        ),
+        encoding="utf-8",
+    )
+
+    errors = validate_public_demo(ROOT, copied)
+
+    assert any("duplicate JSON key" in error for error in errors)
+
+
+def test_validator_rejects_forged_release_boolean(tmp_path: Path) -> None:
+    copied = _copy_site(tmp_path)
+    target = copied / "evidence-snapshot.json"
+    snapshot = json.loads(target.read_text(encoding="utf-8"))
+    snapshot["supply_chain_boundary"]["release_eligible"] = True
+    _write_json(target, snapshot)
+
+    errors = validate_public_demo(ROOT, copied)
+
+    assert any("release_eligible" in error for error in errors)
+
+
+@pytest.mark.parametrize(
+    ("surface", "leak"),
+    (
+        ("README.md", "contact 13800138000"),
+        ("README.md", "~/private-case.json"),
+        ("README.md", r"\\server\share\private-case.json"),
+        ("index.html", "/Users/example/private-case.json"),
+        ("styles.css", "/* person@example.com */"),
+        ("app.js", "// api_key=examplecredential123"),
+    ),
+)
+def test_validator_rejects_privacy_credential_and_machine_path_leaks(
+    tmp_path: Path, surface: str, leak: str
+) -> None:
+    copied = _copy_site(tmp_path)
+    target = copied / surface
+    target.write_text(target.read_text(encoding="utf-8") + f"\n{leak}\n", encoding="utf-8")
+
+    errors = validate_public_demo(ROOT, copied)
+
+    assert any("sensitive " in error and surface in error for error in errors)
 
 
 @pytest.mark.parametrize(
     "credential",
     (
         "client_secret=examplecredential123",
-        "secret_key: examplecredential123",
         "auth-token=examplecredential123",
         "refresh_token=examplecredential123",
         "PROOFFLOW_API_KEY=examplecredential123",
         "DB_PASSWORD=examplecredential123",
-        "AWS_SECRET_ACCESS_KEY=examplecredential123",
         "GITHUB_TOKEN=examplecredential123",
     ),
 )
-def test_validator_rejects_common_assigned_credentials_in_readme(
-    tmp_path: Path,
-    credential: str,
-) -> None:
+def test_validator_rejects_assigned_credentials(tmp_path: Path, credential: str) -> None:
     copied = _copy_site(tmp_path)
-    readme_path = copied / "README.md"
-    readme_path.write_text(
-        readme_path.read_text(encoding="utf-8") + f"\n{credential}\n",
-        encoding="utf-8",
-    )
+    readme = copied / "README.md"
+    readme.write_text(readme.read_text(encoding="utf-8") + f"\n{credential}\n", encoding="utf-8")
 
     errors = validate_public_demo(ROOT, copied)
 
-    assert any("sensitive assigned credential in loaded asset README.md" in item for item in errors)
+    assert any("sensitive assigned credential" in error for error in errors)
+
+
+def test_validator_rejects_unexpected_static_file(tmp_path: Path) -> None:
+    copied = _copy_site(tmp_path)
+    (copied / "debug.txt").write_text("debug", encoding="utf-8")
+
+    errors = validate_public_demo(ROOT, copied)
+
+    assert any("static artifact closed set mismatch" in error for error in errors)
+
+
+def test_validator_rejects_symlinked_static_file(tmp_path: Path) -> None:
+    copied = _copy_site(tmp_path)
+    styles = copied / "styles.css"
+    styles.unlink()
+    styles.symlink_to(copied / "README.md")
+
+    errors = validate_public_demo(ROOT, copied)
+
+    assert any("must not contain symlinks" in error for error in errors)
+
+
+@pytest.mark.parametrize(
+    ("old", "new", "message"),
+    (
+        (
+            "actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+            "actions/checkout@v4",
+            "ordered full-SHA closed set",
+        ),
+        ("path: ./public-demo", "path: .", "structure must exactly match"),
+        ('version: "0.11.28"', 'version: "0.11.29"', "structure must exactly match"),
+        (
+            "persist-credentials: false",
+            "persist-credentials: true",
+            "structure must exactly match",
+        ),
+    ),
+)
+def test_pages_workflow_validator_rejects_capability_drift(
+    tmp_path: Path, old: str, new: str, message: str
+) -> None:
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    source = (ROOT / ".github/workflows/pages.yml").read_text(encoding="utf-8")
+    (workflow_dir / "pages.yml").write_text(source.replace(old, new, 1), encoding="utf-8")
+
+    errors = _validate_pages_workflow(tmp_path)
+
+    assert any(message in error for error in errors)
+
+
+def test_pages_workflow_rejects_build_write_and_residual_deploy_read(
+    tmp_path: Path,
+) -> None:
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    source = (ROOT / ".github/workflows/pages.yml").read_text(encoding="utf-8")
+    attacked = source.replace(
+        "  build:\n    if: github.ref == 'refs/heads/main'\n    runs-on: ubuntu-latest\n"
+        "    permissions:\n      contents: read\n",
+        "  build:\n    if: github.ref == 'refs/heads/main'\n    runs-on: ubuntu-latest\n"
+        "    permissions:\n      contents: write\n",
+        1,
+    ).replace(
+        "    permissions:\n      pages: write\n      id-token: write\n",
+        "    permissions:\n      contents: read\n      pages: write\n      id-token: write\n",
+        1,
+    )
+    (workflow_dir / "pages.yml").write_text(attacked, encoding="utf-8")
+
+    errors = _validate_pages_workflow(tmp_path)
+
+    assert any("build permissions must be exactly contents: read" in error for error in errors)
+    assert any("deploy permissions must be exactly" in error for error in errors)
+
+
+def test_pages_workflow_rejects_deploy_issues_write(tmp_path: Path) -> None:
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    source = (ROOT / ".github/workflows/pages.yml").read_text(encoding="utf-8")
+    attacked = source.replace(
+        "      pages: write\n      id-token: write",
+        "      pages: write\n      id-token: write\n      issues: write",
+        1,
+    )
+    (workflow_dir / "pages.yml").write_text(attacked, encoding="utf-8")
+
+    errors = _validate_pages_workflow(tmp_path)
+
+    assert any("deploy permissions must be exactly" in error for error in errors)
+
+
+def test_pages_workflow_rejects_duplicate_build_permissions_even_when_last_is_safe(
+    tmp_path: Path,
+) -> None:
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    source = (ROOT / ".github/workflows/pages.yml").read_text(encoding="utf-8")
+    attacked = source.replace(
+        "    permissions:\n      contents: read\n    steps:",
+        "    permissions:\n      contents: write\n"
+        "    permissions:\n      contents: read\n    steps:",
+        1,
+    )
+    (workflow_dir / "pages.yml").write_text(attacked, encoding="utf-8")
+
+    errors = _validate_pages_workflow(tmp_path)
+
+    assert errors == ["Pages workflow contains duplicate YAML mapping keys"]
+
+
+def test_pages_workflow_rejects_nested_duplicate_key_even_when_last_is_safe(
+    tmp_path: Path,
+) -> None:
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    source = (ROOT / ".github/workflows/pages.yml").read_text(encoding="utf-8")
+    attacked = source.replace(
+        "          fetch-depth: 0",
+        "          fetch-depth: 1\n          fetch-depth: 0",
+        1,
+    )
+    (workflow_dir / "pages.yml").write_text(attacked, encoding="utf-8")
+
+    errors = _validate_pages_workflow(tmp_path)
+
+    assert errors == ["Pages workflow contains duplicate YAML mapping keys"]
+
+
+def test_pages_workflow_rejects_arbitrary_deploy_run_step(tmp_path: Path) -> None:
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    source = (ROOT / ".github/workflows/pages.yml").read_text(encoding="utf-8")
+    attacked = source.replace(
+        "        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e\n",
+        "        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e\n"
+        "      - name: Arbitrary post-deploy command\n"
+        "        run: echo unexpected\n",
+        1,
+    )
+    (workflow_dir / "pages.yml").write_text(attacked, encoding="utf-8")
+
+    errors = _validate_pages_workflow(tmp_path)
+
+    assert any("run commands must be the exact ordered" in error for error in errors)
+
+
+@pytest.mark.parametrize(
+    ("old", "new"),
+    (
+        (
+            "    permissions:\n      contents: read\n    steps:",
+            "    permissions:\n      contents: read\n    env:\n      MODE: unsafe\n    steps:",
+        ),
+        (
+            "      - name: Verify source-bound public snapshot",
+            "      - name: Extra action\n"
+            "        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803\n"
+            "      - name: Verify source-bound public snapshot",
+        ),
+        (
+            "          --expected-source-commit " + SOURCE_COMMIT,
+            "          --expected-source-commit "
+            + SOURCE_COMMIT
+            + "\n        env:\n          MODE: unsafe",
+        ),
+        (
+            "          path: ./public-demo",
+            "          path: ./public-demo\n          include-hidden-files: true",
+        ),
+        ("  group: pages", "  group: pages-drift"),
+        ("    needs: build", "    needs: [build, audit]"),
+        ("      name: github-pages", "      name: unreviewed-environment"),
+    ),
+)
+def test_pages_workflow_rejects_extra_env_action_step_and_topology_drift(
+    tmp_path: Path, old: str, new: str
+) -> None:
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    source = (ROOT / ".github/workflows/pages.yml").read_text(encoding="utf-8")
+    assert old in source
+    (workflow_dir / "pages.yml").write_text(source.replace(old, new, 1), encoding="utf-8")
+
+    errors = _validate_pages_workflow(tmp_path)
+
+    assert any("exact" in error for error in errors)
+
+
+def test_pages_workflow_validator_rejects_secret_reference(tmp_path: Path) -> None:
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    source = (ROOT / ".github/workflows/pages.yml").read_text(encoding="utf-8")
+    (workflow_dir / "pages.yml").write_text(source + "\n# secrets.DEPLOY_TOKEN\n", encoding="utf-8")
+
+    errors = _validate_pages_workflow(tmp_path)
+
+    assert any("forbidden deployment capability: secrets." in error for error in errors)
+
+
+def test_optimized_python_still_rejects_snapshot_attack(tmp_path: Path) -> None:
+    copied = _copy_site(tmp_path)
+    snapshot_path = copied / "evidence-snapshot.json"
+    snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
+    snapshot["runtime_boundary"]["readyWorkers"] = 6
+    _write_json(snapshot_path, snapshot)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-O",
+            "scripts/validate_public_demo_landing.py",
+            "--site-root",
+            str(copied),
+            "--expected-source-commit",
+            SOURCE_COMMIT,
+        ],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert "PUBLIC_DEMO_INVALID" in result.stdout

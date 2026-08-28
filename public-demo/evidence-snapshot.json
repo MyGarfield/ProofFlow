@@ -1,22 +1,39 @@
 {
-  "schema_version": "1.0",
-  "snapshot_scope": "HISTORICAL_REFERENCE_CORE_AND_PUBLIC_MATERIALS",
-  "observed_on": "2026-08-22",
+  "schema_version": "2.0",
+  "snapshot_scope": "CURRENT_CORE_ALPHA_SOURCE_OBJECT",
   "classification": "PUBLIC_SYNTHETIC",
   "repository": "https://github.com/MyGarfield/ProofFlow",
   "source": {
     "branch": "main",
-    "commit": "b63eeb60d1072c73d2d0d1d6061b3c8f800487a4",
-    "tree": "2e58bc7cf5a2677ec156490108ad91f35d5c41c1",
-    "signature_verified": false,
-    "landing_page_in_source_commit": false
+    "commit": "610f5d87006567055c658ca8adb66b61284f7603",
+    "tree": "883d36075bb9149bddb1122c0b4b401a34d38d05",
+    "committed_at": "2026-08-29T04:15:26+08:00",
+    "commit_signature_verified_by_generator": false
   },
   "landing": {
-    "mode": "STATIC_READ_ONLY_OUTER_LAYER",
+    "mode": "STATIC_READ_ONLY_SOURCE_SNAPSHOT",
+    "included_in_source_commit": false,
+    "self_authenticating": false,
     "runtime_connected": false,
-    "tracking_enabled": false,
     "remote_runtime_exposed": false,
+    "tracking_enabled": false,
     "base_path_contract": "/ProofFlow/"
+  },
+  "current_core": {
+    "status": "CURRENT_CORE_ALPHA_SNAPSHOT",
+    "action_certificate": {
+      "version": "v0.1",
+      "merged_into_source": true,
+      "verification_scope": "PRE_EXECUTION_AUTHORIZATION_ONLY",
+      "production_release_gate": false,
+      "schema_count": 7
+    },
+    "test_counts": {
+      "provenance": "SOURCE_README_DECLARATION",
+      "full_repo_passed": 569,
+      "action_certificate_passed": 53,
+      "generator_executed_tests": false
+    }
   },
   "runtime_boundary": {
     "workers": "Stopped",
@@ -27,62 +44,6 @@
     "real_case_data_used": false,
     "legal_advice": false
   },
-  "reference_flow": [
-    {
-      "step": "prepare",
-      "observed_outcome": "AWAITING_APPROVAL"
-    },
-    {
-      "step": "409",
-      "observed_outcome": "HUMAN_GATE_REQUIRED"
-    },
-    {
-      "step": "approve",
-      "observed_outcome": "LOCAL_DEMO"
-    },
-    {
-      "step": "package",
-      "observed_outcome": "2_FILES"
-    },
-    {
-      "step": "verify",
-      "observed_outcome": "VALID_TRUE_25_ARTIFACTS_2_PACKAGE_FILES"
-    },
-    {
-      "step": "11/11",
-      "observed_outcome": "STRUCTURAL_CONTRACTS_ONLY"
-    }
-  ],
-  "input_pins": {
-    "fixture_bundle": "sha256:60ce3111c813c8869e4be65ae5f4fcd9712e388769b35645393dc270184c7f9d",
-    "rule_catalog": "sha256:27686c904451870dd5953ec6e47c155a395b2f279995e50f68aea984e6bf91de",
-    "hash_kind": "UNSIGNED_CONTENT_DIGEST"
-  },
-  "contract_suite": {
-    "result": "11/11",
-    "report_hash": "sha256:f81883cca94268e35375e8fcb7eb6afb60b769e15040130cbe7359c6bb23bc17",
-    "scope": "LOCAL_DETERMINISTIC_SYNTHETIC_STRUCTURAL_CONTRACTS",
-    "legal_accuracy_measured": false,
-    "performance_measured": false,
-    "official_score": null
-  },
-  "public_artifacts": [
-    {
-      "path": "submission/public/ProofFlow_GOAI_复赛答辩_v2.0.pptx",
-      "sha256": "fabe3102c1ef6550b131d0d230fed3a4eef46c579886ec268fc6c11c298f55a5",
-      "bytes": 901601
-    },
-    {
-      "path": "submission/public/ProofFlow_GOAI_复赛答辩_v2.0.pdf",
-      "sha256": "6c45562bd6b7fa1a813bac0d713dfa3a3a2d7f54f6e07a3763bbb1306d12e773",
-      "bytes": 1523247
-    },
-    {
-      "path": "submission/public/submission-manifest.json",
-      "sha256": "6b36d4b98fd6bb5261460f8a3d394f06419ce31821ebc085efed4b79175365d6",
-      "bytes": 1621
-    }
-  ],
   "evaluation_boundary": {
     "status": "PROTOCOL_VALIDATED_NOT_EXECUTED",
     "deterministic_reference_score": null,
@@ -90,9 +51,123 @@
     "six_agent_score": null,
     "official_score": null
   },
-  "media": {
-    "publication_status": "NOT_PUBLISHED",
-    "contract": "media/video-contract.json"
+  "supply_chain_boundary": {
+    "status": "STALE",
+    "historical_snapshot_only": true,
+    "release_eligible": false,
+    "fresh_build_scan_and_provenance_required": true
   },
-  "digest_disclaimer": "SHA-256 values are unsigned content digests, not digital signatures, source authenticity, legal correctness, official acceptance, or competition scores."
+  "product_assets": {
+    "hash_kind": "UNSIGNED_GIT_BLOB_CONTENT_DIGEST",
+    "bundle_sha256": "72febbf664d2889a9f433b88ebc78bb6c42d3007f41aa62f99f643ab5a34f6f2",
+    "entries": [
+      {
+        "path": "README.md",
+        "sha256": "feccad30163d8b9dafa4944c8e421143490ed2c7ed90d85c1c4d30a75d0c727c",
+        "bytes": 13352
+      },
+      {
+        "path": ".github/workflows/ci.yml",
+        "sha256": "ce268258c08cff48a226f2070d0a74d19e333482b6dc8c5a93aa3c2d62db1b1a",
+        "bytes": 1770
+      },
+      {
+        "path": "docs/12_GLOBAL_PRODUCT_ROADMAP.md",
+        "sha256": "4bd3691647dde43d6e7fbe00de7626ed021212a174568b337e830ca0d604f608",
+        "bytes": 9340
+      },
+      {
+        "path": "docs/13_ACTION_CERTIFICATE_V0P1.md",
+        "sha256": "7a95735ecb4d5eb16ef3c7c480168f4fbb73f55479cada3575c52c79e94501f4",
+        "bytes": 7173
+      },
+      {
+        "path": "benchmarks/evaluation/README.md",
+        "sha256": "34202f732d46aa2c7d8c5af6ddb6942c6b8a153ba05487dc774df87209947a37",
+        "bytes": 6977
+      },
+      {
+        "path": "deploy/tool-service/SUPPLY_CHAIN_EVIDENCE.md",
+        "sha256": "3cdc2ccd2be8f1c9dc44ece82163e364a9f64ea3d5102b4aa9b284dafcd01b05",
+        "bytes": 9075
+      },
+      {
+        "path": "src/proofflow/action_certificate.py",
+        "sha256": "530b2aadb3b142f63826b4bdc281bf8f20c1623cd317d294973952d99457a8f3",
+        "bytes": 46695
+      },
+      {
+        "path": "schemas/action-certificate-dsse-envelope.schema.json",
+        "sha256": "eca545b13981fcd580b419dd7f33a40342ace55b83613bb2c61b6a64ac4a7463",
+        "bytes": 2134
+      },
+      {
+        "path": "schemas/action-certificate-expected-binding.schema.json",
+        "sha256": "788a70ccaf57bd99dcd27b692fa4f92cffc70d1929cacd7063040b28974ff6f8",
+        "bytes": 12756
+      },
+      {
+        "path": "schemas/action-certificate-predicate-v0p1.schema.json",
+        "sha256": "68b5d3eed805e319149a4948598983b0ca7b6e6d2dbce181784faff4d2fca90f",
+        "bytes": 12022
+      },
+      {
+        "path": "schemas/action-certificate-revocation-snapshot.schema.json",
+        "sha256": "058710c477487bf0e26532e0aa7833e604f2c5789ec3e0382c924a5178bbc861",
+        "bytes": 2274
+      },
+      {
+        "path": "schemas/action-certificate-statement-v0p1.schema.json",
+        "sha256": "3f982b2574d4b622717fbfe787770e118697ae477e51e68a1a31689e92d63fb9",
+        "bytes": 14666
+      },
+      {
+        "path": "schemas/action-certificate-trust-policy-v0p1.schema.json",
+        "sha256": "417be263f5e114255313ca330d4a4c7e3e121b022a85b592f674ac15d15c37a8",
+        "bytes": 7236
+      },
+      {
+        "path": "schemas/action-certificate-verification-result-v0p1.schema.json",
+        "sha256": "a60e42bbe2bbed7d24304a2e7c8fa4d9f3fd53a5ba5a9d1d3168bc5c229f845c",
+        "bytes": 4740
+      }
+    ]
+  },
+  "fixture_bundle": {
+    "classification": "PUBLIC_SYNTHETIC",
+    "hash_kind": "UNSIGNED_GIT_BLOB_CONTENT_DIGEST",
+    "bundle_sha256": "a050229692db496056f26fd9af52bbb41f0e53f96c8446c93ae3bd87a0d887f5",
+    "entries": [
+      {
+        "path": "examples/cases/happy_path/contract.json",
+        "sha256": "f17e64030475d0a6de6d0f0c340cab223ea64f9addca2789c523fcc3513914ff",
+        "bytes": 310
+      },
+      {
+        "path": "examples/cases/happy_path/manifest.json",
+        "sha256": "c659dee0e33e0e63a5d51f82476a9b98d7287388a2dd13a2798f1543ca102c30",
+        "bytes": 1217
+      },
+      {
+        "path": "examples/cases/happy_path/payroll.json",
+        "sha256": "2979d172f73d3bc83cc7c3a673e39a12b68026afa05424bcf7877cbe7c3300f5",
+        "bytes": 284
+      },
+      {
+        "path": "examples/cases/happy_path/termination_notice.json",
+        "sha256": "529aa937fdd04b08e6fdb87c2dc0dbb0eac8c27b4b373f03b001ad5bbf489eca",
+        "bytes": 453
+      }
+    ]
+  },
+  "non_claims": {
+    "production_ready": false,
+    "release_ready": false,
+    "worker_or_llm_execution_observed": false,
+    "evaluation_executed": false,
+    "execution_receipt_implemented": false,
+    "outcome_closure_implemented": false,
+    "digests_are_signatures": false,
+    "source_authenticity_proven_by_snapshot": false
+  }
 }

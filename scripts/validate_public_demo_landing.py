@@ -1,13 +1,12 @@
-"""Fail-closed static contract for the ProofFlow public evidence landing page."""
+"""Fail-closed contract for the current-commit ProofFlow public landing."""
 
 from __future__ import annotations
 
 import argparse
-import hashlib
 import html as html_module
 import json
 import re
-import subprocess
+import sys
 import unicodedata
 import xml.etree.ElementTree as ET
 from collections.abc import Iterator, Sequence
@@ -16,81 +15,148 @@ from pathlib import Path
 from typing import Any, Final
 from urllib.parse import unquote, urlsplit
 
+import yaml  # type: ignore[import-untyped]
+
 ROOT: Final = Path(__file__).resolve().parents[1]
+SCRIPT_ROOT: Final = Path(__file__).resolve().parent
+if str(SCRIPT_ROOT) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_ROOT))
+
+from generate_public_demo_snapshot import (  # noqa: E402
+    SOURCE_COMMIT as GENERATOR_SOURCE_COMMIT,
+)
+from generate_public_demo_snapshot import (  # noqa: E402
+    SOURCE_TREE as GENERATOR_SOURCE_TREE,
+)
+from generate_public_demo_snapshot import (  # noqa: E402
+    SnapshotGenerationError,
+    build_snapshot,
+    serialize_snapshot,
+)
+
 SITE_ROOT: Final = ROOT / "public-demo"
-SOURCE_COMMIT: Final = "b63eeb60d1072c73d2d0d1d6061b3c8f800487a4"
-SOURCE_TREE: Final = "2e58bc7cf5a2677ec156490108ad91f35d5c41c1"
-FLOW: Final = ("prepare", "409", "approve", "package", "verify", "11/11")
-ALLOWED_EXTERNAL_ANCHOR_HOSTS: Final = frozenset({"github.com"})
+
+# These verifier pins are deliberately duplicated outside the generated JSON.
+EXPECTED_SOURCE_COMMIT: Final = "610f5d87006567055c658ca8adb66b61284f7603"
+EXPECTED_SOURCE_TREE: Final = "883d36075bb9149bddb1122c0b4b401a34d38d05"
+
+EXPECTED_SITE_FILES: Final = frozenset(
+    {
+        "README.md",
+        "app.js",
+        "evidence-snapshot.json",
+        "favicon.svg",
+        "index.html",
+        "styles.css",
+    }
+)
+
+EXPECTED_RESOURCES: Final = frozenset(
+    {
+        ("link", "href", "./favicon.svg"),
+        ("link", "href", "./styles.css"),
+        ("script", "src", "./app.js"),
+    }
+)
+
 EXPECTED_EXTERNAL_ANCHORS: Final = frozenset(
     {
-        "https://github.com/MyGarfield/ProofFlow",
-        f"https://github.com/MyGarfield/ProofFlow/commit/{SOURCE_COMMIT}",
+        f"https://github.com/MyGarfield/ProofFlow/commit/{EXPECTED_SOURCE_COMMIT}",
+        f"https://github.com/MyGarfield/ProofFlow/blob/{EXPECTED_SOURCE_COMMIT}/README.md",
         (
-            f"https://github.com/MyGarfield/ProofFlow/blob/{SOURCE_COMMIT}/submission/"
-            "public/ProofFlow_GOAI_%E5%A4%8D%E8%B5%9B%E7%AD%94%E8%BE%A9_v2.0.pdf"
+            "https://github.com/MyGarfield/ProofFlow/blob/"
+            f"{EXPECTED_SOURCE_COMMIT}/docs/12_GLOBAL_PRODUCT_ROADMAP.md"
         ),
         (
-            f"https://github.com/MyGarfield/ProofFlow/blob/{SOURCE_COMMIT}/submission/"
-            "public/ProofFlow_GOAI_%E5%A4%8D%E8%B5%9B%E7%AD%94%E8%BE%A9_v2.0.pptx"
+            "https://github.com/MyGarfield/ProofFlow/blob/"
+            f"{EXPECTED_SOURCE_COMMIT}/docs/13_ACTION_CERTIFICATE_V0P1.md"
+        ),
+        f"https://github.com/MyGarfield/ProofFlow/tree/{EXPECTED_SOURCE_COMMIT}/schemas",
+        (
+            "https://github.com/MyGarfield/ProofFlow/blob/"
+            f"{EXPECTED_SOURCE_COMMIT}/.github/workflows/ci.yml"
         ),
         (
-            f"https://github.com/MyGarfield/ProofFlow/blob/{SOURCE_COMMIT}/"
-            "docs/09_SEMIFINAL_DEMO_RUNBOOK.md"
+            "https://github.com/MyGarfield/ProofFlow/blob/"
+            f"{EXPECTED_SOURCE_COMMIT}/deploy/tool-service/SUPPLY_CHAIN_EVIDENCE.md"
+        ),
+        *(
+            f"https://github.com/MyGarfield/ProofFlow/blob/{EXPECTED_SOURCE_COMMIT}/schemas/{name}"
+            for name in (
+                "action-certificate-dsse-envelope.schema.json",
+                "action-certificate-expected-binding.schema.json",
+                "action-certificate-predicate-v0p1.schema.json",
+                "action-certificate-revocation-snapshot.schema.json",
+                "action-certificate-statement-v0p1.schema.json",
+                "action-certificate-trust-policy-v0p1.schema.json",
+                "action-certificate-verification-result-v0p1.schema.json",
+            )
         ),
         (
-            f"https://github.com/MyGarfield/ProofFlow/blob/{SOURCE_COMMIT}/submission/"
-            "public/submission-manifest.json"
+            "https://github.com/MyGarfield/ProofFlow/blob/"
+            f"{EXPECTED_SOURCE_COMMIT}/submission/public/README.md"
         ),
     }
 )
+
 REQUIRED_LOCAL_ANCHORS: Final = frozenset(
     {
+        "#current-core",
         "#evidence",
         "#materials",
-        "#proof-path",
-        "#reference-media",
+        "#proof-plane",
         "#top",
         "./README.md",
         "./evidence-snapshot.json",
-        "./media/proofflow-reference-demo.zh-CN.vtt",
-        "./media/video-contract.json",
     }
 )
-EXPECTED_ARTIFACTS: Final = {
-    "submission/public/ProofFlow_GOAI_复赛答辩_v2.0.pptx": (
-        "fabe3102c1ef6550b131d0d230fed3a4eef46c579886ec268fc6c11c298f55a5",
-        901601,
-    ),
-    "submission/public/ProofFlow_GOAI_复赛答辩_v2.0.pdf": (
-        "6c45562bd6b7fa1a813bac0d713dfa3a3a2d7f54f6e07a3763bbb1306d12e773",
-        1523247,
-    ),
-    "submission/public/submission-manifest.json": (
-        "6b36d4b98fd6bb5261460f8a3d394f06419ce31821ebc085efed4b79175365d6",
-        1621,
-    ),
-}
-REQUIRED_CSP_DIRECTIVES: Final = (
-    "default-src 'self'",
-    "script-src 'self'",
-    "style-src 'self'",
-    "connect-src 'none'",
-    "font-src 'none'",
-    "object-src 'none'",
-    "base-uri 'none'",
-    "form-action 'none'",
-    "frame-src 'none'",
+
+EXPECTED_CSP: Final = (
+    "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; "
+    "connect-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; "
+    "base-uri 'none'; form-action 'none'; frame-src 'none'"
 )
-FORBIDDEN_VISIBLE_CLAIMS: Final = (
+
+REQUIRED_VISIBLE_BOUNDARIES: Final = (
+    "CURRENT CORE ALPHA SNAPSHOT",
+    "PUBLIC_SYNTHETIC",
+    "Workers Stopped",
+    "readyWorkers=0",
+    "LLM OFF",
+    "NO EXTERNAL SIDE EFFECTS",
+    "非法律意见",
+    "ActionCertificate v0.1",
+    "53 certificate tests",
+    "569 full repo tests",
+    "LANDING POST-DATES SOURCE",
+    "NOT RELEASE ELIGIBLE",
+    "ExecutionReceipt 未实现",
+    "OutcomeClosure 未实现",
+    "EVALUATION NOT_EXECUTED / UNKNOWN",
+    "SUPPLY EVIDENCE STALE",
+    "未晋级 GOAI 复赛",
+    "GENERATOR EXECUTED TESTS: FALSE",
+    "COMMIT SIGNATURE VERIFIED: FALSE",
+    "self_authenticating=false",
+    EXPECTED_SOURCE_COMMIT,
+    EXPECTED_SOURCE_TREE,
+    "72febbf664d2889a9f433b88ebc78bb6c42d3007f41aa62f99f643ab5a34f6f2",
+    "a050229692db496056f26fd9af52bbb41f0e53f96c8446c93ae3bd87a0d887f5",
+)
+
+FORBIDDEN_CLAIMS: Final = (
     re.compile(r"Workers\s+Running", re.IGNORECASE),
     re.compile(r"readyWorkers\s*=\s*[1-9][0-9]*", re.IGNORECASE),
     re.compile(r"\bLLM\s+ON\b", re.IGNORECASE),
-    re.compile(r"\bPRODUCTION[_ ]READY\b", re.IGNORECASE),
-    re.compile(r"\bREAL[_ ]CASE\b", re.IGNORECASE),
-    re.compile(r"LEGAL\s+ACCURACY\s*(?:=|:)?\s*100%", re.IGNORECASE),
     re.compile(r"OFFICIAL\s+SCORE\s*(?:=|:)\s*[0-9]", re.IGNORECASE),
+    re.compile(r"\bPRODUCTION[_ -]?READY\b", re.IGNORECASE),
+    re.compile(r"\bREAL[_ -]?CASE\b", re.IGNORECASE),
+    re.compile(r"LEGAL\s+ACCURACY\s*(?:=|:)?\s*100%", re.IGNORECASE),
+    re.compile(r"SUPPLY\s+EVIDENCE\s+(?:FRESH|CURRENT)", re.IGNORECASE),
+    re.compile(r"ExecutionReceipt\s+(?:IMPLEMENTED|READY|AVAILABLE)", re.IGNORECASE),
+    re.compile(r"OutcomeClosure\s+(?:IMPLEMENTED|READY|AVAILABLE)", re.IGNORECASE),
 )
+
 SENSITIVE_TEXT_PATTERNS: Final[tuple[tuple[str, re.Pattern[str]], ...]] = (
     (
         "local machine path",
@@ -141,143 +207,16 @@ SENSITIVE_TEXT_PATTERNS: Final[tuple[tuple[str, re.Pattern[str]], ...]] = (
         "assigned credential",
         re.compile(
             r"(?<![0-9A-Za-z])(?:[0-9A-Za-z]+[._-])*"
-            r"(?:api[\s._-]*(?:key|secret)|access[\s._-]*token|"
-            r"auth[\s._-]*token|client[\s._-]*secret|consumer[\s._-]*secret|"
-            r"id[\s._-]*token|password|private[\s._-]*key|"
-            r"refresh[\s._-]*token|secret(?:[\s._-]*(?:access[\s._-]*key|key))?|"
-            r"token|webhook[\s._-]*secret)\s*[:=]\s*"
-            r"[\"']?[0-9A-Za-z_./+=-]{8,}",
+            r"(?:api[\s._-]*(?:key|secret)|access[\s._-]*token|auth[\s._-]*token|"
+            r"client[\s._-]*secret|consumer[\s._-]*secret|id[\s._-]*token|password|"
+            r"private[\s._-]*key|refresh[\s._-]*token|"
+            r"secret(?:[\s._-]*(?:access[\s._-]*key|key))?|token|"
+            r"webhook[\s._-]*secret)\s*[:=]\s*[\"']?[0-9A-Za-z_./+=-]{8,}",
             re.IGNORECASE,
         ),
     ),
 )
-EVIDENCE_OBJECT_KEYS: Final = {
-    "$": frozenset(
-        {
-            "schema_version",
-            "snapshot_scope",
-            "observed_on",
-            "classification",
-            "repository",
-            "source",
-            "landing",
-            "runtime_boundary",
-            "reference_flow",
-            "input_pins",
-            "contract_suite",
-            "public_artifacts",
-            "evaluation_boundary",
-            "media",
-            "digest_disclaimer",
-        }
-    ),
-    "source": frozenset(
-        {
-            "branch",
-            "commit",
-            "tree",
-            "signature_verified",
-            "landing_page_in_source_commit",
-        }
-    ),
-    "landing": frozenset(
-        {
-            "mode",
-            "runtime_connected",
-            "tracking_enabled",
-            "remote_runtime_exposed",
-            "base_path_contract",
-        }
-    ),
-    "runtime_boundary": frozenset(
-        {
-            "workers",
-            "readyWorkers",
-            "worker_containers",
-            "llm_enabled",
-            "external_side_effects_enabled",
-            "real_case_data_used",
-            "legal_advice",
-        }
-    ),
-    "reference_flow[]": frozenset({"step", "observed_outcome"}),
-    "input_pins": frozenset({"fixture_bundle", "rule_catalog", "hash_kind"}),
-    "contract_suite": frozenset(
-        {
-            "result",
-            "report_hash",
-            "scope",
-            "legal_accuracy_measured",
-            "performance_measured",
-            "official_score",
-        }
-    ),
-    "public_artifacts[]": frozenset({"path", "sha256", "bytes"}),
-    "evaluation_boundary": frozenset(
-        {
-            "status",
-            "deterministic_reference_score",
-            "single_agent_score",
-            "six_agent_score",
-            "official_score",
-        }
-    ),
-    "media": frozenset({"publication_status", "contract"}),
-}
-VIDEO_OBJECT_KEYS: Final = {
-    "$": frozenset(
-        {
-            "schema_version",
-            "publication_status",
-            "playback_mode",
-            "source_evidence_commit",
-            "video",
-            "subtitles",
-            "publication_gate",
-            "claim_boundaries",
-        }
-    ),
-    "video": frozenset(
-        {"path", "present", "sha256", "duration_seconds", "width", "height", "codec"}
-    ),
-    "subtitles": frozenset({"path", "present", "language", "cue_count", "sha256"}),
-    "claim_boundaries": frozenset(
-        {
-            "classification",
-            "workers",
-            "readyWorkers",
-            "llm_enabled",
-            "external_side_effects_enabled",
-            "legal_accuracy_measured",
-            "live_runtime_demonstrated",
-        }
-    ),
-}
-EXPECTED_REFERENCE_FLOW: Final = (
-    {"step": "prepare", "observed_outcome": "AWAITING_APPROVAL"},
-    {"step": "409", "observed_outcome": "HUMAN_GATE_REQUIRED"},
-    {"step": "approve", "observed_outcome": "LOCAL_DEMO"},
-    {"step": "package", "observed_outcome": "2_FILES"},
-    {
-        "step": "verify",
-        "observed_outcome": "VALID_TRUE_25_ARTIFACTS_2_PACKAGE_FILES",
-    },
-    {"step": "11/11", "observed_outcome": "STRUCTURAL_CONTRACTS_ONLY"},
-)
-EXPECTED_PUBLICATION_GATE: Final = (
-    "Replace STORYBOARD_FALLBACK only after the MP4 exists at the declared relative path.",
-    "Record the exact MP4 SHA-256 and trusted ffprobe observations.",
-    (
-        "Verify rendered claims against the source evidence commit and reject prohibited "
-        "live-runtime claims."
-    ),
-    "Extract representative frames from the MP4 and compare them with approved snapshots.",
-    (
-        "Run a current privacy and secret scan over the MP4, subtitles, script, snapshots, "
-        "and manifest."
-    ),
-    "Keep subtitles enabled and preserve PUBLIC_SYNTHETIC claim boundaries in every scene.",
-)
+
 NETWORK_JS_TOKENS: Final = (
     "document.write",
     "eval(",
@@ -293,138 +232,221 @@ NETWORK_JS_TOKENS: Final = (
     "sessionStorage",
 )
 
+CHECKOUT_ACTION: Final = "actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803"
+SETUP_UV_ACTION: Final = "astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e"
+UPLOAD_PAGES_ACTION: Final = (
+    "actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b"
+)
+DEPLOY_PAGES_ACTION: Final = "actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e"
+EXPECTED_ACTION_PINS: Final = frozenset(
+    {
+        CHECKOUT_ACTION,
+        SETUP_UV_ACTION,
+        UPLOAD_PAGES_ACTION,
+        DEPLOY_PAGES_ACTION,
+    }
+)
+SNAPSHOT_CHECK_COMMAND: Final = (
+    "uv run --frozen python scripts/generate_public_demo_snapshot.py --check "
+    f"--source-commit {EXPECTED_SOURCE_COMMIT}"
+)
+LANDING_CHECK_COMMAND: Final = (
+    "uv run --frozen python scripts/validate_public_demo_landing.py "
+    f"--expected-source-commit {EXPECTED_SOURCE_COMMIT}"
+)
+
+
+def _expected_pages_workflow() -> dict[str | bool, Any]:
+    """Return the exact YAML-safe-loaded Pages workflow contract."""
+    return {
+        "name": "Pages",
+        # PyYAML intentionally follows YAML 1.1 and loads the plain key `on` as True.
+        True: {
+            "push": {
+                "branches": ["main"],
+                "paths": [
+                    "public-demo/**",
+                    "scripts/generate_public_demo_snapshot.py",
+                    "scripts/validate_public_demo_landing.py",
+                    ".github/workflows/pages.yml",
+                ],
+            },
+            "workflow_dispatch": None,
+        },
+        "concurrency": {"group": "pages", "cancel-in-progress": False},
+        "permissions": {"contents": "read"},
+        "jobs": {
+            "build": {
+                "if": "github.ref == 'refs/heads/main'",
+                "runs-on": "ubuntu-latest",
+                "permissions": {"contents": "read"},
+                "steps": [
+                    {
+                        "name": "Check out complete source history without persisted credentials",
+                        "uses": CHECKOUT_ACTION,
+                        "with": {"fetch-depth": 0, "persist-credentials": False},
+                    },
+                    {
+                        "name": "Install the locked Python toolchain",
+                        "uses": SETUP_UV_ACTION,
+                        "with": {
+                            "version": "0.11.28",
+                            "python-version": "3.12",
+                            "enable-cache": False,
+                        },
+                    },
+                    {
+                        "name": "Verify source-bound public snapshot",
+                        "run": SNAPSHOT_CHECK_COMMAND,
+                    },
+                    {
+                        "name": "Validate static claim and privacy boundary",
+                        "run": LANDING_CHECK_COMMAND,
+                    },
+                    {
+                        "name": "Upload only the static public-demo artifact",
+                        "uses": UPLOAD_PAGES_ACTION,
+                        "with": {"path": "./public-demo"},
+                    },
+                ],
+            },
+            "deploy": {
+                "if": "github.ref == 'refs/heads/main'",
+                "needs": "build",
+                "runs-on": "ubuntu-latest",
+                "permissions": {"pages": "write", "id-token": "write"},
+                "environment": {
+                    "name": "github-pages",
+                    "url": "${{ steps.deployment.outputs.page_url }}",
+                },
+                "steps": [
+                    {
+                        "name": "Deploy the reviewed static artifact",
+                        "id": "deployment",
+                        "uses": DEPLOY_PAGES_ACTION,
+                    }
+                ],
+            },
+        },
+    }
+
+
+class _DuplicateYamlKeyError(yaml.YAMLError):  # type: ignore[misc]
+    """Internal marker for duplicate mapping keys without echoing their values."""
+
+
+class _UniqueKeySafeLoader(yaml.SafeLoader):  # type: ignore[misc]
+    """SafeLoader variant that rejects duplicate keys at every mapping depth."""
+
+
+def _construct_unique_yaml_mapping(
+    loader: Any,
+    node: Any,
+    deep: bool = False,
+) -> dict[Any, Any]:
+    loader.flatten_mapping(node)
+    mapping: dict[Any, Any] = {}
+    for key_node, value_node in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        try:
+            duplicate = key in mapping
+        except TypeError as exc:
+            raise _DuplicateYamlKeyError from exc
+        if duplicate:
+            raise _DuplicateYamlKeyError
+        mapping[key] = loader.construct_object(value_node, deep=deep)
+    return mapping
+
+
+_UniqueKeySafeLoader.add_constructor(
+    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+    _construct_unique_yaml_mapping,
+)
+
 
 class LandingHTMLParser(HTMLParser):
-    """Collect the bounded DOM facts needed by the static verifier."""
+    """Collect the bounded DOM facts required by the static verifier."""
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.anchors: list[dict[str, str]] = []
         self.csp_values: list[str] = []
-        self.flow: list[str] = []
         self.forbidden_elements: list[str] = []
         self.headings: list[str] = []
         self.ids: list[str] = []
         self.inline_event_attributes: list[str] = []
         self.inline_scripts = 0
         self.inline_styles = 0
-        self.range_inputs: list[dict[str, str]] = []
+        self.qa_boxes = 0
         self.resource_urls: list[tuple[str, str, str]] = []
-        self.segments: list[dict[str, Any]] = []
+        self.source_commit = ""
         self.text_parts: list[str] = []
         self._current_heading: list[str] | None = None
-        self._current_segment: dict[str, Any] | None = None
-        self._inside_segment_span = 0
-        self._inside_inline_script = False
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         values = {name: value or "" for name, value in attrs}
+        if tag == "html":
+            self.source_commit = values.get("data-source-commit", "")
         if identifier := values.get("id"):
             self.ids.append(identifier)
+        if "data-qa-box" in values:
+            self.qa_boxes += 1
         for name in values:
-            if name.lower().startswith("on"):
+            if name.casefold().startswith("on"):
                 self.inline_event_attributes.append(f"{tag}[{name}]")
-
         if tag in {"base", "embed", "form", "iframe", "object"}:
             self.forbidden_elements.append(tag)
         if tag in {"h1", "h2", "h3", "h4", "h5", "h6"}:
             self._current_heading = []
-        if flow_step := values.get("data-flow-step"):
-            self.flow.append(flow_step)
         if tag == "a":
             self.anchors.append(values)
         if tag == "meta" and values.get("http-equiv", "").casefold() == ("content-security-policy"):
             self.csp_values.append(values.get("content", ""))
-        if tag == "input" and values.get("type", "").casefold() == "range":
-            self.range_inputs.append(values)
-
         if tag == "script":
             if values.get("src"):
                 self.resource_urls.append((tag, "src", values["src"]))
             else:
-                self._inside_inline_script = True
                 self.inline_scripts += 1
-        elif tag == "link" and {
-            "icon",
-            "stylesheet",
-        }.intersection(values.get("rel", "").casefold().split()):
+        elif tag == "link" and {"icon", "stylesheet"}.intersection(
+            values.get("rel", "").casefold().split()
+        ):
             self.resource_urls.append((tag, "href", values.get("href", "")))
         else:
             for attribute in ("src", "poster"):
                 if tag in {"audio", "img", "source", "track", "video"} and values.get(attribute):
                     self.resource_urls.append((tag, attribute, values[attribute]))
-            for attribute in ("srcset",):
-                if tag in {"img", "source"} and values.get(attribute):
-                    for candidate in values[attribute].split(","):
-                        self.resource_urls.append(
-                            (tag, attribute, candidate.strip().split(maxsplit=1)[0])
-                        )
-
+            if tag in {"img", "source"} and values.get("srcset"):
+                for candidate in values["srcset"].split(","):
+                    self.resource_urls.append(
+                        (tag, "srcset", candidate.strip().split(maxsplit=1)[0])
+                    )
         if tag == "style":
             self.inline_styles += 1
-        if tag == "li" and "data-start" in values and "data-end" in values:
-            self._current_segment = {
-                "caption_parts": [],
-                "end": values["data-end"],
-                "heading": values.get("data-heading", ""),
-                "start": values["data-start"],
-                "step": values.get("data-step", ""),
-            }
-        elif tag == "span" and self._current_segment is not None:
-            self._inside_segment_span += 1
 
     def handle_endtag(self, tag: str) -> None:
         if tag in {"h1", "h2", "h3", "h4", "h5", "h6"} and self._current_heading is not None:
             self.headings.append(_normalized_text(" ".join(self._current_heading)))
             self._current_heading = None
-        if tag == "script" and self._inside_inline_script:
-            self._inside_inline_script = False
-        if tag == "span" and self._inside_segment_span:
-            self._inside_segment_span -= 1
-        if tag == "li" and self._current_segment is not None:
-            self._current_segment["caption"] = _normalized_text(
-                " ".join(self._current_segment.pop("caption_parts"))
-            )
-            self.segments.append(self._current_segment)
-            self._current_segment = None
-            self._inside_segment_span = 0
 
     def handle_data(self, data: str) -> None:
         if data.strip():
             self.text_parts.append(data)
             if self._current_heading is not None:
                 self._current_heading.append(data)
-            if self._current_segment is not None and self._inside_segment_span:
-                self._current_segment["caption_parts"].append(data)
 
 
 def _normalized_text(value: str) -> str:
     return " ".join(value.split())
 
 
-def _sha256(value: bytes) -> str:
-    return hashlib.sha256(value).hexdigest()
-
-
-def _canonical_digest(value: Any) -> str:
-    payload = json.dumps(
-        value,
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
-        allow_nan=False,
-    ).encode("utf-8")
-    return "sha256:" + _sha256(payload)
-
-
 def _load_strict_json(path: Path) -> Any:
     def reject_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
-        result: dict[str, Any] = {}
-        for key, value in pairs:
-            if key in result:
+        value: dict[str, Any] = {}
+        for key, item in pairs:
+            if key in value:
                 raise ValueError(f"duplicate JSON key: {key}")
-            result[key] = value
-        return result
+            value[key] = item
+        return value
 
     return json.loads(
         path.read_text(encoding="utf-8"),
@@ -435,97 +457,34 @@ def _load_strict_json(path: Path) -> Any:
     )
 
 
-def _require_exact_object(
-    value: Any,
-    *,
-    path: str,
-    expected_keys: frozenset[str],
-    errors: list[str],
-) -> dict[str, Any] | None:
-    """Require an object with no missing or unreviewed keys at this exact path."""
-    if not isinstance(value, dict):
-        errors.append(f"{path} must be an object with an exact-key closed shape")
-        return None
-    actual_keys = set(value)
-    missing = sorted(expected_keys - actual_keys)
-    unexpected = sorted(actual_keys - expected_keys)
-    if missing or unexpected:
-        details: list[str] = []
-        if missing:
-            details.append("missing=" + ",".join(missing))
-        if unexpected:
-            details.append("unexpected=" + ",".join(unexpected))
-        errors.append(f"{path} exact-key shape mismatch ({'; '.join(details)})")
-    return value
-
-
-def _require_exact_object_array(
-    value: Any,
-    *,
-    path: str,
-    expected_item_keys: frozenset[str],
-    errors: list[str],
-) -> list[dict[str, Any]]:
-    """Require an array whose every item is an exact-key object."""
-    if not isinstance(value, list):
-        errors.append(f"{path} must be an array of exact-key objects")
-        return []
-    items: list[dict[str, Any]] = []
-    for index, item in enumerate(value):
-        validated = _require_exact_object(
-            item,
-            path=f"{path}[{index}]",
-            expected_keys=expected_item_keys,
-            errors=errors,
-        )
-        if validated is not None:
-            items.append(validated)
-    return items
-
-
-def _iter_json_string_values(
-    value: Any,
-    path: str = "$",
-) -> Iterator[tuple[str, str]]:
-    """Yield JSON string values recursively without treating object keys as content."""
+def _iter_json_string_values(value: Any, path: str = "$") -> Iterator[tuple[str, str]]:
     if isinstance(value, str):
         yield path, value
     elif isinstance(value, dict):
-        for key, nested in value.items():
-            yield from _iter_json_string_values(nested, f"{path}.{key}")
+        for key, item in value.items():
+            yield from _iter_json_string_values(item, f"{path}.{key}")
     elif isinstance(value, list):
-        for index, nested in enumerate(value):
-            yield from _iter_json_string_values(nested, f"{path}[{index}]")
+        for index, item in enumerate(value):
+            yield from _iter_json_string_values(item, f"{path}[{index}]")
 
 
 def _text_scan_variants(value: str) -> tuple[str, ...]:
-    """Approximate public rendering so markup cannot split a prohibited claim."""
     decoded = unicodedata.normalize("NFKC", html_module.unescape(value))
     decoded = re.sub(r"[\u200b-\u200f\u202a-\u202e\u2060\ufeff]", "", decoded)
     variants = {decoded}
     for tag_replacement in ("", " "):
-        without_tags = re.sub(
-            r"<!--.*?-->|<[^>]*>",
-            tag_replacement,
-            decoded,
-            flags=re.DOTALL,
-        )
-        without_links = re.sub(
-            r"!?\[([^\]]*)\]\([^)]*\)",
-            r"\1",
-            without_tags,
-        )
+        without_tags = re.sub(r"<!--.*?-->|<[^>]*>", tag_replacement, decoded, flags=re.DOTALL)
+        without_links = re.sub(r"!?\[([^\]]*)\]\([^)]*\)", r"\1", without_tags)
         variants.add(without_links)
         variants.add(re.sub(r"[\\*_`~\[\]{}]", "", without_links))
         variants.add(re.sub(r"[^0-9A-Za-z_@%+=:./\\-]+", " ", without_links))
-    return tuple(_normalized_text(variant) for variant in variants)
+    return tuple(_normalized_text(item) for item in variants)
 
 
 def _scan_text(*, label: str, value: str) -> list[str]:
-    """Reject overclaims and anonymous-publication leaks without echoing matched values."""
     errors: list[str] = []
     variants = _text_scan_variants(value)
-    for pattern in FORBIDDEN_VISIBLE_CLAIMS:
+    for pattern in FORBIDDEN_CLAIMS:
         if any(pattern.search(variant) for variant in variants):
             errors.append(f"forbidden claim token in {label}: {pattern.pattern}")
     for category, pattern in SENSITIVE_TEXT_PATTERNS:
@@ -534,35 +493,40 @@ def _scan_text(*, label: str, value: str) -> list[str]:
     return errors
 
 
-def _scan_json_string_values(*, label: str, value: Any) -> list[str]:
+def _scan_json(*, label: str, value: Any) -> list[str]:
     errors: list[str] = []
     for path, string_value in _iter_json_string_values(value):
         errors.extend(_scan_text(label=f"{label}{path}", value=string_value))
     return errors
 
 
-def _git_bytes(repository_root: Path, *arguments: str) -> bytes | None:
-    try:
-        result = subprocess.run(
-            ["git", "-c", "core.quotepath=false", *arguments],
-            cwd=repository_root,
-            check=False,
-            capture_output=True,
-            timeout=10,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    return result.stdout if result.returncode == 0 else None
-
-
-def _git_text(repository_root: Path, *arguments: str) -> str | None:
-    value = _git_bytes(repository_root, *arguments)
-    if value is None:
-        return None
-    try:
-        return value.decode("ascii").strip()
-    except UnicodeDecodeError:
-        return None
+def _compare_closed_shape(expected: Any, actual: Any, path: str, errors: list[str]) -> None:
+    if type(actual) is not type(expected):
+        errors.append(f"{path} type mismatch")
+        return
+    if isinstance(expected, dict):
+        expected_keys = set(expected)
+        actual_keys = set(actual)
+        missing = sorted(expected_keys - actual_keys)
+        unexpected = sorted(actual_keys - expected_keys)
+        if missing or unexpected:
+            details: list[str] = []
+            if missing:
+                details.append("missing=" + ",".join(missing))
+            if unexpected:
+                details.append("unexpected=" + ",".join(unexpected))
+            errors.append(f"{path} exact-key shape mismatch ({'; '.join(details)})")
+        for key in sorted(expected_keys & actual_keys):
+            _compare_closed_shape(expected[key], actual[key], f"{path}.{key}", errors)
+        return
+    if isinstance(expected, list):
+        if len(actual) != len(expected):
+            errors.append(f"{path} array length mismatch")
+        for index, (expected_item, actual_item) in enumerate(zip(expected, actual, strict=False)):
+            _compare_closed_shape(expected_item, actual_item, f"{path}[{index}]", errors)
+        return
+    if actual != expected:
+        errors.append(f"{path} value does not match the reviewed source-derived snapshot")
 
 
 def _validate_local_url(
@@ -572,15 +536,14 @@ def _validate_local_url(
     ids: set[str],
     label: str,
 ) -> list[str]:
-    errors: list[str] = []
     parsed = urlsplit(url)
     if parsed.scheme or parsed.netloc:
         return [f"{label} must be path-relative: {url}"]
     if parsed.path.startswith("/"):
         return [f"{label} must not assume a domain root: {url}"]
+    errors: list[str] = []
     decoded = unquote(parsed.path)
-    parts = Path(decoded).parts
-    if ".." in parts:
+    if ".." in Path(decoded).parts:
         return [f"{label} must not escape public-demo: {url}"]
     if parsed.path:
         target = (site_root / decoded).resolve()
@@ -596,406 +559,168 @@ def _validate_local_url(
     return errors
 
 
-def _parse_vtt(path: Path) -> tuple[list[str], list[str]]:
-    errors: list[str] = []
-    try:
-        value = path.read_text(encoding="utf-8")
-    except OSError as exc:
-        return [], [f"cannot read subtitles: {exc}"]
-    if not value.startswith("WEBVTT\n"):
-        errors.append("subtitle file must start with WEBVTT")
-    cue_pattern = re.compile(
-        r"(?m)^\d{2}:\d{2}:\d{2}\.\d{3} --> \d{2}:\d{2}:\d{2}\.\d{3}\n([^\n]+)$"
-    )
-    captions = [_normalized_text(match) for match in cue_pattern.findall(value)]
-    if len(captions) != 6:
-        errors.append(f"subtitle file must contain 6 bounded cues, found {len(captions)}")
-    return captions, errors
-
-
 def _validate_favicon(path: Path) -> list[str]:
     try:
         root = ET.fromstring(path.read_text(encoding="utf-8"))
     except (OSError, ET.ParseError) as exc:
         return [f"invalid local favicon SVG: {exc}"]
-    allowed_tags = {"path", "rect", "svg"}
-    forbidden_attributes = {"href", "src", "xlink:href"}
     errors: list[str] = []
     for element in root.iter():
-        local_tag = element.tag.rsplit("}", maxsplit=1)[-1]
-        if local_tag not in allowed_tags:
-            errors.append(f"favicon contains forbidden SVG element: {local_tag}")
+        tag = element.tag.rsplit("}", maxsplit=1)[-1]
+        if tag not in {"path", "rect", "svg"}:
+            errors.append(f"favicon contains forbidden SVG element: {tag}")
         for attribute in element.attrib:
-            local_attribute = attribute.rsplit("}", maxsplit=1)[-1]
-            if local_attribute in forbidden_attributes or local_attribute.startswith("on"):
-                errors.append(f"favicon contains active/external attribute: {local_attribute}")
+            name = attribute.rsplit("}", maxsplit=1)[-1]
+            if name in {"href", "src"} or name.casefold().startswith("on"):
+                errors.append(f"favicon contains active/external attribute: {name}")
     return errors
 
 
-def _validate_evidence(repository_root: Path, site_root: Path) -> list[str]:
+def _validate_snapshot(
+    repository_root: Path,
+    site_root: Path,
+    *,
+    expected_source_commit: str,
+) -> list[str]:
     errors: list[str] = []
-    evidence_path = site_root / "evidence-snapshot.json"
+    snapshot_path = site_root / "evidence-snapshot.json"
     try:
-        evidence = _load_strict_json(evidence_path)
+        actual = _load_strict_json(snapshot_path)
     except (OSError, json.JSONDecodeError, ValueError) as exc:
         return [f"invalid evidence-snapshot.json: {exc}"]
+    errors.extend(_scan_json(label="evidence-snapshot.json", value=actual))
 
-    errors.extend(_scan_json_string_values(label="evidence-snapshot.json", value=evidence))
-    evidence_object = _require_exact_object(
-        evidence,
-        path="evidence-snapshot.json$",
-        expected_keys=EVIDENCE_OBJECT_KEYS["$"],
-        errors=errors,
-    )
-    if evidence_object is None:
+    if expected_source_commit != EXPECTED_SOURCE_COMMIT:
+        errors.append("caller expected source commit is outside the reviewed landing contract")
         return errors
-    evidence = evidence_object
+    if GENERATOR_SOURCE_COMMIT != EXPECTED_SOURCE_COMMIT:
+        errors.append("generator and verifier source commit pins disagree")
+        return errors
+    if GENERATOR_SOURCE_TREE != EXPECTED_SOURCE_TREE:
+        errors.append("generator and verifier source tree pins disagree")
+        return errors
+    try:
+        expected = build_snapshot(repository_root, source_commit=expected_source_commit)
+    except SnapshotGenerationError as exc:
+        errors.append(f"cannot derive expected snapshot from pinned Git objects: {exc}")
+        return errors
 
-    top_level_facts = {
-        key: evidence.get(key)
-        for key in (
-            "schema_version",
-            "snapshot_scope",
-            "observed_on",
-            "classification",
-            "repository",
-            "digest_disclaimer",
-        )
-    }
-    if top_level_facts != {
-        "schema_version": "1.0",
-        "snapshot_scope": "HISTORICAL_REFERENCE_CORE_AND_PUBLIC_MATERIALS",
-        "observed_on": "2026-08-22",
-        "classification": "PUBLIC_SYNTHETIC",
-        "repository": "https://github.com/MyGarfield/ProofFlow",
-        "digest_disclaimer": (
-            "SHA-256 values are unsigned content digests, not digital signatures, source "
-            "authenticity, legal correctness, official acceptance, or competition scores."
-        ),
-    }:
-        errors.append("evidence top-level point-in-time facts drifted from the reviewed snapshot")
-
-    source = (
-        _require_exact_object(
-            evidence.get("source"),
-            path="evidence-snapshot.json$.source",
-            expected_keys=EVIDENCE_OBJECT_KEYS["source"],
-            errors=errors,
-        )
-        or {}
-    )
-    if source.get("branch") != "main":
-        errors.append("evidence source branch must remain main")
-    if source.get("commit") != SOURCE_COMMIT:
-        errors.append("evidence source commit is not the reviewed baseline")
-    if source.get("tree") != SOURCE_TREE:
-        errors.append("evidence source tree is not the reviewed baseline")
-    if source.get("signature_verified") is not False:
-        errors.append("unsigned baseline must not be described as signature verified")
-    if source.get("landing_page_in_source_commit") is not False:
-        errors.append("evidence must disclose that the landing page post-dates the baseline")
-    actual_tree = _git_text(repository_root, "rev-parse", f"{SOURCE_COMMIT}^{{tree}}")
-    if actual_tree != SOURCE_TREE:
-        errors.append("local Git object does not resolve to the declared baseline tree")
-
-    landing = (
-        _require_exact_object(
-            evidence.get("landing"),
-            path="evidence-snapshot.json$.landing",
-            expected_keys=EVIDENCE_OBJECT_KEYS["landing"],
-            errors=errors,
-        )
-        or {}
-    )
-    expected_landing = {
-        "base_path_contract": "/ProofFlow/",
-        "mode": "STATIC_READ_ONLY_OUTER_LAYER",
-        "remote_runtime_exposed": False,
-        "runtime_connected": False,
-        "tracking_enabled": False,
-    }
-    if landing != expected_landing:
-        errors.append("landing boundary is not the exact static /ProofFlow/ contract")
-
-    runtime = (
-        _require_exact_object(
-            evidence.get("runtime_boundary"),
-            path="evidence-snapshot.json$.runtime_boundary",
-            expected_keys=EVIDENCE_OBJECT_KEYS["runtime_boundary"],
-            errors=errors,
-        )
-        or {}
-    )
-    expected_runtime = {
-        "external_side_effects_enabled": False,
-        "legal_advice": False,
-        "llm_enabled": False,
-        "readyWorkers": 0,
-        "real_case_data_used": False,
-        "worker_containers": 0,
-        "workers": "Stopped",
-    }
-    if runtime != expected_runtime:
-        errors.append("runtime boundary drifted from Stopped/0/no-LLM/no-side-effect truth")
-
-    reference_flow = _require_exact_object_array(
-        evidence.get("reference_flow"),
-        path="evidence-snapshot.json$.reference_flow",
-        expected_item_keys=EVIDENCE_OBJECT_KEYS["reference_flow[]"],
-        errors=errors,
-    )
-    if reference_flow != list(EXPECTED_REFERENCE_FLOW):
-        errors.append(f"evidence flow must be exactly the reviewed {' -> '.join(FLOW)} sequence")
-
-    pins = (
-        _require_exact_object(
-            evidence.get("input_pins"),
-            path="evidence-snapshot.json$.input_pins",
-            expected_keys=EVIDENCE_OBJECT_KEYS["input_pins"],
-            errors=errors,
-        )
-        or {}
-    )
-    if pins.get("hash_kind") != "UNSIGNED_CONTENT_DIGEST":
-        errors.append("input pins must remain explicitly unsigned")
-    rule_bytes = _git_bytes(
-        repository_root,
-        "show",
-        f"{SOURCE_COMMIT}:data/rules/cn_labor_contract_law.catalog.json",
-    )
-    if rule_bytes is None:
-        errors.append("cannot load pinned rule catalog from baseline commit")
-    elif pins.get("rule_catalog") != "sha256:" + _sha256(rule_bytes):
-        errors.append("rule catalog digest does not match baseline commit bytes")
-
-    fixture_names = (
-        "contract.json",
-        "manifest.json",
-        "payroll.json",
-        "termination_notice.json",
-    )
-    fixture_entries: list[dict[str, str]] = []
-    for name in fixture_names:
-        relative_path = f"examples/cases/happy_path/{name}"
-        content = _git_bytes(repository_root, "show", f"{SOURCE_COMMIT}:{relative_path}")
-        if content is None:
-            errors.append(f"cannot load fixture from baseline commit: {relative_path}")
-            continue
-        fixture_entries.append({"path": relative_path, "sha256": "sha256:" + _sha256(content)})
-    if len(fixture_entries) == len(fixture_names) and pins.get(
-        "fixture_bundle"
-    ) != _canonical_digest(fixture_entries):
-        errors.append("fixture bundle digest does not match baseline commit bytes")
-
-    suite = (
-        _require_exact_object(
-            evidence.get("contract_suite"),
-            path="evidence-snapshot.json$.contract_suite",
-            expected_keys=EVIDENCE_OBJECT_KEYS["contract_suite"],
-            errors=errors,
-        )
-        or {}
-    )
-    if suite != {
-        "result": "11/11",
-        "report_hash": ("sha256:f81883cca94268e35375e8fcb7eb6afb60b769e15040130cbe7359c6bb23bc17"),
-        "scope": "LOCAL_DETERMINISTIC_SYNTHETIC_STRUCTURAL_CONTRACTS",
-        "legal_accuracy_measured": False,
-        "performance_measured": False,
-        "official_score": None,
-    }:
-        errors.append("contract suite drifted from the reviewed structural-only 11/11 snapshot")
-
-    artifacts = _require_exact_object_array(
-        evidence.get("public_artifacts"),
-        path="evidence-snapshot.json$.public_artifacts",
-        expected_item_keys=EVIDENCE_OBJECT_KEYS["public_artifacts[]"],
-        errors=errors,
-    )
-    artifacts_by_path = {
-        item["path"]: item for item in artifacts if isinstance(item.get("path"), str)
-    }
-    if len(artifacts) != len(EXPECTED_ARTIFACTS):
-        errors.append("public artifact inventory must contain exactly three reviewed items")
-    if set(artifacts_by_path) != set(EXPECTED_ARTIFACTS):
-        errors.append("public artifact inventory must be the exact reviewed closed set")
-    for path, (expected_digest, expected_bytes) in EXPECTED_ARTIFACTS.items():
-        item = artifacts_by_path.get(path, {})
-        content = _git_bytes(repository_root, "show", f"{SOURCE_COMMIT}:{path}")
-        if content is None:
-            errors.append(f"cannot load public artifact from baseline commit: {path}")
-            continue
-        actual_digest = _sha256(content)
-        if actual_digest != expected_digest or item.get("sha256") != actual_digest:
-            errors.append(f"public artifact hash mismatch: {path}")
-        if len(content) != expected_bytes or item.get("bytes") != expected_bytes:
-            errors.append(f"public artifact byte length mismatch: {path}")
-
-    evaluation = (
-        _require_exact_object(
-            evidence.get("evaluation_boundary"),
-            path="evidence-snapshot.json$.evaluation_boundary",
-            expected_keys=EVIDENCE_OBJECT_KEYS["evaluation_boundary"],
-            errors=errors,
-        )
-        or {}
-    )
-    if evaluation != {
-        "deterministic_reference_score": None,
-        "official_score": None,
-        "single_agent_score": None,
-        "six_agent_score": None,
-        "status": "PROTOCOL_VALIDATED_NOT_EXECUTED",
-    }:
-        errors.append("evaluation scores must remain UNKNOWN/null and protocol-not-executed")
-    media = (
-        _require_exact_object(
-            evidence.get("media"),
-            path="evidence-snapshot.json$.media",
-            expected_keys=EVIDENCE_OBJECT_KEYS["media"],
-            errors=errors,
-        )
-        or {}
-    )
-    if media != {
-        "contract": "media/video-contract.json",
-        "publication_status": "NOT_PUBLISHED",
-    }:
-        errors.append("evidence snapshot must disclose the unpublished media fallback")
+    _compare_closed_shape(expected, actual, "evidence-snapshot.json$", errors)
+    try:
+        current_bytes = snapshot_path.read_bytes()
+    except OSError as exc:
+        errors.append(f"cannot read evidence snapshot bytes: {exc}")
+    else:
+        if current_bytes != serialize_snapshot(expected):
+            errors.append("evidence snapshot is not the deterministic generated serialization")
     return errors
 
 
-def _validate_media(site_root: Path, parser: LandingHTMLParser) -> list[str]:
-    errors: list[str] = []
-    contract_path = site_root / "media/video-contract.json"
+def _validate_pages_workflow(repository_root: Path) -> list[str]:
+    path = repository_root / ".github" / "workflows" / "pages.yml"
     try:
-        contract = _load_strict_json(contract_path)
-    except (OSError, json.JSONDecodeError, ValueError) as exc:
-        return [f"invalid video-contract.json: {exc}"]
+        value = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        return [f"Pages workflow is missing or unreadable: {exc}"]
+    errors = _scan_text(label="pages.yml", value=value)
+    if "secrets." in value:
+        errors.append("Pages workflow contains forbidden deployment capability: secrets.")
+    try:
+        workflow = yaml.safe_load(value)
+        yaml.load(value, Loader=_UniqueKeySafeLoader)
+    except _DuplicateYamlKeyError:
+        errors.append("Pages workflow contains duplicate YAML mapping keys")
+        return sorted(set(errors))
+    except yaml.YAMLError as exc:
+        errors.append(f"Pages workflow is not valid safe YAML: {exc.__class__.__name__}")
+        return sorted(set(errors))
+    if not isinstance(workflow, dict):
+        errors.append("Pages workflow must be a YAML object")
+        return sorted(set(errors))
 
-    errors.extend(_scan_json_string_values(label="video-contract.json", value=contract))
-    contract_object = _require_exact_object(
-        contract,
-        path="video-contract.json$",
-        expected_keys=VIDEO_OBJECT_KEYS["$"],
-        errors=errors,
-    )
-    if contract_object is None:
-        return errors
-    contract = contract_object
-    video = (
-        _require_exact_object(
-            contract.get("video"),
-            path="video-contract.json$.video",
-            expected_keys=VIDEO_OBJECT_KEYS["video"],
-            errors=errors,
-        )
-        or {}
-    )
-    subtitles = (
-        _require_exact_object(
-            contract.get("subtitles"),
-            path="video-contract.json$.subtitles",
-            expected_keys=VIDEO_OBJECT_KEYS["subtitles"],
-            errors=errors,
-        )
-        or {}
-    )
-    if contract.get("schema_version") != "1.0":
-        errors.append("video contract schema version must remain 1.0")
-    if contract.get("publication_status") != "NOT_PUBLISHED":
-        errors.append("video must remain NOT_PUBLISHED until an independently verified MP4 exists")
-    if contract.get("playback_mode") != "STORYBOARD_FALLBACK":
-        errors.append("unpublished media must use STORYBOARD_FALLBACK")
-    if contract.get("source_evidence_commit") != SOURCE_COMMIT:
-        errors.append("video contract must bind the reviewed source evidence commit")
-    if video != {
-        "codec": None,
-        "duration_seconds": None,
-        "height": None,
-        "path": "media/proofflow-reference-demo.mp4",
-        "present": False,
-        "sha256": None,
-        "width": None,
+    expected = _expected_pages_workflow()
+    permissions = workflow.get("permissions")
+    if permissions != {"contents": "read"}:
+        errors.append("Pages workflow top-level permissions must be exactly contents: read")
+    jobs = workflow.get("jobs")
+    if not isinstance(jobs, dict) or set(jobs) != {"build", "deploy"}:
+        errors.append("Pages workflow jobs must be the exact build/deploy closed set")
+        jobs = {}
+    build = jobs.get("build")
+    if not isinstance(build, dict) or build.get("permissions") != {"contents": "read"}:
+        errors.append("Pages build permissions must be exactly contents: read")
+    deploy = jobs.get("deploy")
+    if not isinstance(deploy, dict) or deploy.get("permissions") != {
+        "pages": "write",
+        "id-token": "write",
     }:
+        errors.append("Pages deploy permissions must be exactly pages: write and id-token: write")
+
+    build_steps = build.get("steps", []) if isinstance(build, dict) else []
+    deploy_steps = deploy.get("steps", []) if isinstance(deploy, dict) else []
+    if not isinstance(build_steps, list) or not isinstance(deploy_steps, list):
+        errors.append("Pages workflow steps must be ordered arrays")
+        all_steps: list[Any] = []
+    else:
+        all_steps = [*build_steps, *deploy_steps]
+    actions = [step.get("uses") for step in all_steps if isinstance(step, dict) and "uses" in step]
+    commands = [step.get("run") for step in all_steps if isinstance(step, dict) and "run" in step]
+    if actions != [
+        CHECKOUT_ACTION,
+        SETUP_UV_ACTION,
+        UPLOAD_PAGES_ACTION,
+        DEPLOY_PAGES_ACTION,
+    ]:
+        errors.append("Pages workflow actions must be the exact ordered full-SHA closed set")
+    for action in actions:
+        if not isinstance(action, str):
+            errors.append("Pages workflow action reference must be a string")
+            continue
+        if not re.fullmatch(r"[a-z0-9-]+/[a-z0-9-]+@[0-9a-f]{40}", action):
+            errors.append("Pages workflow action is not pinned to a reviewed full commit")
+    if commands != [SNAPSHOT_CHECK_COMMAND, LANDING_CHECK_COMMAND]:
+        errors.append("Pages workflow run commands must be the exact ordered validator closed set")
+    if workflow != expected:
         errors.append(
-            "unpublished video fields must remain false/null with the fixed relative path"
+            "Pages workflow structure must exactly match the reviewed permissions, jobs, "
+            "concurrency, environment, needs, and step contract"
         )
-    if (site_root / "media/proofflow-reference-demo.mp4").exists():
-        errors.append("an MP4 exists while the media contract still says NOT_PUBLISHED")
-
-    subtitle_path = site_root / "media/proofflow-reference-demo.zh-CN.vtt"
-    try:
-        subtitle_bytes = subtitle_path.read_bytes()
-    except OSError:
-        subtitle_bytes = b""
-        errors.append("declared subtitle file is missing")
-    if subtitles != {
-        "path": "media/proofflow-reference-demo.zh-CN.vtt",
-        "present": True,
-        "language": "zh-CN",
-        "cue_count": 6,
-        "sha256": "f539afa38f93e1604b66db7a4e46b276e69650f432d82de8471acdcd98ef295b",
-    }:
-        errors.append("subtitle contract drifted from the fixed present zh-CN track")
-    if subtitles.get("sha256") != _sha256(subtitle_bytes):
-        errors.append("subtitle digest does not match the declared VTT bytes")
-    captions, vtt_errors = _parse_vtt(subtitle_path)
-    errors.extend(vtt_errors)
-    html_captions = [segment["caption"] for segment in parser.segments]
-    if captions != html_captions:
-        errors.append("VTT captions must exactly match the draggable HTML transcript")
-
-    boundaries = (
-        _require_exact_object(
-            contract.get("claim_boundaries"),
-            path="video-contract.json$.claim_boundaries",
-            expected_keys=VIDEO_OBJECT_KEYS["claim_boundaries"],
-            errors=errors,
-        )
-        or {}
-    )
-    if boundaries != {
-        "classification": "PUBLIC_SYNTHETIC",
-        "external_side_effects_enabled": False,
-        "legal_accuracy_measured": False,
-        "live_runtime_demonstrated": False,
-        "llm_enabled": False,
-        "readyWorkers": 0,
-        "workers": "Stopped",
-    }:
-        errors.append("video claim boundaries drifted from the public synthetic truth")
-    publication_gate = contract.get("publication_gate")
-    if publication_gate != list(EXPECTED_PUBLICATION_GATE):
-        errors.append("video publication gate must keep the exact 6 reviewed checks")
-    return errors
+    return sorted(set(errors))
 
 
 def validate_public_demo(
     repository_root: Path = ROOT,
     site_root: Path | None = None,
+    *,
+    expected_source_commit: str = EXPECTED_SOURCE_COMMIT,
 ) -> list[str]:
-    """Return every contract error; an empty list is the only passing verdict."""
+    """Return all static contract errors; an empty list is the only passing result."""
     selected_site_root = site_root or repository_root / "public-demo"
     errors: list[str] = []
-    required_files = (
-        "README.md",
-        "app.js",
-        "evidence-snapshot.json",
-        "favicon.svg",
-        "index.html",
-        "media/proofflow-reference-demo.zh-CN.vtt",
-        "media/video-contract.json",
-        "styles.css",
-    )
-    for relative_path in required_files:
-        selected_path = selected_site_root / relative_path
-        if not selected_path.is_file():
-            errors.append(f"required static file is missing: {relative_path}")
-        elif selected_path.is_symlink():
-            errors.append(f"required static file must not be a symlink: {relative_path}")
+
+    actual_files: set[str] = set()
+    if selected_site_root.is_dir():
+        for path in selected_site_root.rglob("*"):
+            if path.is_symlink():
+                errors.append(
+                    "public-demo artifact must not contain symlinks: "
+                    + path.relative_to(selected_site_root).as_posix()
+                )
+            elif path.is_file():
+                actual_files.add(path.relative_to(selected_site_root).as_posix())
+    missing = sorted(EXPECTED_SITE_FILES - actual_files)
+    unexpected = sorted(actual_files - EXPECTED_SITE_FILES)
+    if missing or unexpected:
+        details: list[str] = []
+        if missing:
+            details.append("missing=" + ",".join(missing))
+        if unexpected:
+            details.append("unexpected=" + ",".join(unexpected))
+        errors.append(
+            "public-demo static artifact closed set mismatch (" + "; ".join(details) + ")"
+        )
     if errors:
-        return sorted(errors)
+        return sorted(set(errors))
 
     html = (selected_site_root / "index.html").read_text(encoding="utf-8")
     css = (selected_site_root / "styles.css").read_text(encoding="utf-8")
@@ -1004,69 +729,34 @@ def validate_public_demo(
     try:
         parser.feed(html)
         parser.close()
-    except Exception as exc:  # HTMLParser can surface malformed entity/state failures.
+    except Exception as exc:
         return [f"cannot parse index.html: {exc}"]
 
-    visible_text = _normalized_text(" ".join(parser.text_parts))
+    if parser.source_commit != expected_source_commit:
+        errors.append("HTML source commit pin does not match the external expected source")
     if parser.forbidden_elements:
-        errors.append(
-            "forbidden active/embed elements: " + ", ".join(sorted(parser.forbidden_elements))
-        )
+        errors.append("forbidden active/embed elements: " + ", ".join(parser.forbidden_elements))
     if parser.inline_event_attributes:
         errors.append(
-            "inline event handlers are forbidden: "
-            + ", ".join(sorted(parser.inline_event_attributes))
+            "inline event handlers are forbidden: " + ", ".join(parser.inline_event_attributes)
         )
     if parser.inline_scripts:
         errors.append("inline executable scripts are forbidden")
     if parser.inline_styles:
         errors.append("inline style blocks are forbidden")
-    duplicate_ids = sorted(
-        {identifier for identifier in parser.ids if parser.ids.count(identifier) > 1}
-    )
-    if duplicate_ids:
-        errors.append("duplicate DOM ids: " + ", ".join(duplicate_ids))
-    if len([heading for heading in parser.headings if heading == "PROOF BEFORE ACTION"]) != 1:
+    duplicates = sorted({item for item in parser.ids if parser.ids.count(item) > 1})
+    if duplicates:
+        errors.append("duplicate DOM ids: " + ", ".join(duplicates))
+    if parser.headings.count("PROOF BEFORE ACTION") != 1:
         errors.append("page must expose exactly one PROOF BEFORE ACTION h1")
-    if parser.flow != list(FLOW):
-        errors.append(f"DOM flow must be exactly {' -> '.join(FLOW)}")
-    if len(parser.segments) != 6:
-        errors.append(f"draggable transcript must contain 6 segments, found {len(parser.segments)}")
-    else:
-        starts = [int(segment["start"]) for segment in parser.segments]
-        ends = [int(segment["end"]) for segment in parser.segments]
-        if starts != [0, 12, 28, 40, 58, 75] or ends != [12, 28, 40, 58, 75, 91]:
-            errors.append("storyboard segments must cover the fixed 0-90 second sequence")
-    if len(parser.range_inputs) != 1:
-        errors.append("page must expose exactly one draggable storyboard range input")
-    elif {
-        "min": parser.range_inputs[0].get("min"),
-        "max": parser.range_inputs[0].get("max"),
-        "step": parser.range_inputs[0].get("step"),
-    } != {"min": "0", "max": "90", "step": "1"}:
-        errors.append("storyboard range must be the fixed 0-90 second timeline")
+    if parser.qa_boxes < 17:
+        errors.append("page must expose at least 17 bounded QA boxes for collision inspection")
 
-    required_text = (
-        "HISTORICAL BASELINE / PUBLIC EVIDENCE SHEET",
-        "PUBLIC_SYNTHETIC",
-        "Workers Stopped",
-        "readyWorkers=0",
-        "LLM OFF",
-        "NO EXTERNAL SIDE EFFECTS",
-        "非法律意见",
-        "READ-ONLY FLOW / NOT LIVE RUNTIME",
-        "VIDEO NOT PUBLISHED",
-        "STORYBOARD_FALLBACK",
-        "LEGAL ACCURACY: NOT MEASURED",
-        "OFFICIAL SCORE UNKNOWN / null",
-        "不代表当前 Core alpha",
-    )
-    for phrase in required_text:
+    visible_text = _normalized_text(" ".join(parser.text_parts))
+    for phrase in REQUIRED_VISIBLE_BOUNDARIES:
         if phrase not in visible_text:
             errors.append(f"required visible claim boundary is missing: {phrase}")
-    for pattern in FORBIDDEN_VISIBLE_CLAIMS:
-        if pattern.search(visible_text):
-            errors.append(f"forbidden visible claim matched: {pattern.pattern}")
+    errors.extend(_scan_text(label="visible HTML", value=visible_text))
 
     loaded_text_assets = {
         "README.md": (selected_site_root / "README.md").read_text(encoding="utf-8"),
@@ -1074,20 +764,15 @@ def validate_public_demo(
         "favicon.svg": (selected_site_root / "favicon.svg").read_text(encoding="utf-8"),
         "index.html": html,
         "styles.css": css,
-        "media/proofflow-reference-demo.zh-CN.vtt": (
-            selected_site_root / "media/proofflow-reference-demo.zh-CN.vtt"
-        ).read_text(encoding="utf-8"),
     }
     for label, content in loaded_text_assets.items():
-        errors.extend(_scan_text(label=f"loaded asset {label}", value=content))
+        errors.extend(_scan_text(label=f"public artifact {label}", value=content))
 
-    if len(parser.csp_values) != 1:
-        errors.append("page must declare exactly one CSP meta policy")
-    else:
-        for directive in REQUIRED_CSP_DIRECTIVES:
-            if directive not in parser.csp_values[0]:
-                errors.append(f"CSP is missing required directive: {directive}")
-
+    if parser.csp_values != [EXPECTED_CSP]:
+        errors.append("CSP must be the exact reviewed deny-by-default static policy")
+    resources = frozenset(parser.resource_urls)
+    if resources != EXPECTED_RESOURCES:
+        errors.append("loaded resources must be the exact three path-relative static files")
     ids = set(parser.ids)
     for tag, attribute, url in parser.resource_urls:
         errors.extend(
@@ -1098,24 +783,25 @@ def validate_public_demo(
                 label=f"loaded resource {tag}[{attribute}]",
             )
         )
-    external_anchor_urls: set[str] = set()
-    local_anchor_urls: set[str] = set()
+
+    external_anchors: set[str] = set()
+    local_anchors: set[str] = set()
     for anchor in parser.anchors:
         url = anchor.get("href", "")
         parsed = urlsplit(url)
         if parsed.scheme in {"http", "https"}:
-            external_anchor_urls.add(url)
-            if parsed.scheme != "https" or parsed.hostname not in ALLOWED_EXTERNAL_ANCHOR_HOSTS:
+            external_anchors.add(url)
+            if parsed.scheme != "https" or parsed.hostname != "github.com":
                 errors.append(f"external navigation host is not allowed: {url}")
-            if SOURCE_COMMIT not in url and url != "https://github.com/MyGarfield/ProofFlow":
-                errors.append(f"external evidence link is not fixed to the baseline commit: {url}")
+            if expected_source_commit not in url:
+                errors.append(f"external source link is not fixed to the expected commit: {url}")
             rel = set(anchor.get("rel", "").casefold().split())
             if anchor.get("target") != "_blank" or not {"noopener", "noreferrer"} <= rel:
                 errors.append(f"external navigation must isolate referrer/opener: {url}")
         elif parsed.scheme or parsed.netloc:
             errors.append(f"unsupported anchor scheme: {url}")
         else:
-            local_anchor_urls.add(url)
+            local_anchors.add(url)
             errors.extend(
                 _validate_local_url(
                     url=url,
@@ -1124,13 +810,15 @@ def validate_public_demo(
                     label="local anchor",
                 )
             )
-    if external_anchor_urls != EXPECTED_EXTERNAL_ANCHORS:
-        errors.append("external material links must be the exact reviewed GitHub closed set")
-    if not local_anchor_urls >= REQUIRED_LOCAL_ANCHORS:
-        missing = sorted(REQUIRED_LOCAL_ANCHORS - local_anchor_urls)
-        errors.append("required relative/fragment links are missing: " + ", ".join(missing))
+    if external_anchors != EXPECTED_EXTERNAL_ANCHORS:
+        errors.append("external materials must be the exact current-source GitHub closed set")
+    if not local_anchors >= REQUIRED_LOCAL_ANCHORS:
+        errors.append(
+            "required relative/fragment links are missing: "
+            + ", ".join(sorted(REQUIRED_LOCAL_ANCHORS - local_anchors))
+        )
 
-    token_expectations = {
+    tokens = {
         "--accent": "#FF0000",
         "--bg": "#FFFFFF",
         "--blue": "#0000FF",
@@ -1143,61 +831,68 @@ def validate_public_demo(
             '"PingFang SC","Microsoft YaHei",sans-serif'
         ),
     }
-    for token, value in token_expectations.items():
-        if not re.search(rf"{re.escape(token)}\s*:\s*{re.escape(value)}\s*;", css):
+    for token, expected in tokens.items():
+        if not re.search(rf"{re.escape(token)}\s*:\s*{re.escape(expected)}\s*;", css):
             errors.append(f"Swiss Style token drifted: {token}")
-    for forbidden_css in ("border-radius", "@font-face", "@import", "url("):
-        if forbidden_css.casefold() in css.casefold():
-            errors.append(f"CSS contains forbidden external/rounded-style token: {forbidden_css}")
-    allowed_generated_content = {'""', "''", '"→"', "'→'"}
-    generated_content = {
-        value.strip() for value in re.findall(r"(?<![-\w])content\s*:\s*([^;]+);", css)
-    }
-    if not generated_content <= allowed_generated_content:
-        errors.append("CSS generated text is outside the reviewed empty/arrow closed set")
+    for forbidden in ("border-radius", "@font-face", "@import", "url("):
+        if forbidden.casefold() in css.casefold():
+            errors.append(f"CSS contains forbidden remote/rounded-style token: {forbidden}")
     if "grid-template-columns: repeat(12, minmax(0, 1fr));" not in css:
         errors.append("Swiss 12-column grid must use minmax(0, 1fr)")
     if "--target: 44px;" not in css:
         errors.append("interactive target token must remain 44px")
     if "@media (prefers-reduced-motion: reduce)" not in css:
         errors.append("global reduced-motion contract is missing")
-
     for token in NETWORK_JS_TOKENS:
         if token in javascript:
-            errors.append(f"static storyboard must not use network/storage API: {token}")
+            errors.append(f"static landing script must not use network/storage API: {token}")
 
-    errors.extend(_validate_evidence(repository_root, selected_site_root))
+    errors.extend(
+        _validate_snapshot(
+            repository_root,
+            selected_site_root,
+            expected_source_commit=expected_source_commit,
+        )
+    )
     errors.extend(_validate_favicon(selected_site_root / "favicon.svg"))
-    errors.extend(_validate_media(selected_site_root, parser))
+    errors.extend(_validate_pages_workflow(repository_root))
     return sorted(set(errors))
 
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Validate the offline ProofFlow public demo landing page."
+        description="Validate the source-bound ProofFlow public landing page."
     )
+    parser.add_argument("--site-root", type=Path, default=SITE_ROOT)
     parser.add_argument(
-        "--site-root",
-        type=Path,
-        default=SITE_ROOT,
-        help="public-demo directory to validate",
+        "--expected-source-commit",
+        default=EXPECTED_SOURCE_COMMIT,
+        help="independent product commit expectation",
     )
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parser().parse_args(argv)
-    errors = validate_public_demo(ROOT, args.site_root.resolve())
+    errors = validate_public_demo(
+        ROOT,
+        args.site_root.resolve(),
+        expected_source_commit=args.expected_source_commit,
+    )
     if errors:
         print("PUBLIC_DEMO_INVALID")
         for error in errors:
             print(f"- {error}")
         return 1
     print("PUBLIC_DEMO_VALID")
-    print("scope=HISTORICAL_REFERENCE_BASELINE_NOT_CURRENT_CORE")
-    print(f"source_commit={SOURCE_COMMIT}")
-    print("flow=prepare->409->approve->package->verify->11/11")
-    print("media=STORYBOARD_FALLBACK/NOT_PUBLISHED")
+    print("scope=CURRENT_CORE_ALPHA_SOURCE_OBJECT")
+    print(f"source_commit={EXPECTED_SOURCE_COMMIT}")
+    print(f"source_tree={EXPECTED_SOURCE_TREE}")
+    print("landing_in_source_commit=false")
+    print("self_authenticating=false")
+    print("runtime=Workers_Stopped/readyWorkers_0/LLM_OFF")
+    print("evaluation=NOT_EXECUTED/UNKNOWN")
+    print("supply=STALE/NOT_RELEASE_ELIGIBLE")
     print("external_loaded_resources=0")
     return 0
 

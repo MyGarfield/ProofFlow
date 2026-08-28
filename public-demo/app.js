@@ -1,89 +1,49 @@
-const ProofFlowStoryboard = (() => {
-  "use strict";
+"use strict";
 
-  function formatClock(value) {
-    const seconds = Math.max(0, Math.min(90, Math.round(Number(value) || 0)));
-    return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(
-      seconds % 60,
-    ).padStart(2, "0")}`;
+(function configure(factory) {
+  const api = factory();
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = api;
   }
-
-  function selectSegment(segments, value) {
-    if (!Array.isArray(segments) || segments.length === 0) {
-      return null;
-    }
-    const time = Math.max(0, Math.min(90, Number(value) || 0));
-    return (
-      segments.find((segment) => time >= segment.start && time < segment.end) ||
-      segments[segments.length - 1]
-    );
-  }
-
-  function hasHorizontalOverflow(documentElement) {
-    return documentElement.scrollWidth > documentElement.clientWidth;
-  }
-
-  return Object.freeze({ formatClock, hasHorizontalOverflow, selectSegment });
-})();
-
-if (typeof module === "object" && module.exports) {
-  module.exports = ProofFlowStoryboard;
-}
-
-if (typeof document !== "undefined") {
-  (() => {
-    "use strict";
-
-    const slider = document.querySelector("#story-scrubber");
-    const time = document.querySelector("#story-time");
-    const step = document.querySelector("#story-step");
-    const heading = document.querySelector("#story-heading");
-    const caption = document.querySelector("#story-caption");
-    const transcriptItems = Array.from(
-      document.querySelectorAll("#storyboard-transcript [data-start][data-end]"),
-    );
-    const segments = transcriptItems.map((item) => ({
-      caption: item.querySelector("span").textContent.trim(),
-      element: item,
-      end: Number(item.dataset.end),
-      heading: item.dataset.heading,
-      start: Number(item.dataset.start),
-      step: item.dataset.step,
-    }));
-
-    function renderStoryboard(value) {
-      const segment = ProofFlowStoryboard.selectSegment(segments, value);
-      if (!segment) {
-        return;
-      }
-      const clock = ProofFlowStoryboard.formatClock(value);
-      time.textContent = `${clock} / 01:30`;
-      step.textContent = segment.step;
-      heading.textContent = segment.heading;
-      caption.textContent = segment.caption;
-      slider.setAttribute("aria-valuetext", `${clock}，${segment.heading}`);
-      transcriptItems.forEach((item) => {
-        const current = item === segment.element;
-        item.classList.toggle("is-current", current);
-        if (current) {
-          item.setAttribute("aria-current", "true");
-        } else {
-          item.removeAttribute("aria-current");
-        }
-      });
-    }
-
-    function recordLayoutState() {
+  if (typeof document !== "undefined") {
+    const recordGeometry = () => {
       document.documentElement.dataset.horizontalOverflow = String(
-        ProofFlowStoryboard.hasHorizontalOverflow(document.documentElement),
+        api.hasHorizontalOverflow(document.documentElement),
       );
-    }
+    };
+    document.addEventListener("DOMContentLoaded", recordGeometry, { once: true });
+    window.addEventListener("resize", recordGeometry, { passive: true });
+  }
+})(function createPublicSnapshotApi() {
+  const EXPECTED_SOURCE_COMMIT = "610f5d87006567055c658ca8adb66b61284f7603";
 
-    slider.addEventListener("input", (event) => renderStoryboard(event.currentTarget.value));
-    window.addEventListener("resize", recordLayoutState, { passive: true });
-    window.addEventListener("load", recordLayoutState, { once: true });
+  function hasHorizontalOverflow(root) {
+    return root.scrollWidth > root.clientWidth;
+  }
 
-    renderStoryboard(slider.value);
-    requestAnimationFrame(recordLayoutState);
-  })();
-}
+  function hasExactStaticBoundary(snapshot) {
+    return Boolean(
+      snapshot &&
+        snapshot.source &&
+        snapshot.source.commit === EXPECTED_SOURCE_COMMIT &&
+        snapshot.landing &&
+        snapshot.landing.included_in_source_commit === false &&
+        snapshot.landing.self_authenticating === false &&
+        snapshot.runtime_boundary &&
+        snapshot.runtime_boundary.workers === "Stopped" &&
+        snapshot.runtime_boundary.readyWorkers === 0 &&
+        snapshot.runtime_boundary.llm_enabled === false &&
+        snapshot.evaluation_boundary &&
+        snapshot.evaluation_boundary.status === "PROTOCOL_VALIDATED_NOT_EXECUTED" &&
+        snapshot.supply_chain_boundary &&
+        snapshot.supply_chain_boundary.status === "STALE" &&
+        snapshot.supply_chain_boundary.release_eligible === false,
+    );
+  }
+
+  return Object.freeze({
+    EXPECTED_SOURCE_COMMIT,
+    hasExactStaticBoundary,
+    hasHorizontalOverflow,
+  });
+});

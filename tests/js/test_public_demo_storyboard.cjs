@@ -3,39 +3,45 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 
+const snapshot = require("../../public-demo/evidence-snapshot.json");
 const {
-  formatClock,
+  EXPECTED_SOURCE_COMMIT,
+  hasExactStaticBoundary,
   hasHorizontalOverflow,
-  selectSegment,
 } = require("../../public-demo/app.js");
 
-const segments = [
-  { end: 12, heading: "boundary", start: 0 },
-  { end: 28, heading: "prepare", start: 12 },
-  { end: 40, heading: "block", start: 28 },
-  { end: 58, heading: "approve", start: 40 },
-  { end: 75, heading: "verify", start: 58 },
-  { end: 91, heading: "contracts", start: 75 },
-];
-
-test("clock formatting clamps the storyboard to its 90 second contract", () => {
-  assert.equal(formatClock(-5), "00:00");
-  assert.equal(formatClock(0), "00:00");
-  assert.equal(formatClock(59), "00:59");
-  assert.equal(formatClock(75), "01:15");
-  assert.equal(formatClock(999), "01:30");
+test("static snapshot is pinned to the reviewed product source", () => {
+  assert.equal(EXPECTED_SOURCE_COMMIT, "610f5d87006567055c658ca8adb66b61284f7603");
+  assert.equal(hasExactStaticBoundary(snapshot), true);
 });
 
-test("segment selection changes exactly at each subtitle boundary", () => {
-  assert.equal(selectSegment(segments, 0).heading, "boundary");
-  assert.equal(selectSegment(segments, 11.999).heading, "boundary");
-  assert.equal(selectSegment(segments, 12).heading, "prepare");
-  assert.equal(selectSegment(segments, 28).heading, "block");
-  assert.equal(selectSegment(segments, 40).heading, "approve");
-  assert.equal(selectSegment(segments, 58).heading, "verify");
-  assert.equal(selectSegment(segments, 75).heading, "contracts");
-  assert.equal(selectSegment(segments, 90).heading, "contracts");
-  assert.equal(selectSegment([], 0), null);
+test("static boundary rejects runtime, evaluation, and supply escalation", () => {
+  const attacks = [
+    { ...snapshot, source: { ...snapshot.source, commit: "0".repeat(40) } },
+    {
+      ...snapshot,
+      runtime_boundary: { ...snapshot.runtime_boundary, readyWorkers: 6 },
+    },
+    {
+      ...snapshot,
+      runtime_boundary: { ...snapshot.runtime_boundary, llm_enabled: true },
+    },
+    {
+      ...snapshot,
+      evaluation_boundary: { ...snapshot.evaluation_boundary, status: "EXECUTED" },
+    },
+    {
+      ...snapshot,
+      supply_chain_boundary: {
+        ...snapshot.supply_chain_boundary,
+        release_eligible: true,
+      },
+    },
+  ];
+
+  for (const attack of attacks) {
+    assert.equal(hasExactStaticBoundary(attack), false);
+  }
 });
 
 test("horizontal overflow check exposes the exact browser geometry predicate", () => {
