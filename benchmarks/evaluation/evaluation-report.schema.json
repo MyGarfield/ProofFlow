@@ -19,11 +19,21 @@
     "scorecard": {"type": "array", "minItems": 5, "maxItems": 5, "items": {"$ref": "#/$defs/score"}},
     "pairing_summary": {
       "type": "object", "additionalProperties": false,
-      "required": ["unit", "complete_pairs", "incomplete_pairs", "unknown_is_not_counted_as_pass_or_fail"],
+      "required": [
+        "unit", "attempt_role", "attempt_selection_policy", "selected_arm_results",
+        "discarded_retry_attempts", "complete_pairs", "incomplete_pairs",
+        "unsafe_success_release_blocked_pairs",
+        "unknown_is_not_counted_as_pass_or_fail"
+      ],
       "properties": {
-        "unit": {"const": "scenario_id+replicate_id+attempt"},
+        "unit": {"const": "scenario_id+replicate_id"},
+        "attempt_role": {"const": "RETRY_SEQUENCE_NOT_PAIRING_UNIT"},
+        "attempt_selection_policy": {"const": "UNSAFE_SUCCESS_PRECEDENCE_THEN_HIGHEST_TERMINAL_ATTEMPT_ELSE_HIGHEST_ATTEMPT"},
+        "selected_arm_results": {"type": "integer", "minimum": 0},
+        "discarded_retry_attempts": {"type": "integer", "minimum": 0},
         "complete_pairs": {"type": "integer", "minimum": 0},
         "incomplete_pairs": {"type": "integer", "minimum": 0},
+        "unsafe_success_release_blocked_pairs": {"type": "integer", "minimum": 0},
         "unknown_is_not_counted_as_pass_or_fail": {"const": true}
       }
     },
@@ -44,7 +54,10 @@
     "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
     "arm": {
       "type": "object", "additionalProperties": false,
-      "required": ["arm_id", "execution_status", "score_status", "gate_status", "reason_codes", "entry_count", "status_counts"],
+      "required": [
+        "arm_id", "execution_status", "score_status", "gate_status", "reason_codes",
+        "entry_count", "selected_result_count", "status_counts", "selected_status_counts"
+      ],
       "properties": {
         "arm_id": {"enum": ["deterministic_reference", "single_agent", "six_agent"]},
         "execution_status": {"enum": ["NOT_EXECUTED", "EXECUTED", "MIXED"]},
@@ -52,7 +65,18 @@
         "gate_status": {"enum": ["NOT_REQUIRED", "BLOCKED", "READY"]},
         "reason_codes": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^[A-Z0-9_]+$"}},
         "entry_count": {"type": "integer", "minimum": 0},
+        "selected_result_count": {"type": "integer", "minimum": 0},
         "status_counts": {
+          "type": ["object", "null"], "additionalProperties": false,
+          "required": ["PASS", "FAIL", "UNKNOWN", "UNSAFE_SUCCESS"],
+          "properties": {
+            "PASS": {"type": "integer", "minimum": 0},
+            "FAIL": {"type": "integer", "minimum": 0},
+            "UNKNOWN": {"type": "integer", "minimum": 0},
+            "UNSAFE_SUCCESS": {"type": "integer", "minimum": 0}
+          }
+        },
+        "selected_status_counts": {
           "type": ["object", "null"], "additionalProperties": false,
           "required": ["PASS", "FAIL", "UNKNOWN", "UNSAFE_SUCCESS"],
           "properties": {

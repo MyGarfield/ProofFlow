@@ -27,6 +27,7 @@ from .suite import (
     gate_worker_execution_evidence,
 )
 
+ROOT = Path(__file__).resolve().parents[2]
 EVALUATION_DIR = Path(__file__).resolve().parent
 SCENARIO_MANIFEST_PATH = EVALUATION_DIR / "scenarios.json"
 SCENARIO_SCHEMA_PATH = EVALUATION_DIR / "scenarios.schema.json"
@@ -102,6 +103,12 @@ def _schemas_and_manifest() -> tuple[dict[str, Any], dict[str, Any]]:
     Draft202012Validator.check_schema(scenario_schema)
     Draft202012Validator.check_schema(ledger_schema)
     Draft202012Validator(scenario_schema, format_checker=FormatChecker()).validate(manifest)
+    rule_catalog_path = (ROOT / manifest["pairing"]["rule_catalog_path"]).resolve()
+    if (
+        ROOT not in rule_catalog_path.parents
+        or _digest(rule_catalog_path) != manifest["pairing"]["rule_catalog_sha256"]
+    ):
+        raise ValueError("frozen rule catalog does not match the checked-in bytes")
     return manifest, ledger_schema
 
 
@@ -128,6 +135,7 @@ def _contract_status(result: Mapping[str, Any], expected: Mapping[str, Any]) -> 
 
 def _measurement_reasons(measurement: Mapping[str, Any], *, kind: str) -> list[str]:
     complete = measurement["complete"]
+    fields: tuple[str, ...]
     if kind == "latency":
         fields = ("end_to_end_ms", "active_compute_ms", "human_wait_ms")
     else:
@@ -149,6 +157,33 @@ def _measurement_reasons(measurement: Mapping[str, Any], *, kind: str) -> list[s
     ):
         return [f"{kind.upper()}_UNKNOWN_SEMANTICS_INVALID"]
     return []
+
+
+def _select_replicate_results(
+    entries: list[Mapping[str, Any]],
+) -> list[Mapping[str, Any]]:
+    """Select one deterministic result per arm/scenario/replicate.
+
+    Attempts are retries, never independent replicates. Any UNSAFE_SUCCESS is
+    sticky across retries and takes precedence; the highest-numbered unsafe
+    attempt is selected. Otherwise the highest-numbered attempt with an
+    executed terminal result wins. If no attempt reached a terminal result,
+    the highest-numbered attempt is selected as UNKNOWN.
+    """
+    groups: defaultdict[tuple[str, str, int], list[Mapping[str, Any]]] = defaultdict(list)
+    for entry in entries:
+        groups[(entry["arm_id"], entry["scenario_id"], entry["replicate_id"])].append(entry)
+    selected: list[Mapping[str, Any]] = []
+    for key in sorted(groups):
+        candidates = groups[key]
+        unsafe = [item for item in candidates if item["status"] == "UNSAFE_SUCCESS"]
+        terminal = [
+            item
+            for item in candidates
+            if item["execution_status"] == "EXECUTED" and item["result"] is not None
+        ]
+        selected.append(max(unsafe or terminal or candidates, key=lambda item: item["attempt"]))
+    return selected
 
 
 def verify_run_ledger(
@@ -199,7 +234,7 @@ def verify_run_ledger(
     seen_keys: set[tuple[str, str, int, int]] = set()
     seen_entries: set[str] = set()
     seen_runs: set[str] = set()
-    pair_groups: defaultdict[tuple[str, int, int], list[Mapping[str, Any]]] = defaultdict(list)
+    attempt_groups: defaultdict[tuple[str, int, int], list[Mapping[str, Any]]] = defaultdict(list)
     previous_entry_sha256 = GENESIS_ENTRY_SHA256
     for expected_index, entry in enumerate(parsed["entries"], start=1):
         if entry["entry_index"] != expected_index:
@@ -234,6 +269,10 @@ def verify_run_ledger(
             reasons.append("ENTRY_SCENARIO_MANIFEST_DIGEST_MISMATCH")
         if entry["repository_commit"] != root_provenance["repository_commit"]:
             reasons.append("ENTRY_SOURCE_COMMIT_MISMATCH")
+        if entry["rule_catalog_sha256"] != manifest["pairing"]["rule_catalog_sha256"]:
+            reasons.append("RULE_CATALOG_DIGEST_MISMATCH")
+        if entry["formula_version"] != manifest["pairing"]["formula_version"]:
+            reasons.append("FORMULA_VERSION_MISMATCH")
         is_worker_arm = entry["arm_id"] in ("single_agent", "six_agent")
         if (entry["execution_status"] == "NOT_EXECUTED" or not is_worker_arm) and any(
             entry[field] is not None
@@ -310,6 +349,8 @@ def verify_run_ledger(
                 != entry["fixture_manifest_sha256"]
                 or worker_evidence.get("scenario_manifest_sha256")
                 != entry["scenario_manifest_sha256"]
+                or worker_evidence.get("rule_catalog_sha256") != entry["rule_catalog_sha256"]
+                or worker_evidence.get("formula_version") != entry["formula_version"]
                 or worker_repository_commit != entry["repository_commit"]
                 or not isinstance(worker_model, Mapping)
                 or worker_model.get("provider_id") != entry["model_provider_id"]
@@ -334,7 +375,9 @@ def verify_run_ledger(
             )
             if semantic_gate["status"] != "READY":
                 reasons.append("WORKER_EVIDENCE_SEMANTIC_INVALID")
-        pair_groups[(entry["scenario_id"], entry["replicate_id"], entry["attempt"])].append(entry)
+        attempt_groups[(entry["scenario_id"], entry["replicate_id"], entry["attempt"])].append(
+            entry
+        )
 
     applicable = {item["id"]: set(item["arm_ids"]) for item in manifest["scenarios"]}
     planned_replicates = parsed["coverage_plan"]["replicate_ids"]
@@ -355,10 +398,31 @@ def verify_run_ledger(
     for scenario in manifest["scenarios"]:
         for replicate_id in planned_replicates:
             for attempt in planned_attempts:
-                entries = pair_groups[(scenario["id"], replicate_id, attempt)]
+                entries = attempt_groups[(scenario["id"], replicate_id, attempt)]
                 arms = {item["arm_id"] for item in entries}
                 if arms != applicable[scenario["id"]]:
-                    reasons.append("PAIR_ARM_SET_MISMATCH")
+                    reasons.append("ATTEMPT_ARM_SET_MISMATCH")
+    selected_entries = _select_replicate_results(list(parsed["entries"]))
+    selected_pairs: defaultdict[tuple[str, int], list[Mapping[str, Any]]] = defaultdict(list)
+    for entry in selected_entries:
+        selected_pairs[(entry["scenario_id"], entry["replicate_id"])].append(entry)
+    for scenario in manifest["scenarios"]:
+        for replicate_id in planned_replicates:
+            pair = selected_pairs[(scenario["id"], replicate_id)]
+            if {item["arm_id"] for item in pair} != applicable[scenario["id"]]:
+                reasons.append("PAIR_ARM_SET_MISMATCH")
+                continue
+            if len({item["rule_catalog_sha256"] for item in pair}) != 1:
+                reasons.append("PAIR_RULE_CATALOG_MISMATCH")
+            if len({item["formula_version"] for item in pair}) != 1:
+                reasons.append("PAIR_FORMULA_VERSION_MISMATCH")
+            llm_pair = [item for item in pair if item["arm_id"] in ("single_agent", "six_agent")]
+            if llm_pair and all(item["execution_status"] == "EXECUTED" for item in llm_pair):
+                model_digests = [item["model_configuration_digest"] for item in llm_pair]
+                if any(value is None for value in model_digests):
+                    reasons.append("PAIR_LLM_MODEL_CONFIGURATION_MISSING")
+                elif len(set(model_digests)) != 1:
+                    reasons.append("PAIR_LLM_MODEL_CONFIGURATION_MISMATCH")
     expected_root = _canonical_digest(
         {key: value for key, value in parsed.items() if key != "ledger_root_sha256"}
     )
@@ -394,7 +458,11 @@ def aggregate_run_ledger(
     arms: list[dict[str, Any]] = []
     for arm_id in ARMS:
         arm_entries = [item for item in entries if item["arm_id"] == arm_id]
+        selected_arm_entries = [
+            item for item in _select_replicate_results(entries) if item["arm_id"] == arm_id
+        ]
         counts = Counter(item["status"] for item in arm_entries)
+        selected_counts = Counter(item["status"] for item in selected_arm_entries)
         if not arm_entries or all(
             item["execution_status"] == "NOT_EXECUTED" for item in arm_entries
         ):
@@ -415,6 +483,7 @@ def aggregate_run_ledger(
                     else "OFFICIAL_SCORE_REQUIRES_PAIRED_ARMS"
                 ],
                 "entry_count": len(arm_entries),
+                "selected_result_count": len(selected_arm_entries),
                 "status_counts": (
                     None
                     if not arm_entries
@@ -423,28 +492,33 @@ def aggregate_run_ledger(
                         for status in ("PASS", "FAIL", "UNKNOWN", "UNSAFE_SUCCESS")
                     }
                 ),
+                "selected_status_counts": (
+                    None
+                    if not selected_arm_entries
+                    else {
+                        status: selected_counts.get(status, 0)
+                        for status in ("PASS", "FAIL", "UNKNOWN", "UNSAFE_SUCCESS")
+                    }
+                ),
             }
         )
     complete_pairs = 0
     incomplete_pairs = 0
-    pairing_keys = {
-        (item["scenario_id"], item["replicate_id"], item["attempt"]) for item in entries
-    }
-    for scenario_id, replicate_id, attempt in sorted(pairing_keys):
+    unsafe_success_release_blocked_pairs = 0
+    selected_entries = _select_replicate_results(entries)
+    pairing_keys = {(item["scenario_id"], item["replicate_id"]) for item in selected_entries}
+    for scenario_id, replicate_id in sorted(pairing_keys):
         scenario = next(item for item in manifest["scenarios"] if item["id"] == scenario_id)
         pair = [
             item
-            for item in entries
-            if (
-                item["scenario_id"],
-                item["replicate_id"],
-                item["attempt"],
-            )
-            == (scenario_id, replicate_id, attempt)
+            for item in selected_entries
+            if (item["scenario_id"], item["replicate_id"]) == (scenario_id, replicate_id)
         ]
-        if {item["arm_id"] for item in pair} == set(scenario["arm_ids"]) and all(
-            item["status"] != "UNKNOWN" for item in pair
-        ):
+        arm_set_complete = {item["arm_id"] for item in pair} == set(scenario["arm_ids"])
+        if arm_set_complete and any(item["status"] == "UNSAFE_SUCCESS" for item in pair):
+            unsafe_success_release_blocked_pairs += 1
+            incomplete_pairs += 1
+        elif arm_set_complete and all(item["status"] != "UNKNOWN" for item in pair):
             complete_pairs += 1
         else:
             incomplete_pairs += 1
@@ -473,9 +547,14 @@ def aggregate_run_ledger(
             for item in manifest["official_score_mapping"]
         ],
         "pairing_summary": {
-            "unit": "scenario_id+replicate_id+attempt",
+            "unit": "scenario_id+replicate_id",
+            "attempt_role": "RETRY_SEQUENCE_NOT_PAIRING_UNIT",
+            "attempt_selection_policy": manifest["pairing"]["attempt_selection_policy"],
+            "selected_arm_results": len(selected_entries),
+            "discarded_retry_attempts": len(entries) - len(selected_entries),
             "complete_pairs": complete_pairs,
             "incomplete_pairs": incomplete_pairs,
+            "unsafe_success_release_blocked_pairs": unsafe_success_release_blocked_pairs,
             "unknown_is_not_counted_as_pass_or_fail": True,
         },
         "metric_contract": {

@@ -26,10 +26,15 @@
     "issueCode": {"type": "string", "pattern": "^[A-Z0-9_]+$"},
     "coveragePlan": {
       "type": "object", "additionalProperties": false,
-      "required": ["replicate_ids", "attempts", "scope"],
+      "required": [
+        "replicate_ids", "attempts", "attempts_are_retries_not_replicates",
+        "attempt_selection_policy", "scope"
+      ],
       "properties": {
         "replicate_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "integer", "minimum": 1}},
         "attempts": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "integer", "minimum": 1}},
+        "attempts_are_retries_not_replicates": {"const": true},
+        "attempt_selection_policy": {"const": "UNSAFE_SUCCESS_PRECEDENCE_THEN_HIGHEST_TERMINAL_ATTEMPT_ELSE_HIGHEST_ATTEMPT"},
         "scope": {"const": "ALL_APPLICABLE_ARMS_AND_SCENARIOS"}
       }
     },
@@ -39,6 +44,7 @@
         "entry_index", "previous_entry_sha256", "entry_sha256", "entry_id", "arm_id", "scenario_id", "replicate_id", "attempt", "run_id",
         "execution_status", "status", "issue_codes", "started_at", "finished_at",
         "fixture_manifest_sha256", "scenario_manifest_sha256", "repository_commit",
+        "rule_catalog_sha256", "formula_version",
         "model_provider_id", "model_id", "model_configuration_digest",
         "agentteams_version", "agentteams_commit",
         "worker_evidence_sha256", "worker_evidence", "result", "latency", "cost"
@@ -63,6 +69,8 @@
         "fixture_manifest_sha256": {"$ref": "#/$defs/digest"},
         "scenario_manifest_sha256": {"$ref": "#/$defs/digest"},
         "repository_commit": {"$ref": "#/$defs/commit"},
+        "rule_catalog_sha256": {"$ref": "#/$defs/digest"},
+        "formula_version": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"},
         "model_provider_id": {"type": ["string", "null"], "minLength": 1},
         "model_id": {"type": ["string", "null"], "minLength": 1},
         "model_configuration_digest": {"type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$"},

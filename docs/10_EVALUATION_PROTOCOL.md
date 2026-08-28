@@ -69,8 +69,10 @@ LLM 臂必须先通过 `worker-run-evidence.schema.json`。最低条件为：
 4. 场景要求 Human 时，receipt 必须是 `actor_kind=HUMAN`、伪匿名 `actor_id`、role、decision time、method、subject hash，并绑定 task/Matrix/trace；合法的 Human Gate 前阻断场景可不伪造 approval receipt；配置中的合成 Human 资源不能替代真实参与 receipt；
 5. `capture_completeness.harness_capture_complete=true`，并单独记录 `capture_completeness.sut_trace_complete`；`external_side_effects_enabled=false`、数据分类为 `PUBLIC_SYNTHETIC`，
    `secrets_or_personal_data_emitted=false`；
-6. fixture manifest、scenario manifest、模型配置、仓库 commit、固定 AgentTeams `v1.2.2` / commit
-   `849182af8e017168a5a200a87b1062142caf462d` 和采集器版本都有 digest 或稳定标识。
+6. fixture manifest、scenario manifest、规则目录 `rule_catalog_sha256`、
+   `formula_version`、模型配置、仓库 commit、固定 AgentTeams `v1.2.2` / commit
+   `849182af8e017168a5a200a87b1062142caf462d` 和采集器版本都有 digest 或稳定标识；
+   Worker evidence 与 run/ledger 字段必须逐项绑定。
 
 这些 receipts 仍是未签名的来源/一致性声明。schema/semantic gate 只能证明字段、链接、覆盖和 digest
 一致，不能证明真实执行真实性；真实性还需要公开原始 AgentTeams/Task/Matrix/MCP receipts 或签名/attestation。
@@ -120,7 +122,7 @@ code、终态、是否允许产出值、是否需要批准、Trace 事件和观�
 
 ### 成本
 
-每个 `scenario_id+arm_id+replicate_id` 记录：
+每个 `scenario_id+arm_id+replicate_id+attempt` 尝试记录：
 
 - `input_tokens`、`output_tokens`、`cached_input_tokens`、`total_tokens`；缺失为 `null`/`UNKNOWN`；
 - `model_input_cost`、`model_output_cost`、`tool_cost`、`infrastructure_cost`、`human_review_cost`；
@@ -142,7 +144,8 @@ code、终态、是否允许产出值、是否需要批准、Trace 事件和观�
 
 ### 可靠性
 
-分母固定为 `attempted_runs`，并同时给出：`pass`、`fail`、`unknown`、`unsafe_success`、预期阻断、
+分母固定为 `attempted_runs`，因此重试仍进入成本、延迟与可靠性计数；但重试不增加 paired replicate
+数量。报告同时给出：`pass`、`fail`、`unknown`、`unsafe_success`、预期阻断、
 false block、重复副作用和 Trace 不完整计数。比例必须带分子、分母和 percentage-points；`UNKNOWN`
 不进入 PASS/FAIL 率，`UNSAFE_SUCCESS` 不进入 PASS 率。缺少完整 paired cell 或未达到计划的最小有效
 重复数时，只能报告 `UNKNOWN`，不做提升结论。
@@ -154,9 +157,22 @@ false block、重复副作用和 Trace 不完整计数。比例必须带分子�
 
 - 完全相同的合成 fixture manifest、规则目录、公式版本和预期合同；
 - single/six 相同的模型配置、采样参数、超时和工具版本；
-- `scenario_id+replicate_id` 配对，固定随机种子并记录，使用 blocked pairs 防止批次/顺序混淆；
+- `scenario_id+replicate_id` 配对；当前仅计划使用 blocked pairs，尚未执行，也尚未生成或记录 seed、
+  arm 顺序与 block assignment，因此机器状态固定为
+  `PLANNED_BLOCKED_PAIRS_SEED_NOT_RECORDED`，不得宣称已完成随机化；
+- `attempt` 只表示同一 cell 的重试序号，不是配对维度，也不能增加有效 replicate。每个
+  `arm+scenario+replicate` 只选择一个结果：只要任一 attempt 为 `UNSAFE_SUCCESS`，该状态就在所有后续
+  retry 之上保持不可逆优先，并选择编号最大的 unsafe attempt；否则选择编号最大的已执行终态 attempt；
+  若所有 attempt 都未到终态，则选择编号最大的 attempt 并保持 `UNKNOWN`。含 unsafe 的 pair 单列为
+  `unsafe_success_release_blocked_pairs`，不得计作 complete。未选重试仍保留在 append-only ledger，并
+  进入 attempted-run 成本、延迟与可靠性口径；
 - 每个 run 的 trace、task/Matrix event、MCP receipt、Skill receipt、Human Gate receipt 和成本/延迟
   provenance。
+
+`ledger_verifier` 对每条记录先绑定 manifest 中冻结的规则目录 digest 与公式版本，再对每个选定 pair
+验证 deterministic/single/six 的规则目录和公式版本完全一致；仅当 single/six 两个选定结果都实际执行
+时，才比较其非空模型配置 digest。缺失或不等时 ledger 拒绝聚合；任一臂未执行时该 pair 仍为
+`UNKNOWN`，不会伪造模型配置填充值。
 
 统计输出只允许给出事实和明确未知：成功率差、unknown 率、unsafe success 数、p50/p95/p99、Token、
 完整成本和失败类型。协议不预设“六 Agent 必须提升 X%”，也不使用 LLM-as-judge 生成质量标签；

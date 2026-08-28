@@ -133,11 +133,16 @@
   ],
   "pairing": {
     "unit": "scenario_id+replicate_id",
+    "attempt_role": "RETRY_SEQUENCE_NOT_PAIRING_UNIT",
+    "attempt_selection_policy": "UNSAFE_SUCCESS_PRECEDENCE_THEN_HIGHEST_TERMINAL_ATTEMPT_ELSE_HIGHEST_ATTEMPT",
     "same_fixture_manifest_required": true,
     "same_rule_catalog_required": true,
     "same_formula_version_required": true,
     "same_model_configuration_required_for_llm_arms": true,
-    "randomization_policy": "BLOCKED_PAIRS_WITH_FIXED_SEED_RECORDED",
+    "rule_catalog_path": "data/rules/cn_labor_contract_law.catalog.json",
+    "rule_catalog_sha256": "sha256:27686c904451870dd5953ec6e47c155a395b2f279995e50f68aea984e6bf91de",
+    "formula_version": "cn-economic-compensation-v0.1",
+    "randomization_policy": "PLANNED_BLOCKED_PAIRS_SEED_NOT_RECORDED",
     "claim_without_complete_pair": "UNKNOWN"
   },
   "replication": {
@@ -216,6 +221,8 @@
       "trace_id",
       "fixture_manifest_sha256",
       "scenario_manifest_sha256",
+      "rule_catalog_sha256",
+      "formula_version",
       "worker_execution_observed",
       "llm_inference_observed",
       "team_operational_ready",

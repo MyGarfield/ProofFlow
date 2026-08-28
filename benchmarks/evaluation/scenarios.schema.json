@@ -138,20 +138,30 @@
       "additionalProperties": false,
       "required": [
         "unit",
+        "attempt_role",
+        "attempt_selection_policy",
         "same_fixture_manifest_required",
         "same_rule_catalog_required",
         "same_formula_version_required",
         "same_model_configuration_required_for_llm_arms",
+        "rule_catalog_path",
+        "rule_catalog_sha256",
+        "formula_version",
         "randomization_policy",
         "claim_without_complete_pair"
       ],
       "properties": {
         "unit": {"const": "scenario_id+replicate_id"},
+        "attempt_role": {"const": "RETRY_SEQUENCE_NOT_PAIRING_UNIT"},
+        "attempt_selection_policy": {"const": "UNSAFE_SUCCESS_PRECEDENCE_THEN_HIGHEST_TERMINAL_ATTEMPT_ELSE_HIGHEST_ATTEMPT"},
         "same_fixture_manifest_required": {"const": true},
         "same_rule_catalog_required": {"const": true},
         "same_formula_version_required": {"const": true},
         "same_model_configuration_required_for_llm_arms": {"const": true},
-        "randomization_policy": {"type": "string", "minLength": 1},
+        "rule_catalog_path": {"const": "data/rules/cn_labor_contract_law.catalog.json"},
+        "rule_catalog_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "formula_version": {"const": "cn-economic-compensation-v0.1"},
+        "randomization_policy": {"const": "PLANNED_BLOCKED_PAIRS_SEED_NOT_RECORDED"},
         "claim_without_complete_pair": {"const": "UNKNOWN"}
       }
     },

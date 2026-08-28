@@ -54,7 +54,8 @@ def valid_worker_evidence(arm_id: str = "six_agent", scenario_id: str = "happy_p
     }
     if arm_id == "single_agent":
         specialist_skills = {"case-manager": list(repository_skill_digests())}
-    scenario = next(item for item in manifest()["scenarios"] if item["id"] == scenario_id)
+    document = manifest()
+    scenario = next(item for item in document["scenarios"] if item["id"] == scenario_id)
     gate_policy = scenario["evidence_gate"]
     human_policy = gate_policy["human_gate_receipt"]
     human_decision = gate_policy["required_human_decision"]
@@ -196,6 +197,8 @@ def valid_worker_evidence(arm_id: str = "six_agent", scenario_id: str = "happy_p
         "trace_id": "trace-synthetic-001",
         "fixture_manifest_sha256": fixture_manifest_digest(),
         "scenario_manifest_sha256": file_digest(MANIFEST_PATH),
+        "rule_catalog_sha256": document["pairing"]["rule_catalog_sha256"],
+        "formula_version": document["pairing"]["formula_version"],
         "worker_execution_observed": True,
         "llm_inference_observed": True,
         "team_operational_ready": True,
@@ -274,6 +277,7 @@ def test_manifest_has_three_arms_and_explicit_official_score_weights() -> None:
         5,
     ]
     assert sum(item["official_weight_points"] for item in document["official_score_mapping"]) == 100
+    assert document["pairing"]["randomization_policy"] == "PLANNED_BLOCKED_PAIRS_SEED_NOT_RECORDED"
     assert all(
         item["unexecuted_status"] == "UNKNOWN" for item in document["official_score_mapping"]
     )

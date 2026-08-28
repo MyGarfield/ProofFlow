@@ -6,7 +6,8 @@
   "additionalProperties": false,
   "required": [
     "schema_version", "evidence_kind", "arm_id", "scenario_id", "run_id", "trace_id",
-    "fixture_manifest_sha256", "scenario_manifest_sha256", "worker_execution_observed",
+    "fixture_manifest_sha256", "scenario_manifest_sha256", "rule_catalog_sha256",
+    "formula_version", "worker_execution_observed",
     "llm_inference_observed", "team_operational_ready", "leader_phase",
     "specialist_ready_workers", "total_worker_containers", "worker_roster",
     "specialist_phases", "task_event_ids", "matrix_event_ids", "task_event_receipts",
@@ -25,6 +26,8 @@
     "trace_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"},
     "fixture_manifest_sha256": {"$ref": "#/$defs/digest"},
     "scenario_manifest_sha256": {"$ref": "#/$defs/digest"},
+    "rule_catalog_sha256": {"$ref": "#/$defs/digest"},
+    "formula_version": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"},
     "worker_execution_observed": {"const": true},
     "llm_inference_observed": {"const": true},
     "team_operational_ready": {"const": true},

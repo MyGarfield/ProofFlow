@@ -67,6 +67,8 @@ def _entry(
     scenario: dict[str, Any],
     replicate_id: int,
     attempt: int,
+    rule_catalog_sha256: str,
+    formula_version: str,
     repository_commit: str,
     result: dict[str, Any] | None,
     started_at: datetime,
@@ -91,6 +93,8 @@ def _entry(
         "fixture_manifest_sha256": fixture_manifest_digest(),
         "scenario_manifest_sha256": file_digest(EVALUATION_DIR / "scenarios.json"),
         "repository_commit": repository_commit,
+        "rule_catalog_sha256": rule_catalog_sha256,
+        "formula_version": formula_version,
         "model_provider_id": None,
         "model_id": None,
         "model_configuration_digest": None,
@@ -116,6 +120,7 @@ def build_run_ledger(
 ) -> dict[str, Any]:
     """Execute deterministic scenarios and ledger every planned applicable arm."""
     manifest = validate_manifest()
+    pairing = manifest["pairing"]
     recorded_at = recorded_at or datetime.now(UTC)
     planned_replicates = tuple(replicate_ids or (replicate_id,))
     planned_attempts = tuple(attempts or (attempt,))
@@ -146,6 +151,8 @@ def build_run_ledger(
                             scenario=scenario,
                             replicate_id=current_replicate,
                             attempt=current_attempt,
+                            rule_catalog_sha256=pairing["rule_catalog_sha256"],
+                            formula_version=pairing["formula_version"],
                             repository_commit=repository_commit,
                             result=result,
                             started_at=started_at,
@@ -161,6 +168,8 @@ def build_run_ledger(
                             scenario=scenario,
                             replicate_id=current_replicate,
                             attempt=current_attempt,
+                            rule_catalog_sha256=pairing["rule_catalog_sha256"],
+                            formula_version=pairing["formula_version"],
                             repository_commit=repository_commit,
                             result=None,
                             started_at=recorded_at,
@@ -181,6 +190,8 @@ def build_run_ledger(
         "coverage_plan": {
             "replicate_ids": list(planned_replicates),
             "attempts": list(planned_attempts),
+            "attempts_are_retries_not_replicates": True,
+            "attempt_selection_policy": pairing["attempt_selection_policy"],
             "scope": "ALL_APPLICABLE_ARMS_AND_SCENARIOS",
         },
         "entries": entries,

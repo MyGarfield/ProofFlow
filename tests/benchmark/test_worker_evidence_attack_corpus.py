@@ -21,6 +21,8 @@ def _gate(evidence: object, scenario_id: str = "happy_path") -> dict:
     ("attack", "mutate"),
     [
         ("missing_schema_version", lambda value: value.pop("schema_version")),
+        ("missing_rule_catalog_digest", lambda value: value.pop("rule_catalog_sha256")),
+        ("missing_formula_version", lambda value: value.pop("formula_version")),
         (
             "invalid_digest",
             lambda value: value.__setitem__("fixture_manifest_sha256", "sha256:not-a-digest"),
@@ -107,6 +109,14 @@ def test_trace_gap_separates_harness_capture_from_sut_trace_outcome() -> None:
         (
             lambda value: value.__setitem__("scenario_manifest_sha256", "sha256:" + "9" * 64),
             "SCENARIO_MANIFEST_DIGEST_MISMATCH",
+        ),
+        (
+            lambda value: value.__setitem__("rule_catalog_sha256", "sha256:" + "9" * 64),
+            "RULE_CATALOG_DIGEST_MISMATCH",
+        ),
+        (
+            lambda value: value.__setitem__("formula_version", "forged-formula-v9"),
+            "FORMULA_VERSION_MISMATCH",
         ),
         (
             lambda value: value["provenance"].__setitem__("repository_commit", "b" * 40),

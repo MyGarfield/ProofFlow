@@ -33,9 +33,9 @@ gate can open.
 The Worker gate is schema-first and fail-closed. Draft 2020-12 validation uses
 `FormatChecker`, rejects duplicate JSON keys and non-finite numbers, and stops
 before semantic checks when a document is malformed. The semantic phase then
-binds the exact scenario, fixture and scenario-manifest digests, caller-supplied
-repository commit, run/trace IDs, task/Matrix/MCP/Skill/Human receipts, fixed
-AgentTeams roster, and Skill coverage. Missing or insufficient evidence is
+binds the exact scenario, fixture/scenario/rule-catalog digests, formula version,
+caller-supplied repository commit, run/trace IDs, task/Matrix/MCP/Skill/Human
+receipts, fixed AgentTeams roster, and Skill coverage. Missing or insufficient evidence is
 `BLOCKED`/`UNKNOWN`, never a zero or a pass.
 
 Harness capture and system-under-test trace outcome are separate fields:
@@ -56,9 +56,10 @@ synthetic happy-path documents and binds all 14 scenario mutation descriptors;
 paths, hashes, synthetic classification, and scenario coverage before a
 protocol report is emitted.
 
-Future adapters must emit a `run-record.schema.json` record with fixture and
-scenario manifest digests, model/Worker provenance, and explicit cost/latency
-unknowns. `benchmarks.evaluation.verifier.verify_run_record` is an independent
+Future adapters must emit a `run-record.schema.json` record with replicate and
+retry-attempt IDs, fixture/scenario/rule-catalog digests, formula version,
+model/Worker provenance, and explicit cost/latency unknowns.
+`benchmarks.evaluation.verifier.verify_run_record` is an independent
 verifier: it does not import the suite classifier, accepts only an expected
 scenario contract from the checked-in manifest, and only accepts a caller-
 supplied compatibility contract when it is deeply equal to that manifest truth.
@@ -85,12 +86,25 @@ IDs; both Worker arms are explicitly `null` until an authorized adapter exists.
 A binding is not an execution result. `benchmarks.evaluation.ledger` can run
 the ten deterministic scenarios into a hash-chained append-only v2 ledger. Its
 explicit `coverage_plan` expands every applicable arm/scenario for each
-declared replicate and attempt; each entry has an ordered index, previous-entry
-hash, entry hash, and the ledger has a root hash. Worker entries also carry
+declared replicate and retry attempt; each entry has an ordered index,
+previous-entry hash, entry hash, and the ledger has a root hash. An `attempt`
+is never a new replicate. Aggregation selects exactly one result per
+arm/scenario/replicate using
+`UNSAFE_SUCCESS_PRECEDENCE_THEN_HIGHEST_TERMINAL_ATTEMPT_ELSE_HIGHEST_ATTEMPT`.
+Any unsafe success is sticky across retries and becomes the selected result;
+otherwise the highest-numbered attempt with an executed terminal result wins,
+or the highest-numbered UNKNOWN attempt when none reached a terminal state.
+Pairs containing unsafe success are counted as release-blocked, never complete.
+Blocked-pair randomization is only planned: no seed, arm order, or block assignment
+has been recorded, so the manifest says
+`PLANNED_BLOCKED_PAIRS_SEED_NOT_RECORDED`.
+Worker entries also carry
 `worker_evidence` plus its recomputed `worker_evidence_sha256`; unexecuted
 Worker arms remain `null`/`UNKNOWN`. `ledger_verifier` independently checks
 manifest coverage, sequence/hash-chain, provenance, evidence binding, pairing,
-and the cost/latency unknown contract before `aggregate_run_ledger` emits an
+the frozen rule/formula match across all selected arms, the model-configuration
+digest match across executed single/six arms, and the cost/latency unknown
+contract before `aggregate_run_ledger` emits an
 `EXECUTED` or `MIXED_EXECUTION` report. These hashes are tamper-evident
 consistency checks, not signatures or attestations. Official score points
 remain `UNKNOWN`/`null` until paired arms and their required evidence exist.

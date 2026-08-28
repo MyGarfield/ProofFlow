@@ -29,6 +29,7 @@ MANIFEST_PATH = EVALUATION_DIR / "scenarios.json"
 SCENARIO_SCHEMA_PATH = EVALUATION_DIR / "scenarios.schema.json"
 WORKER_EVIDENCE_SCHEMA_PATH = EVALUATION_DIR / "worker-run-evidence.schema.json"
 REPORT_SCHEMA_PATH = EVALUATION_DIR / "evaluation-report.schema.json"
+RULE_CATALOG_PATH = ROOT / "data" / "rules" / "cn_labor_contract_law.catalog.json"
 ARM_IDS = ("deterministic_reference", "single_agent", "six_agent")
 WORKER_ARM_IDS = ("single_agent", "six_agent")
 SCORE_IDS = (
@@ -41,6 +42,7 @@ SCORE_IDS = (
 EXPECTED_SCORE_WEIGHTS = (25, 25, 25, 20, 5)
 EXPECTED_AGENTTEAMS_VERSION = "v1.2.2"
 EXPECTED_AGENTTEAMS_COMMIT = "849182af8e017168a5a200a87b1062142caf462d"
+EXPECTED_FORMULA_VERSION = "cn-economic-compensation-v0.1"
 EXPECTED_WORKER_TOPOLOGY = {
     "single_agent": {
         "leader_phase": "Running",
@@ -73,7 +75,7 @@ CANONICAL_SKILLS = (
     "rule_retrieve",
     "timeline_build",
 )
-EXPECTED_SKILL_COVERAGE = {
+EXPECTED_SKILL_COVERAGE: dict[str, dict[str, tuple[str, ...]]] = {
     "single_agent": {
         "case-manager": CANONICAL_SKILLS,
     },
@@ -239,11 +241,21 @@ def validate_manifest(manifest: Mapping[str, Any] | None = None) -> dict[str, An
     if any(item["unexecuted_status"] != "UNKNOWN" for item in score_mapping):
         raise EvaluationManifestError("an unexecuted score must be UNKNOWN")
 
+    pairing = document["pairing"]
+    if pairing["rule_catalog_sha256"] != file_digest(RULE_CATALOG_PATH):
+        raise EvaluationManifestError("pairing rule catalog digest does not match checked-in bytes")
+    if pairing["formula_version"] != EXPECTED_FORMULA_VERSION:
+        raise EvaluationManifestError(
+            "pairing formula version does not match the checked-in contract"
+        )
+
     gate = document["worker_execution_gate"]
     if tuple(gate["required_for_arms"]) != WORKER_ARM_IDS:
         raise EvaluationManifestError("Worker execution gate must cover single_agent and six_agent")
     if gate["blocked_status"] != "UNKNOWN":
         raise EvaluationManifestError("a blocked Worker gate must classify the arm as UNKNOWN")
+    if not {"rule_catalog_sha256", "formula_version"}.issubset(gate["required_evidence_fields"]):
+        raise EvaluationManifestError("Worker gate must require rule and formula provenance")
     if gate["expected_agentteams"] != {
         "version": EXPECTED_AGENTTEAMS_VERSION,
         "commit": EXPECTED_AGENTTEAMS_COMMIT,
@@ -439,6 +451,11 @@ def gate_worker_execution_evidence(
         reasons.append("FIXTURE_MANIFEST_DIGEST_MISMATCH")
     if evidence["scenario_manifest_sha256"] != file_digest(MANIFEST_PATH):
         reasons.append("SCENARIO_MANIFEST_DIGEST_MISMATCH")
+    pairing = manifest["pairing"]
+    if evidence["rule_catalog_sha256"] != pairing["rule_catalog_sha256"]:
+        reasons.append("RULE_CATALOG_DIGEST_MISMATCH")
+    if evidence["formula_version"] != pairing["formula_version"]:
+        reasons.append("FORMULA_VERSION_MISMATCH")
     if expected_repository_commit is None:
         reasons.append("SOURCE_COMMIT_EXPECTATION_MISSING")
     elif evidence["provenance"]["repository_commit"] != expected_repository_commit:

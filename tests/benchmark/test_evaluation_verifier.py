@@ -44,15 +44,19 @@ def valid_run_record(
     arm_id: str = "deterministic_reference", scenario_id: str = "happy_path"
 ) -> dict:
     is_worker = arm_id in {"single_agent", "six_agent"}
+    pairing = scenarios()["pairing"]
     return {
         "schema_version": "proofflow.evaluation-run/v1",
         "run_id": "run-public-synthetic-001",
         "arm_id": arm_id,
         "scenario_id": scenario_id,
         "replicate_id": 1,
+        "attempt": 1,
         "execution_status": "EXECUTED",
         "fixture_manifest_sha256": fixture_manifest_digest(),
         "scenario_manifest_sha256": file_digest(SCENARIO_MANIFEST_PATH),
+        "rule_catalog_sha256": pairing["rule_catalog_sha256"],
+        "formula_version": pairing["formula_version"],
         "provenance": {
             "repository_commit": "b63eeb60d1072c73d2d0d1d6061b3c8f800487a4",
             "agentteams_version": "v1.2.2" if is_worker else None,
@@ -193,6 +197,43 @@ def test_manifest_mismatch_is_unknown_not_a_failed_run() -> None:
 
     assert result["status"] == "UNKNOWN"
     assert result["reason_codes"] == ["FIXTURE_MANIFEST_DIGEST_MISMATCH"]
+
+
+def test_run_record_requires_and_binds_frozen_rule_and_formula_truth() -> None:
+    for field in ("rule_catalog_sha256", "formula_version"):
+        record = valid_run_record()
+        record.pop(field)
+        result = verify_run_record(
+            record,
+            expected_contract("happy_path"),
+            arm_id="deterministic_reference",
+            scenario_id="happy_path",
+            expected_repository_commit=EXPECTED_REPOSITORY_COMMIT,
+        )
+        assert result["status"] == "UNKNOWN"
+        assert result["reason_codes"] == ["RUN_RECORD_SCHEMA_INVALID"]
+
+    record = valid_run_record()
+    record["rule_catalog_sha256"] = "sha256:" + "9" * 64
+    result = verify_run_record(
+        record,
+        expected_contract("happy_path"),
+        arm_id="deterministic_reference",
+        scenario_id="happy_path",
+        expected_repository_commit=EXPECTED_REPOSITORY_COMMIT,
+    )
+    assert result["reason_codes"] == ["RULE_CATALOG_DIGEST_MISMATCH"]
+
+    record = valid_run_record()
+    record["formula_version"] = "forged-formula-v9"
+    result = verify_run_record(
+        record,
+        expected_contract("happy_path"),
+        arm_id="deterministic_reference",
+        scenario_id="happy_path",
+        expected_repository_commit=EXPECTED_REPOSITORY_COMMIT,
+    )
+    assert result["reason_codes"] == ["FORMULA_VERSION_MISMATCH"]
 
 
 def test_worker_run_requires_model_and_worker_evidence_provenance() -> None:

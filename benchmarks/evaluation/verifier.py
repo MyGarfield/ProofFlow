@@ -100,7 +100,7 @@ def _schema_errors(record: Mapping[str, Any]) -> bool:
     return any(Draft202012Validator(schema, format_checker=FormatChecker()).iter_errors(record))
 
 
-def _manifest_contract(scenario_id: str) -> Mapping[str, Any]:
+def _manifest_truth(scenario_id: str) -> tuple[Mapping[str, Any], Mapping[str, Any]]:
     manifest = _read_json(SCENARIO_MANIFEST_PATH)
     schema = _read_json(SCENARIO_SCHEMA_PATH)
     Draft202012Validator.check_schema(schema)
@@ -108,7 +108,14 @@ def _manifest_contract(scenario_id: str) -> Mapping[str, Any]:
     scenario = next((item for item in manifest["scenarios"] if item["id"] == scenario_id), None)
     if scenario is None:
         raise ValueError(f"unknown scenario: {scenario_id}")
-    return scenario["expected"]
+    pairing = manifest["pairing"]
+    rule_catalog_path = (ROOT / pairing["rule_catalog_path"]).resolve()
+    if (
+        ROOT not in rule_catalog_path.parents
+        or _digest(rule_catalog_path) != pairing["rule_catalog_sha256"]
+    ):
+        raise ValueError("frozen rule catalog does not match the checked-in bytes")
+    return scenario["expected"], pairing
 
 
 def _result(status: str, *reason_codes: str) -> dict[str, Any]:
@@ -163,7 +170,7 @@ def verify_run_record(
         return _result("UNKNOWN", "SCENARIO_ID_MISMATCH")
 
     try:
-        manifest_contract = _manifest_contract(scenario_id)
+        manifest_contract, manifest_pairing = _manifest_truth(scenario_id)
         if expected_contract is not None and _canonical_digest(
             expected_contract
         ) != _canonical_digest(manifest_contract):
@@ -190,6 +197,10 @@ def verify_run_record(
         return _result("UNKNOWN", "FIXTURE_MANIFEST_DIGEST_MISMATCH")
     if record["scenario_manifest_sha256"] != expected_scenario:
         return _result("UNKNOWN", "SCENARIO_MANIFEST_DIGEST_MISMATCH")
+    if record["rule_catalog_sha256"] != manifest_pairing["rule_catalog_sha256"]:
+        return _result("UNKNOWN", "RULE_CATALOG_DIGEST_MISMATCH")
+    if record["formula_version"] != manifest_pairing["formula_version"]:
+        return _result("UNKNOWN", "FORMULA_VERSION_MISMATCH")
     if expected_repository_commit is None:
         return _result("UNKNOWN", "SOURCE_COMMIT_EXPECTATION_MISSING")
     if record["provenance"]["repository_commit"] != expected_repository_commit:
@@ -231,6 +242,8 @@ def verify_run_record(
             or worker_evidence["run_id"] != record["run_id"]
             or worker_evidence["fixture_manifest_sha256"] != record["fixture_manifest_sha256"]
             or worker_evidence["scenario_manifest_sha256"] != record["scenario_manifest_sha256"]
+            or worker_evidence["rule_catalog_sha256"] != record["rule_catalog_sha256"]
+            or worker_evidence["formula_version"] != record["formula_version"]
             or worker_evidence["model"]["provider_id"] != model["provider_id"]
             or worker_evidence["model"]["model_id"] != model["model_id"]
             or worker_evidence["model"]["configuration_digest"] != model["configuration_digest"]

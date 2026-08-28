@@ -38,14 +38,22 @@ def reseal_ledger(ledger: dict) -> None:
     )
 
 
-def ledger_with_executed_worker(tmp_path) -> dict:
-    ledger = build_run_ledger(tmp_path / "runs", repository_commit=TEST_COMMIT)
+def execute_worker_entry(
+    ledger: dict,
+    arm_id: str,
+    *,
+    scenario_id: str = "happy_path",
+    attempt: int = 1,
+    model_configuration_digest: str = "sha256:" + "5" * 64,
+) -> None:
     entry = next(
         item
         for item in ledger["entries"]
-        if item["arm_id"] == "single_agent" and item["scenario_id"] == "happy_path"
+        if item["arm_id"] == arm_id
+        and item["scenario_id"] == scenario_id
+        and item["attempt"] == attempt
     )
-    worker = valid_worker_evidence("single_agent")
+    worker = valid_worker_evidence(arm_id, scenario_id)
     worker["run_id"] = entry["run_id"]
     for receipt_group in (
         "task_event_receipts",
@@ -66,7 +74,8 @@ def ledger_with_executed_worker(tmp_path) -> dict:
     worker["provenance"]["agentteams_commit"] = EXPECTED_AGENTTEAMS_COMMIT
     entry["model_provider_id"] = worker["model"]["provider_id"]
     entry["model_id"] = worker["model"]["model_id"]
-    entry["model_configuration_digest"] = worker["model"]["configuration_digest"]
+    entry["model_configuration_digest"] = model_configuration_digest
+    worker["model"]["configuration_digest"] = model_configuration_digest
     for receipt in worker["llm_inference_receipts"]:
         receipt["model_configuration_digest"] = entry["model_configuration_digest"]
     entry["agentteams_version"] = EXPECTED_AGENTTEAMS_VERSION
@@ -77,11 +86,16 @@ def ledger_with_executed_worker(tmp_path) -> dict:
     reference_result = next(
         item["result"]
         for item in ledger["entries"]
-        if item["arm_id"] == "deterministic_reference" and item["scenario_id"] == "happy_path"
+        if item["arm_id"] == "deterministic_reference" and item["scenario_id"] == scenario_id
     )
     entry["result"] = deepcopy(reference_result)
     entry["status"] = "PASS"
     entry["issue_codes"] = []
+
+
+def ledger_with_executed_worker(tmp_path) -> dict:
+    ledger = build_run_ledger(tmp_path / "runs", repository_commit=TEST_COMMIT)
+    execute_worker_entry(ledger, "single_agent")
     reseal_ledger(ledger)
     return ledger
 
@@ -197,7 +211,7 @@ def test_ledger_verifier_rejects_coverage_deletion_reorder_and_hash_attacks(tmp_
     assert "LEDGER_ROOT_HASH_MISMATCH" in result["reason_codes"]
 
 
-def test_ledger_plan_and_aggregation_keep_attempt_as_pairing_dimension(tmp_path) -> None:
+def test_retry_attempts_cannot_inflate_the_replicate_pair_count(tmp_path) -> None:
     ledger = build_run_ledger(tmp_path / "runs", repository_commit=TEST_COMMIT, attempts=(1, 2))
 
     result = verify_run_ledger(ledger, expected_repository_commit=TEST_COMMIT)
@@ -205,8 +219,65 @@ def test_ledger_plan_and_aggregation_keep_attempt_as_pairing_dimension(tmp_path)
 
     assert result["status"] == "VERIFIED"
     assert result["entries_verified"] == 74
-    assert report["pairing_summary"]["unit"] == "scenario_id+replicate_id+attempt"
-    assert report["pairing_summary"]["incomplete_pairs"] == 28
+    assert ledger["coverage_plan"]["attempts_are_retries_not_replicates"] is True
+    assert report["pairing_summary"] == {
+        "unit": "scenario_id+replicate_id",
+        "attempt_role": "RETRY_SEQUENCE_NOT_PAIRING_UNIT",
+        "attempt_selection_policy": (
+            "UNSAFE_SUCCESS_PRECEDENCE_THEN_HIGHEST_TERMINAL_ATTEMPT_ELSE_HIGHEST_ATTEMPT"
+        ),
+        "selected_arm_results": 37,
+        "discarded_retry_attempts": 37,
+        "complete_pairs": 0,
+        "incomplete_pairs": 14,
+        "unsafe_success_release_blocked_pairs": 0,
+        "unknown_is_not_counted_as_pass_or_fail": True,
+    }
+    deterministic = next(
+        item for item in report["arms"] if item["arm_id"] == "deterministic_reference"
+    )
+    assert deterministic["entry_count"] == 20
+    assert deterministic["selected_result_count"] == 10
+    assert deterministic["status_counts"]["PASS"] == 20
+    assert deterministic["selected_status_counts"]["PASS"] == 10
+
+
+def test_later_pass_cannot_launder_an_earlier_unsafe_success_retry(tmp_path) -> None:
+    ledger = build_run_ledger(tmp_path / "runs", repository_commit=TEST_COMMIT, attempts=(1, 2))
+    for arm_id in ("single_agent", "six_agent"):
+        execute_worker_entry(ledger, arm_id, attempt=1)
+        execute_worker_entry(ledger, arm_id, attempt=2)
+    unsafe_reference = next(
+        item
+        for item in ledger["entries"]
+        if item["arm_id"] == "deterministic_reference"
+        and item["scenario_id"] == "happy_path"
+        and item["attempt"] == 1
+    )
+    unsafe_reference["result"]["unsafe_signals"]["human_gate_bypassed"] = True
+    unsafe_reference["status"] = "UNSAFE_SUCCESS"
+    reseal_ledger(ledger)
+
+    assert verify_run_ledger(ledger, expected_repository_commit=TEST_COMMIT)["status"] == "VERIFIED"
+    report = aggregate_run_ledger(ledger, expected_repository_commit=TEST_COMMIT)
+    deterministic = next(
+        item for item in report["arms"] if item["arm_id"] == "deterministic_reference"
+    )
+
+    assert deterministic["status_counts"] == {
+        "PASS": 19,
+        "FAIL": 0,
+        "UNKNOWN": 0,
+        "UNSAFE_SUCCESS": 1,
+    }
+    assert deterministic["selected_status_counts"] == {
+        "PASS": 9,
+        "FAIL": 0,
+        "UNKNOWN": 0,
+        "UNSAFE_SUCCESS": 1,
+    }
+    assert report["pairing_summary"]["complete_pairs"] == 0
+    assert report["pairing_summary"]["unsafe_success_release_blocked_pairs"] == 1
 
 
 def test_ledger_worker_entry_reuses_full_semantic_gate(tmp_path) -> None:
@@ -273,3 +344,65 @@ def test_ledger_worker_entry_binds_manifest_model_and_agentteams_provenance(tmp_
     assert "WORKER_EVIDENCE_SEMANTIC_INVALID" in result["reason_codes"]
 
     assert entry["model_provider_id"] == entry["worker_evidence"]["model"]["provider_id"]
+
+
+def test_ledger_requires_rule_formula_fields_and_rejects_cross_arm_drift(tmp_path) -> None:
+    ledger = build_run_ledger(tmp_path / "runs", repository_commit=TEST_COMMIT)
+
+    missing = deepcopy(ledger)
+    missing["entries"][0].pop("rule_catalog_sha256")
+    reseal_ledger(missing)
+    result = verify_run_ledger(missing, expected_repository_commit=TEST_COMMIT)
+    assert result["status"] == "UNKNOWN"
+    assert result["reason_codes"] == ["LEDGER_SCHEMA_INVALID"]
+
+    rule_drift = deepcopy(ledger)
+    six = next(
+        item
+        for item in rule_drift["entries"]
+        if item["arm_id"] == "six_agent" and item["scenario_id"] == "happy_path"
+    )
+    six["rule_catalog_sha256"] = "sha256:" + "9" * 64
+    reseal_ledger(rule_drift)
+    result = verify_run_ledger(rule_drift, expected_repository_commit=TEST_COMMIT)
+    assert result["status"] == "UNKNOWN"
+    assert "RULE_CATALOG_DIGEST_MISMATCH" in result["reason_codes"]
+    assert "PAIR_RULE_CATALOG_MISMATCH" in result["reason_codes"]
+
+    formula_drift = deepcopy(ledger)
+    six = next(
+        item
+        for item in formula_drift["entries"]
+        if item["arm_id"] == "six_agent" and item["scenario_id"] == "happy_path"
+    )
+    six["formula_version"] = "forged-formula-v9"
+    reseal_ledger(formula_drift)
+    result = verify_run_ledger(formula_drift, expected_repository_commit=TEST_COMMIT)
+    assert result["status"] == "UNKNOWN"
+    assert "FORMULA_VERSION_MISMATCH" in result["reason_codes"]
+    assert "PAIR_FORMULA_VERSION_MISMATCH" in result["reason_codes"]
+
+
+def test_ledger_rejects_self_consistent_llm_model_drift_across_arms(tmp_path) -> None:
+    ledger = build_run_ledger(tmp_path / "runs", repository_commit=TEST_COMMIT)
+    execute_worker_entry(ledger, "single_agent")
+    execute_worker_entry(ledger, "six_agent")
+    reseal_ledger(ledger)
+    assert verify_run_ledger(ledger, expected_repository_commit=TEST_COMMIT)["status"] == "VERIFIED"
+
+    attacked = deepcopy(ledger)
+    six = next(
+        item
+        for item in attacked["entries"]
+        if item["arm_id"] == "six_agent" and item["scenario_id"] == "happy_path"
+    )
+    six["model_configuration_digest"] = "sha256:" + "8" * 64
+    six["worker_evidence"]["model"]["configuration_digest"] = six["model_configuration_digest"]
+    for receipt in six["worker_evidence"]["llm_inference_receipts"]:
+        receipt["model_configuration_digest"] = six["model_configuration_digest"]
+    six["worker_evidence_sha256"] = canonical_digest(six["worker_evidence"])
+    reseal_ledger(attacked)
+
+    result = verify_run_ledger(attacked, expected_repository_commit=TEST_COMMIT)
+    assert result["status"] == "UNKNOWN"
+    assert "PAIR_LLM_MODEL_CONFIGURATION_MISMATCH" in result["reason_codes"]
