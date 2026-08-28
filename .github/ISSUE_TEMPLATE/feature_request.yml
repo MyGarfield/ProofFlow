@@ -1,0 +1,42 @@
+name: Feature request
+description: Propose a focused capability that strengthens proof governance.
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: Do not include secrets, personal information, real cases, customer material, workstation paths, or exploit details. Use private vulnerability reporting for security-sensitive content.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Describe the high-risk action or verifier gap, not only a preferred implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: proof_value
+    attributes:
+      label: Proof-governance value
+      description: Explain how this improves authorization, approval, receipts, provenance, replay safety, or outcome closure.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Verifiable acceptance criteria
+      description: Include negative tests, evidence source, and UNKNOWN/fail-closed behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives and strongest objection
+    validations:
+      required: true
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Data safety
+      options:
+        - label: I removed secrets, personal information, real cases, customer material, workstation paths, and exploit details.
+          required: true

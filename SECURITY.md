@@ -9,11 +9,31 @@ Only the latest `main` and the most recent tagged alpha release, when one exists
 
 ## Reporting
 
-Use GitHub's private vulnerability reporting/security advisory feature for the repository when available. Do
-not open a public issue containing an exploit, secret, personal information, customer material or a real case.
+GitHub private vulnerability reporting is enabled. Submit a confidential report through
+[New repository security advisory](https://github.com/MyGarfield/ProofFlow/security/advisories/new).
+Do not open a public issue containing an exploit, secret, personal information, customer material or a real
+case. If GitHub reports that the private form is unavailable, do not publish the details; open a content-free
+`Security channel unavailable` issue asking the maintainer to restore the private channel.
 
 Include the affected Git SHA, environment, minimal synthetic reproduction, expected/actual control, and whether
 any external side effect occurred. Never attach production credentials or restricted data.
+
+The maintainer targets an initial acknowledgement within 5 business days and a status update within 10
+business days. These are alpha-project response targets, not an SLA. Please allow coordinated remediation
+before public disclosure. Reports that involve active credential exposure, cross-tenant access, approval
+bypass or an unexpected external side effect should be marked urgent.
+
+## In scope
+
+- authorization, tenant or approval bypass;
+- unsafe success, replay or duplicate external-effect behavior;
+- certificate, receipt, provenance or evidence-verifier forgery;
+- secret, personal-data or cross-tenant disclosure;
+- build, release, dependency or artifact-integrity compromise;
+- denial of service that defeats a documented resource bound.
+
+General feature requests, unsupported production deployments and legal/domain correctness questions belong
+in public issues without sensitive material.
 
 ## Secrets and data
 
