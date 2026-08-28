@@ -106,7 +106,7 @@ MCP、Worker/LLM 与端到端任务层，并记录成本和故障分布。
 `subject.image_id`、MCP 快照根级 `tool_service_image_id` 与运行观察
 `tool_service_runtime.image_id` 三方相等。摘要、交叉绑定和点时零 finding 都不是签名、build
 attestation、构建关系证明、clean 结论、持续运行证明或生产安全认证。当前稳定全仓测试为
-`651 passed`。性能方法
+`650 passed + 1 skipped = 651 collected`。性能方法
 与边界见
 [`08_PERFORMANCE_BENCHMARK.md`](08_PERFORMANCE_BENCHMARK.md)；机器可读扫描证据见
 [`supply-chain-evidence.json`](../deploy/tool-service/evidence/supply-chain-evidence.json)。
