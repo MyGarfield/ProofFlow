@@ -1,0 +1,212 @@
+{
+  "$defs": {
+    "VerificationReason": {
+      "enum": [
+        "ACCEPTED",
+        "ENVELOPE_INVALID",
+        "ENVELOPE_TOO_LARGE",
+        "PAYLOAD_INVALID",
+        "PAYLOAD_TOO_LARGE",
+        "SIGNATURE_INVALID",
+        "ACTION_ISSUER_THRESHOLD_NOT_MET",
+        "HUMAN_APPROVAL_THRESHOLD_NOT_MET",
+        "TRUST_POLICY_MISMATCH",
+        "EXPECTED_BINDING_MISMATCH",
+        "CERTIFICATE_TIME_INVALID",
+        "ROOT_TIME_OR_REVOCATION_INVALID",
+        "APPROVAL_SCOPE_MISMATCH",
+        "APPROVAL_EXPIRED",
+        "APPROVAL_REVOKED",
+        "APPROVAL_REVOCATION_UNKNOWN",
+        "APPROVAL_REVOCATION_UNAVAILABLE",
+        "SELF_APPROVAL",
+        "REPLAY_DETECTED",
+        "IDEMPOTENCY_CONFLICT",
+        "REPLAY_LEDGER_UNAVAILABLE"
+      ],
+      "title": "VerificationReason",
+      "type": "string"
+    },
+    "VerificationStatus": {
+      "enum": [
+        "ACCEPT",
+        "REJECT",
+        "UNKNOWN"
+      ],
+      "title": "VerificationStatus",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "ACCEPT"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "reason_codes": {
+            "const": [
+              "ACCEPTED"
+            ]
+          },
+          "reserved": {
+            "const": true
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "REJECT"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "reason_codes": {
+            "items": {
+              "enum": [
+                "ACTION_ISSUER_THRESHOLD_NOT_MET",
+                "APPROVAL_EXPIRED",
+                "APPROVAL_REVOKED",
+                "APPROVAL_SCOPE_MISMATCH",
+                "CERTIFICATE_TIME_INVALID",
+                "ENVELOPE_INVALID",
+                "ENVELOPE_TOO_LARGE",
+                "EXPECTED_BINDING_MISMATCH",
+                "HUMAN_APPROVAL_THRESHOLD_NOT_MET",
+                "IDEMPOTENCY_CONFLICT",
+                "PAYLOAD_INVALID",
+                "PAYLOAD_TOO_LARGE",
+                "REPLAY_DETECTED",
+                "ROOT_TIME_OR_REVOCATION_INVALID",
+                "SELF_APPROVAL",
+                "SIGNATURE_INVALID",
+                "TRUST_POLICY_MISMATCH"
+              ]
+            }
+          },
+          "reserved": {
+            "const": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "UNKNOWN"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "reason_codes": {
+            "items": {
+              "enum": [
+                "APPROVAL_REVOCATION_UNAVAILABLE",
+                "APPROVAL_REVOCATION_UNKNOWN",
+                "REPLAY_LEDGER_UNAVAILABLE"
+              ]
+            }
+          },
+          "reserved": {
+            "const": false
+          }
+        }
+      }
+    }
+  ],
+  "properties": {
+    "certificate_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Certificate Id"
+    },
+    "payload_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Payload Sha256"
+    },
+    "reason_codes": {
+      "items": {
+        "$ref": "#/$defs/VerificationReason"
+      },
+      "maxItems": 16,
+      "minItems": 1,
+      "title": "Reason Codes",
+      "type": "array",
+      "uniqueItems": true
+    },
+    "reserved": {
+      "title": "Reserved",
+      "type": "boolean"
+    },
+    "status": {
+      "$ref": "#/$defs/VerificationStatus"
+    },
+    "verification_version": {
+      "const": "proofflow.action-certificate-verification/v0.1",
+      "title": "Verification Version",
+      "type": "string"
+    },
+    "verified_action_issuer_roots": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 16,
+      "title": "Verified Action Issuer Roots",
+      "type": "array"
+    },
+    "verified_human_approval_roots": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 16,
+      "title": "Verified Human Approval Roots",
+      "type": "array"
+    }
+  },
+  "required": [
+    "verification_version",
+    "status",
+    "reason_codes",
+    "reserved"
+  ],
+  "title": "ActionCertificateVerificationResult",
+  "type": "object"
+}

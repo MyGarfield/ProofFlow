@@ -1,0 +1,95 @@
+{
+  "$defs": {
+    "DsseSignature": {
+      "additionalProperties": false,
+      "properties": {
+        "keyid": {
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "pattern": "://"
+                  },
+                  {
+                    "pattern": "^[Ff][Ii][Ll][Ee]:"
+                  },
+                  {
+                    "pattern": "^[Dd][Aa][Tt][Aa]:"
+                  },
+                  {
+                    "pattern": "^[Uu][Rr][Nn]:"
+                  }
+                ]
+              }
+            }
+          ],
+          "default": "",
+          "maxLength": 128,
+          "title": "Keyid",
+          "type": "string"
+        },
+        "sig": {
+          "maxLength": 88,
+          "minLength": 88,
+          "pattern": "^[A-Za-z0-9+/_-]{85}[AQgw]==$",
+          "title": "Sig",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sig"
+      ],
+      "title": "DsseSignature",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "payload": {
+      "allOf": [
+        {
+          "anyOf": [
+            {
+              "maxLength": 174760
+            },
+            {
+              "maxLength": 174764,
+              "minLength": 174764,
+              "pattern": "=$"
+            }
+          ]
+        }
+      ],
+      "maxLength": 174764,
+      "minLength": 1,
+      "pattern": "^(?:[A-Za-z0-9+/_-]{4})*(?:[A-Za-z0-9+/_-][AQgw]==|[A-Za-z0-9+/_-]{2}[AEIMQUYcgkosw048]=)?$",
+      "title": "Payload",
+      "type": "string"
+    },
+    "payloadType": {
+      "const": "application/vnd.in-toto+json",
+      "title": "Payloadtype",
+      "type": "string"
+    },
+    "signatures": {
+      "items": {
+        "$ref": "#/$defs/DsseSignature"
+      },
+      "maxItems": 16,
+      "minItems": 1,
+      "title": "Signatures",
+      "type": "array"
+    }
+  },
+  "required": [
+    "payloadType",
+    "payload",
+    "signatures"
+  ],
+  "title": "DsseEnvelope",
+  "type": "object",
+  "x-proofflow-runtime-invariants": [
+    "the raw UTF-8 JSON envelope is at most 262144 bytes"
+  ]
+}

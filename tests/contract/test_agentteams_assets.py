@@ -447,31 +447,43 @@ def test_tool_service_image_excludes_secrets_and_carries_license_notices() -> No
     assert "data" not in dockerignore and "data/" not in dockerignore
 
     expected_distributions = {
-        "annotated-types": ("0.8.0", "MIT"),
-        "pydantic": ("2.13.4", "MIT"),
-        "pydantic-core": ("2.46.4", "MIT"),
-        "typing-extensions": ("4.16.0", "PSF-2.0"),
-        "typing-inspection": ("0.4.4", "MIT"),
+        "annotated-types": ("0.8.0", "MIT", ("LICENSE",)),
+        "cffi": ("2.1.1", "MIT-0", ("LICENSE",)),
+        "cryptography": (
+            "46.0.7",
+            "Apache-2.0 OR BSD-3-Clause",
+            ("LICENSE", "LICENSE.APACHE", "LICENSE.BSD"),
+        ),
+        "pycparser": ("3.0", "BSD-3-Clause", ("LICENSE",)),
+        "pydantic": ("2.13.4", "MIT", ("LICENSE",)),
+        "pydantic-core": ("2.46.4", "MIT", ("LICENSE",)),
+        "typing-extensions": ("4.16.0", "PSF-2.0", ("LICENSE",)),
+        "typing-inspection": ("0.4.4", "MIT", ("LICENSE",)),
     }
     locked_distributions = dict(
         re.findall(r"^([a-z0-9-]+)==([^ \\\n]+)", requirements, flags=re.MULTILINE)
     )
     assert locked_distributions == {
-        name: version for name, (version, _license) in expected_distributions.items()
+        name: version for name, (version, _license, _files) in expected_distributions.items()
     }
 
-    for name, (version, license_expression) in expected_distributions.items():
+    for name, (version, license_expression, license_files) in expected_distributions.items():
         distribution = metadata.distribution(name)
         assert distribution.version == version
         assert distribution.metadata["License-Expression"] == license_expression
-        assert distribution.metadata.get_all("License-File") == ["LICENSE"]
-        assert f"| `{name}` | `{version}` | `{license_expression}` | `LICENSE` |" in (
-            third_party_notices
+        assert distribution.metadata.get_all("License-File") == list(license_files)
+        notice_prefix = f"| `{name}` | `{version}` | `{license_expression}` |"
+        notice_line = next(
+            line for line in third_party_notices.splitlines() if line.startswith(notice_prefix)
         )
+        assert all(f"`{license_file}`" in notice_line for license_file in license_files)
         license_paths = [
             path
             for path in distribution.files or ()
-            if str(path).endswith(".dist-info/licenses/LICENSE")
+            if any(
+                str(path).endswith(f".dist-info/licenses/{license_file}")
+                for license_file in license_files
+            )
         ]
-        assert len(license_paths) == 1
+        assert len(license_paths) == len(license_files)
         assert distribution.locate_file(license_paths[0]).read_text().strip()

@@ -1,0 +1,298 @@
+{
+  "$defs": {
+    "TrustPurpose": {
+      "enum": [
+        "ACTION_ISSUER",
+        "HUMAN_APPROVAL"
+      ],
+      "title": "TrustPurpose",
+      "type": "string"
+    },
+    "TrustRoot": {
+      "additionalProperties": false,
+      "properties": {
+        "algorithm": {
+          "const": "Ed25519",
+          "title": "Algorithm",
+          "type": "string"
+        },
+        "audiences": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Audiences",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "keyid_hints": {
+          "default": [],
+          "items": {
+            "allOf": [
+              {
+                "not": {
+                  "anyOf": [
+                    {
+                      "pattern": "://"
+                    },
+                    {
+                      "pattern": "^[Ff][Ii][Ll][Ee]:"
+                    },
+                    {
+                      "pattern": "^[Dd][Aa][Tt][Aa]:"
+                    },
+                    {
+                      "pattern": "^[Uu][Rr][Nn]:"
+                    }
+                  ]
+                }
+              }
+            ],
+            "maxLength": 128,
+            "type": "string"
+          },
+          "maxItems": 8,
+          "title": "Keyid Hints",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "not_after": {
+          "format": "date-time",
+          "title": "Not After",
+          "type": "string"
+        },
+        "not_before": {
+          "format": "date-time",
+          "title": "Not Before",
+          "type": "string"
+        },
+        "predicate_types": {
+          "items": {
+            "const": "https://proofflow.dev/attestations/action-certificate/v0.1",
+            "type": "string"
+          },
+          "maxItems": 4,
+          "minItems": 1,
+          "title": "Predicate Types",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "principal_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Principal Id",
+          "type": "string"
+        },
+        "public_key_b64": {
+          "maxLength": 44,
+          "minLength": 44,
+          "pattern": "^[A-Za-z0-9+/]{42}[AEIMQUYcgkosw048]=$",
+          "title": "Public Key B64",
+          "type": "string"
+        },
+        "purpose": {
+          "$ref": "#/$defs/TrustPurpose"
+        },
+        "revoked_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Revoked At"
+        },
+        "root_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Root Id",
+          "type": "string"
+        },
+        "tenant_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Tenant Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "root_id",
+        "algorithm",
+        "purpose",
+        "public_key_b64",
+        "tenant_id",
+        "principal_id",
+        "audiences",
+        "predicate_types",
+        "not_before",
+        "not_after"
+      ],
+      "title": "TrustRoot",
+      "type": "object",
+      "x-proofflow-runtime-invariants": [
+        "not_after is later than not_before",
+        "revoked_at, when present, is evaluated against the operator verification time"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "approval_required": {
+            "const": true
+          }
+        },
+        "required": [
+          "approval_required"
+        ]
+      },
+      "then": {
+        "properties": {
+          "allowed_approval_principals": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ],
+  "properties": {
+    "action_issuer_threshold": {
+      "maximum": 16,
+      "minimum": 1,
+      "title": "Action Issuer Threshold",
+      "type": "integer"
+    },
+    "allowed_action_issuer_principals": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 64,
+      "minItems": 1,
+      "title": "Allowed Action Issuer Principals",
+      "type": "array",
+      "uniqueItems": true
+    },
+    "allowed_approval_principals": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 64,
+      "title": "Allowed Approval Principals",
+      "type": "array",
+      "uniqueItems": true
+    },
+    "allowed_audiences": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 32,
+      "minItems": 1,
+      "title": "Allowed Audiences",
+      "type": "array",
+      "uniqueItems": true
+    },
+    "allowed_human_principals": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 128,
+      "minItems": 1,
+      "title": "Allowed Human Principals",
+      "type": "array",
+      "uniqueItems": true
+    },
+    "allowed_predicate_types": {
+      "items": {
+        "const": "https://proofflow.dev/attestations/action-certificate/v0.1",
+        "type": "string"
+      },
+      "maxItems": 4,
+      "minItems": 1,
+      "title": "Allowed Predicate Types",
+      "type": "array",
+      "uniqueItems": true
+    },
+    "allowed_tenants": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 64,
+      "minItems": 1,
+      "title": "Allowed Tenants",
+      "type": "array",
+      "uniqueItems": true
+    },
+    "allowed_workload_principals": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 128,
+      "minItems": 1,
+      "title": "Allowed Workload Principals",
+      "type": "array",
+      "uniqueItems": true
+    },
+    "approval_required": {
+      "title": "Approval Required",
+      "type": "boolean"
+    },
+    "human_approval_threshold": {
+      "maximum": 16,
+      "minimum": 1,
+      "title": "Human Approval Threshold",
+      "type": "integer"
+    },
+    "max_certificate_lifetime_seconds": {
+      "maximum": 86400,
+      "minimum": 1,
+      "title": "Max Certificate Lifetime Seconds",
+      "type": "integer"
+    },
+    "max_clock_skew_seconds": {
+      "default": 0,
+      "maximum": 300,
+      "minimum": 0,
+      "title": "Max Clock Skew Seconds",
+      "type": "integer"
+    },
+    "policy_version": {
+      "const": "proofflow.action-certificate-trust/v0.1",
+      "title": "Policy Version",
+      "type": "string"
+    },
+    "roots": {
+      "items": {
+        "$ref": "#/$defs/TrustRoot"
+      },
+      "maxItems": 64,
+      "minItems": 1,
+      "title": "Roots",
+      "type": "array",
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "policy_version",
+    "allowed_tenants",
+    "allowed_human_principals",
+    "allowed_workload_principals",
+    "allowed_action_issuer_principals",
+    "allowed_audiences",
+    "allowed_predicate_types",
+    "approval_required",
+    "action_issuer_threshold",
+    "human_approval_threshold",
+    "max_certificate_lifetime_seconds",
+    "roots"
+  ],
+  "title": "TrustPolicy",
+  "type": "object",
+  "x-proofflow-runtime-invariants": [
+    "roots[].root_id values are unique even when the remaining root fields differ"
+  ]
+}

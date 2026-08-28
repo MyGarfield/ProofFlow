@@ -13,6 +13,7 @@ authors = [
   { name = "VeriAgent" },
 ]
 dependencies = [
+  "cryptography>=46,<47",
   "pydantic>=2.11,<3",
 ]
 
