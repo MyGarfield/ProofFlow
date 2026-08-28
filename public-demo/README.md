@@ -1,109 +1,62 @@
-# ProofFlow 静态公开证据页 Runbook
+# ProofFlow 当前 Core alpha 静态公开页
 
-## 结论与边界
+## 结论与信任边界
 
-`public-demo/` 是一个匿名、只读、零构建依赖的历史证据外层。它固定到
-`main@b63eeb60d1072c73d2d0d1d6061b3c8f800487a4` 的 2026-08-22 点时材料，不代表当前
-Core alpha，也不再作为 GOAI 复赛 Demo URL。它不连接、不反向代理也不复制
-`demo/server.py` 的 loopback runtime。
+`public-demo/` 是只读静态页面，绑定产品源提交
+`68911dbb2858be3b217b0b80c62eea9df57ed595` 及其 tree
+`be7d5d59ddbdb25bd9ab0d2480e833da829de03f`。页面代码晚于该产品提交，因此机器快照明确记录：
 
-页面固定披露：
+- `included_in_source_commit=false`；
+- `self_authenticating=false`；
+- `commit_signature_verified_by_generator=false`；
+- 产品资产和 fixture 的 SHA-256 都是 unsigned Git blob 内容摘要。
 
-- `PUBLIC_SYNTHETIC`；
-- `Workers Stopped`、`readyWorkers=0`、Worker 容器为 0；
-- `LLM OFF`、无外部副作用；
-- 不处理真实案件，不构成法律意见；
-- 评测协议未执行，官方分数为 `UNKNOWN / null`；
-- `11/11` 只指固定闭集结构合同，不是法律准确率或生产安全结论。
+生成器从固定 Git object 读取 19 个产品资产和 4 个 `PUBLIC_SYNTHETIC` fixture，不读取当前工作树来
+替代它们。validator 从独立的 expected source 常量重新生成预期对象，并要求 JSON closed shape、确定性
+序列化和精确 hash。这个结构可发现漂移，但不能让 landing 自己成为来源真实性、测试执行或产品语义的
+信任根。
 
-本目录不包含账号、部署 workflow、遥测、远程字体、CDN、外部脚本或视频文件。当前媒体状态为
-`NOT_PUBLISHED`，页面提供可拖动的 90 秒字幕故事板 fallback，绝不把它称作视频播放或 live runtime。
+## 页面披露的当前状态
 
-## 本地静态预览
+- ActionCertificate v0.1 已进入固定源提交，范围是预执行授权验证切片，不是生产发布门；
+- ActionCertificate 的 `53 passed` 是固定源 README 声明；固定 main CI 记录
+  `610 collected / 609 passed + 1 skipped`，而源 README 仍保留较早的 `569 passed`；生成器本身没有执行测试；
+- `Workers Stopped`、`readyWorkers=0`、Worker 容器为 0、`LLM OFF`；
+- 评测为 `PROTOCOL_VALIDATED_NOT_EXECUTED`，各臂与官方分值保持 `UNKNOWN / null`；
+- 供应链证据为 `STALE`，当前不可用于 release eligibility；
+- ExecutionReceipt 与 OutcomeClosure 是路线图目标，当前尚未实现；
+- 不连接本地 runtime、不代理服务、不使用真实案件、不产生外部副作用、不构成法律意见。
 
-从仓库根目录运行：
+GOAI 初赛作品有效，但项目未晋级复赛。竞赛候选 PPT/PDF 仅在 History 区域链接到固定提交的披露页，
+不再作为当前产品的主材料。
 
-```bash
-python3 -m http.server 4173 --bind 127.0.0.1 --directory public-demo
-```
+## 确定性生成与验证
 
-只打开：
-
-```text
-http://127.0.0.1:4173/
-```
-
-该服务器只用于查看静态文件；不要把它作为生产服务器或公网代理。
-
-## `/ProofFlow/` 项目路径合同
-
-所有加载型资源都使用 `./` 相对 URL；没有站点根路径 `/styles.css` 之类的假设。因此，把
-`public-demo/` 的内容作为项目站点 artifact 根目录发布时，页面兼容：
-
-```text
-https://<account>.github.io/ProofFlow/
-```
-
-如需在本地精确模拟该前缀，可把目录内容复制到一个临时 staging 目录的 `ProofFlow/` 子目录，再从
-staging 根目录启动标准库 HTTP server。不要修改页面 URL 来适配本机绝对路径。
-
-本分支刻意不包含 GitHub Pages workflow、Pages 设置或任何部署动作。只有重新生成并绑定当前
-产品 commit、独立部署审查和准确公网 URL 验收后，新的产品 Demo 才可发布。
-
-## 自动化合同
-
-从仓库根目录运行：
+先安装 `uv`，并从仓库根目录运行。`--frozen` 强制使用已提交的 `uv.lock`，不得在验证时改写锁文件：
 
 ```bash
-uv run python scripts/validate_public_demo_landing.py
+uv run --frozen python scripts/generate_public_demo_snapshot.py --check \
+  --source-commit 68911dbb2858be3b217b0b80c62eea9df57ed595
+uv run --frozen python scripts/validate_public_demo_landing.py \
+  --expected-source-commit 68911dbb2858be3b217b0b80c62eea9df57ed595
 node --check public-demo/app.js
 node --check scripts/qa_public_demo_browser.mjs
 node --test tests/js/test_public_demo_storyboard.cjs
 uv run pytest -q tests/contract/test_public_demo_landing.py
 ```
 
-validator 会检查：
+需要更新源提交时，必须代码评审 generator、validator、页面可见边界、固定链接与攻击测试；不得只编辑
+`evidence-snapshot.json`。
 
-- 必需 DOM、标题层级、6 步流程顺序和 6 段字幕；
-- 本地加载资源与相对链接存在，且没有远程字体、图片、媒体、CSS 或脚本请求；
-- CSP 禁止网络连接、外部对象、frame 和表单提交；
-- PUBLIC_SYNTHETIC、Stopped/0/LLM OFF/无副作用/非法律意见等 claim 边界；
-- 固定 commit、tree、输入 pin、11/11 点时报告 digest、PPTX/PDF/manifest 内容 digest；
-- 媒体合同保持 `NOT_PUBLISHED`，且不存在未绑定哈希的 MP4；
-- Swiss Style 字面令牌、方角、非对称网格、44px target 与 reduced-motion 合同。
+## 本地静态预览与三视口 QA
 
-测试还用故障注入确认 validator 会拒绝远程脚本、伪造运行态 claim、断裂相对链接和没有文件/
-哈希却声称视频已发布的状态；README、证据 JSON、媒体合同和字幕也接受相同的 claim、隐私、密钥与
-本机路径扫描。
+```bash
+python3 -m http.server 4173 --bind 127.0.0.1 --directory public-demo
+```
 
-## 视频上线门
+浏览器仅打开 `http://127.0.0.1:4173/`。该命令只用于本地查看静态文件，不是生产服务器或公网代理。
 
-机器可读门禁见 [`media/video-contract.json`](media/video-contract.json)，字幕见
-[`media/proofflow-reference-demo.zh-CN.vtt`](media/proofflow-reference-demo.zh-CN.vtt)。只有同时满足
-以下条件，才可用真实 `<video>` 替换故事板：
-
-1. MP4 位于合同声明的相对路径并记录精确 SHA-256；
-2. 用可信、固定的 `ffprobe` 记录时长、尺寸、codec 与音轨；
-3. 从最终 MP4 抽帧并与批准快照做内容关联；
-4. 对 MP4、字幕、脚本、快照和 manifest 重新执行隐私/密钥扫描；
-5. 可见文本通过禁止 claim 扫描；
-6. 字幕默认可用，且每个场景保留公开合成与非 live 边界。
-
-任何一项缺失，都必须继续显示 `STORYBOARD_FALLBACK / NOT_PUBLISHED`。
-
-## 人工视口验收
-
-最终发布候选至少检查：
-
-| 视口 | 必检项 |
-|---|---|
-| 375×812 | `scrollWidth === clientWidth`；导航、拖动条和链接 target 不小于 44px |
-| 1280×720 | hero、运行边界与首个流程信息可读；无横向滚动 |
-| 1440×900 | 12 栏网格、非对称留白和材料卡片对齐；无横向滚动 |
-| Reduced motion | 页面没有依赖动态效果才能读取的内容 |
-
-安装有 Chrome/Chromium 时，可在静态服务器运行期间执行真实浏览器门禁（输出目录必须位于临时或
-忽略目录）：
+Chrome QA 检查 375×812、1280×720、1440×900：
 
 ```bash
 PROOFFLOW_QA_OUTPUT="$(mktemp -d)"
@@ -113,9 +66,18 @@ PROOFFLOW_CHROME_BIN="<chrome-executable>" \
   --output-dir "${PROOFFLOW_QA_OUTPUT}"
 ```
 
-脚本通过 Chrome DevTools Protocol 精确模拟 375×812、1280×720、1440×900，逐一检查
-`scrollWidth === clientWidth`、所有可见交互 target 至少 44×44px、0 个跨源加载资源、fragment
-链接、reduced-motion 与 75 秒字幕拖动结果，并为每个视口保存 hero、proof、media 三张截图供目视 QA。
+门禁要求 `scrollWidth === clientWidth`、至少 17 个可见交互目标、所有目标至少 44×44px、没有布局碰撞、
+没有跨源加载、页内锚点完整、固定源提交可见且 reduced-motion 生效。脚本为每个视口保存 top、core、
+evidence 三张截图，仍需人工目视。
 
-浅色模式是本版本的明确视觉范围；页面通过黑白高对比和小面积功能性红/黄/蓝表达状态，不宣称支持
-暗色主题。
+## GitHub Pages 工作流边界
+
+`.github/workflows/pages.yml` 仅接受 `main` push 或人工触发，并且 job 只在 `main` ref 上运行。所有
+GitHub Actions 均固定到完整 commit SHA；构建只验证快照与页面，然后上传 `public-demo/` 静态 artifact。
+它不启动 Python runtime、不代理 `demo/server.py`、不读取应用凭据，也不修改 Pages 设置。
+
+本分支不会 push、部署或修改仓库 Pages 配置。只有合并、独立审查及匿名 HTTPS 200 探测通过后，才可
+设置仓库主页 URL。
+
+浅色模式是本页的明确视觉范围。页面使用 Swiss International Style：严格非对称 12 栏、字面黑白与
+功能性红黄蓝、方角、系统字体、无远程字体或 CDN，并为 reduced-motion 提供全局关闭规则。
