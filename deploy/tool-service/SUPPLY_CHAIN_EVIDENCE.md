@@ -1,5 +1,12 @@
 # Tool-service supply-chain evidence
 
+> **Current status: historical snapshot, stale for this branch.** ActionCertificate v0.1 adds
+> `cryptography`, `cffi`, and `pycparser` and changes the copied `src/` tree. The published image,
+> SBOMs, Trivy report, image digest, and build-input hashes predate those changes. They remain a
+> pinned historical record and are not evidence for the current build, a current release image,
+> or release safety. This branch intentionally does not rebuild the image or rewrite those
+> artifacts. A later release must rebuild, rescan, and independently bind fresh evidence.
+
 Document status: `HISTORICAL_POINT_IN_TIME_PACKAGE_SCAN / UNSIGNED_INPUT_HASHES`
 
 ## Point-in-time result
@@ -91,9 +98,14 @@ temporary Docker volume is removed after collection.
 
 ```bash
 uv run python deploy/tool-service/scripts/collect_supply_chain_evidence.py
-uv run python deploy/tool-service/scripts/validate_supply_chain_evidence.py
+uv run python deploy/tool-service/scripts/validate_supply_chain_evidence.py --expect-stale-build-inputs
 uv run pytest tests/contract/test_tool_service_supply_chain.py -q
 ```
+
+The ordinary validator mode and `--release-gate` intentionally fail while the recorded build
+inputs differ from repository bytes. `--expect-stale-build-inputs` pins and validates the exact
+historical provenance snapshot, requires that it be stale, and cannot be combined with the release
+gate.
 
 The optional `--release-gate` rejects any recomputed HIGH or CRITICAL record, but still does not
 check snapshot age. A real release must rebuild the exact image, refresh the database and evidence,

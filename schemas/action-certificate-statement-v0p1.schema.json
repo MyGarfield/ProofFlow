@@ -1,0 +1,590 @@
+{
+  "$defs": {
+    "ActionBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "action_name": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Action Name",
+          "type": "string"
+        },
+        "parameters_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Parameters Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action_name",
+        "parameters_sha256"
+      ],
+      "title": "ActionBinding",
+      "type": "object"
+    },
+    "ActionCertificatePredicate": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "$ref": "#/$defs/ActionBinding"
+        },
+        "approval": {
+          "$ref": "#/$defs/ApprovalBinding"
+        },
+        "audience": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Audience",
+          "type": "string"
+        },
+        "certificate_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Certificate Id",
+          "type": "string"
+        },
+        "context": {
+          "$ref": "#/$defs/ContextBinding"
+        },
+        "data_classification": {
+          "enum": [
+            "PUBLIC_SYNTHETIC",
+            "INTERNAL",
+            "RESTRICTED"
+          ],
+          "title": "Data Classification",
+          "type": "string"
+        },
+        "delegation_chain": {
+          "items": {
+            "$ref": "#/$defs/DelegationHop"
+          },
+          "maxItems": 16,
+          "title": "Delegation Chain",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "effect": {
+          "$ref": "#/$defs/EffectBinding"
+        },
+        "expires_at": {
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
+        },
+        "human_principal": {
+          "$ref": "#/$defs/PrincipalBinding"
+        },
+        "issued_at": {
+          "format": "date-time",
+          "title": "Issued At",
+          "type": "string"
+        },
+        "nonce": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Nonce",
+          "type": "string"
+        },
+        "not_before": {
+          "format": "date-time",
+          "title": "Not Before",
+          "type": "string"
+        },
+        "policy": {
+          "$ref": "#/$defs/PolicyBinding"
+        },
+        "resource": {
+          "$ref": "#/$defs/ResourceBinding"
+        },
+        "subject": {
+          "$ref": "#/$defs/SubjectBinding"
+        },
+        "tenant_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Tenant Id",
+          "type": "string"
+        },
+        "version": {
+          "const": "0.1",
+          "title": "Version",
+          "type": "string"
+        },
+        "workload_principal": {
+          "$ref": "#/$defs/PrincipalBinding"
+        }
+      },
+      "required": [
+        "version",
+        "certificate_id",
+        "tenant_id",
+        "human_principal",
+        "workload_principal",
+        "audience",
+        "delegation_chain",
+        "subject",
+        "action",
+        "resource",
+        "context",
+        "data_classification",
+        "policy",
+        "approval",
+        "effect",
+        "nonce",
+        "issued_at",
+        "not_before",
+        "expires_at"
+      ],
+      "title": "ActionCertificatePredicate",
+      "type": "object",
+      "x-proofflow-runtime-invariants": [
+        "issued_at <= not_before < expires_at",
+        "policy.evaluated_at <= issued_at and policy.expires_at >= expires_at",
+        "approval.expires_at, when present, is >= expires_at",
+        "delegation_chain begins at human_principal, is contiguous, and ends at workload_principal",
+        "distinct human/workload principals require a non-empty delegation_chain"
+      ]
+    },
+    "ApprovalBinding": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "else": {
+            "properties": {
+              "approval_id": {
+                "type": "null"
+              },
+              "approver_principals": {
+                "maxItems": 0
+              },
+              "expires_at": {
+                "type": "null"
+              },
+              "scope_sha256": {
+                "type": "null"
+              }
+            }
+          },
+          "if": {
+            "properties": {
+              "required": {
+                "const": true
+              }
+            },
+            "required": [
+              "required"
+            ]
+          },
+          "then": {
+            "properties": {
+              "approval_id": {
+                "not": {
+                  "type": "null"
+                }
+              },
+              "approver_principals": {
+                "minItems": 1
+              },
+              "expires_at": {
+                "not": {
+                  "type": "null"
+                }
+              },
+              "scope_sha256": {
+                "not": {
+                  "type": "null"
+                }
+              }
+            },
+            "required": [
+              "approval_id",
+              "scope_sha256",
+              "approver_principals",
+              "expires_at"
+            ]
+          }
+        }
+      ],
+      "properties": {
+        "approval_id": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approval Id"
+        },
+        "approver_principals": {
+          "default": [],
+          "items": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 16,
+          "title": "Approver Principals",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "expires_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expires At"
+        },
+        "required": {
+          "title": "Required",
+          "type": "boolean"
+        },
+        "scope_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scope Sha256"
+        }
+      },
+      "required": [
+        "required"
+      ],
+      "title": "ApprovalBinding",
+      "type": "object"
+    },
+    "ContextBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "attributes_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Attributes Sha256",
+          "type": "string"
+        },
+        "environment": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Environment",
+          "type": "string"
+        },
+        "request_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "trace_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Trace Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "request_id",
+        "trace_id",
+        "environment",
+        "attributes_sha256"
+      ],
+      "title": "ContextBinding",
+      "type": "object"
+    },
+    "DelegationHop": {
+      "additionalProperties": false,
+      "properties": {
+        "delegatee": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Delegatee",
+          "type": "string"
+        },
+        "delegator": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Delegator",
+          "type": "string"
+        },
+        "scope_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Scope Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "delegator",
+        "delegatee",
+        "scope_sha256"
+      ],
+      "title": "DelegationHop",
+      "type": "object",
+      "x-proofflow-runtime-invariants": [
+        "delegator and delegatee differ"
+      ]
+    },
+    "EffectBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "effect_type": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Effect Type",
+          "type": "string"
+        },
+        "idempotency_key": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Idempotency Key",
+          "type": "string"
+        },
+        "request_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Request Sha256",
+          "type": "string"
+        },
+        "target": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Target",
+          "type": "string"
+        }
+      },
+      "required": [
+        "effect_type",
+        "target",
+        "request_sha256",
+        "idempotency_key"
+      ],
+      "title": "EffectBinding",
+      "type": "object"
+    },
+    "InTotoSubject": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "$ref": "#/$defs/Sha256DigestSet"
+        },
+        "name": {
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "pattern": "://"
+                  },
+                  {
+                    "pattern": "^[Ff][Ii][Ll][Ee]:"
+                  },
+                  {
+                    "pattern": "^[Dd][Aa][Tt][Aa]:"
+                  },
+                  {
+                    "pattern": "^[Uu][Rr][Nn]:"
+                  }
+                ]
+              }
+            }
+          ],
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "digest"
+      ],
+      "title": "InTotoSubject",
+      "type": "object"
+    },
+    "PolicyBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "decision": {
+          "const": "ALLOW",
+          "title": "Decision",
+          "type": "string"
+        },
+        "evaluated_at": {
+          "format": "date-time",
+          "title": "Evaluated At",
+          "type": "string"
+        },
+        "expires_at": {
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
+        },
+        "policy_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Policy Id",
+          "type": "string"
+        },
+        "policy_revision": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Policy Revision",
+          "type": "string"
+        },
+        "policy_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Policy Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "policy_id",
+        "policy_revision",
+        "policy_sha256",
+        "decision",
+        "evaluated_at",
+        "expires_at"
+      ],
+      "title": "PolicyBinding",
+      "type": "object",
+      "x-proofflow-runtime-invariants": [
+        "expires_at is later than evaluated_at"
+      ]
+    },
+    "PrincipalBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "identity_issuer": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Identity Issuer",
+          "type": "string"
+        },
+        "principal_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Principal Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "principal_id",
+        "identity_issuer"
+      ],
+      "title": "PrincipalBinding",
+      "type": "object"
+    },
+    "ResourceBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "attributes_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Attributes Sha256",
+          "type": "string"
+        },
+        "resource_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Resource Id",
+          "type": "string"
+        },
+        "resource_type": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Resource Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "resource_type",
+        "resource_id",
+        "attributes_sha256"
+      ],
+      "title": "ResourceBinding",
+      "type": "object"
+    },
+    "Sha256DigestSet": {
+      "additionalProperties": false,
+      "properties": {
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sha256"
+      ],
+      "title": "Sha256DigestSet",
+      "type": "object"
+    },
+    "SubjectBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "attributes_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Attributes Sha256",
+          "type": "string"
+        },
+        "subject_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Subject Id",
+          "type": "string"
+        },
+        "subject_type": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Subject Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "subject_type",
+        "subject_id",
+        "attributes_sha256"
+      ],
+      "title": "SubjectBinding",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "_type": {
+      "const": "https://in-toto.io/Statement/v1",
+      "title": "Type",
+      "type": "string"
+    },
+    "predicate": {
+      "$ref": "#/$defs/ActionCertificatePredicate"
+    },
+    "predicateType": {
+      "const": "https://proofflow.dev/attestations/action-certificate/v0.1",
+      "title": "Predicatetype",
+      "type": "string"
+    },
+    "subject": {
+      "items": {
+        "$ref": "#/$defs/InTotoSubject"
+      },
+      "maxItems": 64,
+      "minItems": 1,
+      "title": "Subject",
+      "type": "array",
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "_type",
+    "subject",
+    "predicateType",
+    "predicate"
+  ],
+  "title": "ActionCertificateStatement",
+  "type": "object",
+  "x-proofflow-runtime-invariants": [
+    "subject[].name values are unique even when digests differ"
+  ]
+}

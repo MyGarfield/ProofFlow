@@ -6,6 +6,7 @@ This product includes software developed by ProofFlow contributors and distribut
 The repository references, but does not vendor or relicense:
 
 - AgentTeams by the AgentScope team: https://github.com/agentscope-ai/AgentTeams
+- cryptography: https://github.com/pyca/cryptography
 - Pydantic: https://github.com/pydantic/pydantic
 - uv and Ruff by Astral: https://github.com/astral-sh/uv and https://github.com/astral-sh/ruff
 - pytest: https://github.com/pytest-dev/pytest

@@ -45,6 +45,9 @@ BUILD_INPUT_FILES = (
 )
 BUILD_INPUT_DIRECTORIES = ("src", "data/rules")
 DIRECTORY_BUNDLE_FORMAT = "PATH_LENGTH_U64_BE_PATH_BYTES_CONTENT_LENGTH_U64_BE_CONTENT_BYTES_V1"
+HISTORICAL_BUILD_INPUT_PROVENANCE_SHA256 = (
+    "sha256:0d836899ce9862f0a0239811d1866327bcfb7747de2a5456d6bb123421789d46"
+)
 EXPECTED_LIMITATIONS = (
     "This is a point-in-time scan against one mutable vulnerability database snapshot.",
     (
@@ -203,14 +206,36 @@ def _expected_build_input_records() -> list[dict[str, Any]]:
     return records
 
 
-def _validate_build_input_provenance(report: dict[str, Any]) -> None:
+def _build_input_provenance_sha256(provenance: dict[str, Any]) -> str:
+    payload = json.dumps(
+        provenance,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    return _sha256(payload)
+
+
+def _validate_build_input_provenance(
+    report: dict[str, Any], *, expect_stale_build_inputs: bool
+) -> None:
     provenance = report["build_input_provenance"]
     if provenance["directory_bundle_format"] != DIRECTORY_BUNDLE_FORMAT:
         raise EvidenceValidationError("unexpected build-input directory bundle format")
     dockerignore = set((ROOT / ".dockerignore").read_text(encoding="utf-8").splitlines())
     if not {"demo", "**/__pycache__/", "**/*.py[cod]"} <= dockerignore:
         raise EvidenceValidationError("Docker build context exclusions were weakened")
-    if provenance["inputs"] != _expected_build_input_records():
+    matches_current = provenance["inputs"] == _expected_build_input_records()
+    if expect_stale_build_inputs:
+        if _build_input_provenance_sha256(provenance) != (HISTORICAL_BUILD_INPUT_PROVENANCE_SHA256):
+            raise EvidenceValidationError("historical build-input provenance snapshot was altered")
+        if matches_current:
+            raise EvidenceValidationError(
+                "expected stale build inputs, but historical evidence matches repository bytes"
+            )
+        return
+    if not matches_current:
         raise EvidenceValidationError("build-input provenance differs from repository bytes")
 
 
@@ -462,12 +487,19 @@ def _validate_trivy(
         raise EvidenceValidationError("vulnerability verdict is inconsistent with record counts")
 
 
-def validate(evidence_path: Path = DEFAULT_EVIDENCE, *, release_gate: bool = False) -> None:
+def validate(
+    evidence_path: Path = DEFAULT_EVIDENCE,
+    *,
+    release_gate: bool = False,
+    expect_stale_build_inputs: bool = False,
+) -> None:
+    if release_gate and expect_stale_build_inputs:
+        raise EvidenceValidationError("stale historical evidence cannot be used as a release gate")
     evidence_path = evidence_path.resolve()
     report = load_json_strict(evidence_path)
     schema = load_json_strict(DEFAULT_SCHEMA)
     _validate_schema(report, schema)
-    _validate_build_input_provenance(report)
+    _validate_build_input_provenance(report, expect_stale_build_inputs=expect_stale_build_inputs)
 
     dockerfile = (ROOT / "deploy/tool-service/Dockerfile").read_text(encoding="utf-8")
     expected_from = f"FROM {report['scope']['base_image']}\n"
@@ -524,13 +556,28 @@ def main() -> int:
         action="store_true",
         help="also fail when HIGH or CRITICAL vulnerability records are present",
     )
+    parser.add_argument(
+        "--expect-stale-build-inputs",
+        action="store_true",
+        help=(
+            "validate the pinned historical snapshot and require its build inputs to differ "
+            "from the repository; this mode can never be a release gate"
+        ),
+    )
     arguments = parser.parse_args()
     try:
-        validate(arguments.evidence, release_gate=arguments.release_gate)
+        validate(
+            arguments.evidence,
+            release_gate=arguments.release_gate,
+            expect_stale_build_inputs=arguments.expect_stale_build_inputs,
+        )
     except EvidenceValidationError as exc:
         print(f"invalid supply-chain evidence: {exc}", file=sys.stderr)
         return 1
-    print("valid supply-chain evidence")
+    if arguments.expect_stale_build_inputs:
+        print("valid historical supply-chain evidence; STALE for current build inputs")
+    else:
+        print("valid supply-chain evidence")
     return 0
 
 

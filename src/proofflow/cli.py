@@ -5,8 +5,21 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from datetime import datetime
 from pathlib import Path
 
+from proofflow.action_certificate import (
+    MAX_ENVELOPE_BYTES,
+    ApprovalRevocationSnapshot,
+    ExpectedBinding,
+    InMemoryReplayLedger,
+    SnapshotApprovalRevocationResolver,
+    TrustPolicy,
+    VerificationStatus,
+    parse_json_model,
+    parse_utc_rfc3339_z,
+    verify_action_certificate,
+)
 from proofflow.models import ApprovalDecision
 from proofflow.reference_runtime import (
     ReferenceRunError,
@@ -33,6 +46,24 @@ def _parser() -> argparse.ArgumentParser:
         description="Synthetic-data-only deterministic ProofFlow reference runtime",
     )
     commands = parser.add_subparsers(dest="command", required=True)
+
+    certificate = commands.add_parser(
+        "certificate", help="verify a signed ActionCertificate without performing its effect"
+    )
+    certificate_commands = certificate.add_subparsers(dest="certificate_command", required=True)
+    certificate_verify = certificate_commands.add_parser(
+        "verify", help="verify and process-locally reserve one ActionCertificate"
+    )
+    certificate_verify.add_argument("--envelope", type=Path, required=True)
+    certificate_verify.add_argument("--trust-policy", type=Path, required=True)
+    certificate_verify.add_argument("--expected-binding", type=Path, required=True)
+    certificate_verify.add_argument("--approval-revocations", type=Path)
+    certificate_verify.add_argument(
+        "--at",
+        required=True,
+        help="explicit timezone-aware RFC 3339 verification time",
+    )
+    certificate_verify.add_argument("--ledger-capacity", type=int, default=10_000)
 
     prepare = commands.add_parser("prepare", help="prepare and stop at the Human Gate")
     prepare.add_argument("--manifest", type=Path, required=True)
@@ -82,9 +113,72 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _read_bounded_local_file(path: Path, *, limit: int, label: str) -> bytes:
+    if path.is_symlink() or not path.is_file():
+        raise ValueError(f"{label} must be a local regular file, not a symlink or reference")
+    with path.open("rb") as handle:
+        payload = handle.read(limit + 1)
+    if len(payload) > limit:
+        raise ValueError(f"{label} exceeds {limit} bytes")
+    return payload
+
+
+def _read_certificate_envelope(path: Path) -> bytes:
+    if path.is_symlink() or not path.is_file():
+        raise ValueError("envelope must be a local regular file, not a symlink or reference")
+    with path.open("rb") as handle:
+        return handle.read(MAX_ENVELOPE_BYTES + 1)
+
+
+def _parse_verification_time(value: str) -> datetime:
+    return parse_utc_rfc3339_z(value, "--at")
+
+
+def _verify_certificate_command(args: argparse.Namespace) -> int:
+    envelope = _read_certificate_envelope(args.envelope)
+    trust_policy = parse_json_model(
+        _read_bounded_local_file(args.trust_policy, limit=256 * 1024, label="trust policy"),
+        TrustPolicy,
+        "trust policy",
+    )
+    expected_binding = parse_json_model(
+        _read_bounded_local_file(args.expected_binding, limit=128 * 1024, label="expected binding"),
+        ExpectedBinding,
+        "expected binding",
+    )
+    resolver = None
+    if args.approval_revocations is not None:
+        snapshot = parse_json_model(
+            _read_bounded_local_file(
+                args.approval_revocations,
+                limit=256 * 1024,
+                label="approval revocation snapshot",
+            ),
+            ApprovalRevocationSnapshot,
+            "approval revocation snapshot",
+        )
+        resolver = SnapshotApprovalRevocationResolver(snapshot)
+    result = verify_action_certificate(
+        envelope,
+        trust_policy=trust_policy,
+        expected_binding=expected_binding,
+        replay_ledger=InMemoryReplayLedger(capacity=args.ledger_capacity),
+        approval_revocation_resolver=resolver,
+        now=_parse_verification_time(args.at),
+    )
+    print(json.dumps(result.model_dump(mode="json"), ensure_ascii=False, indent=2))
+    if result.status == VerificationStatus.ACCEPT:
+        return 0
+    if result.status == VerificationStatus.REJECT:
+        return 1
+    return 3
+
+
 def main() -> int:
     args = _parser().parse_args()
     try:
+        if args.command == "certificate":
+            return _verify_certificate_command(args)
         if args.command == "prepare":
             state = prepare_reference_run(
                 manifest_path=args.manifest,
@@ -140,6 +234,9 @@ def main() -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     except ToolServerConfigurationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     except KeyboardInterrupt:

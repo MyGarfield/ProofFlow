@@ -1,0 +1,86 @@
+{
+  "$defs": {
+    "ApprovalRevocationEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "approval_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Approval Id",
+          "type": "string"
+        },
+        "approval_scope_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Approval Scope Sha256",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/ApprovalRevocationStatus"
+        },
+        "tenant_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Tenant Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tenant_id",
+        "approval_id",
+        "approval_scope_sha256",
+        "status"
+      ],
+      "title": "ApprovalRevocationEntry",
+      "type": "object"
+    },
+    "ApprovalRevocationStatus": {
+      "enum": [
+        "ACTIVE",
+        "REVOKED",
+        "UNKNOWN"
+      ],
+      "title": "ApprovalRevocationStatus",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "as_of": {
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+      "title": "As Of",
+      "type": "string"
+    },
+    "entries": {
+      "items": {
+        "$ref": "#/$defs/ApprovalRevocationEntry"
+      },
+      "maxItems": 4096,
+      "title": "Entries",
+      "type": "array",
+      "uniqueItems": true
+    },
+    "snapshot_version": {
+      "const": "proofflow.approval-revocations/v0.1",
+      "title": "Snapshot Version",
+      "type": "string"
+    },
+    "valid_until": {
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+      "title": "Valid Until",
+      "type": "string"
+    }
+  },
+  "required": [
+    "snapshot_version",
+    "as_of",
+    "valid_until",
+    "entries"
+  ],
+  "title": "ApprovalRevocationSnapshot",
+  "type": "object",
+  "x-proofflow-runtime-invariants": [
+    "valid_until is greater than or equal to as_of",
+    "the resolver is current only when as_of <= verification_time <= valid_until; both boundaries are inclusive",
+    "(tenant_id, approval_id) pairs are unique even when scope or status differs"
+  ]
+}

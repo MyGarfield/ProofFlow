@@ -33,6 +33,7 @@ GOAI 于 2026 年 8 月 25 日确认初赛作品有效，但项目未晋级复�
 - 与待批对象哈希绑定、对象变化即失效的 Human Gate；
 - Trace、受控 Markdown/JSON 草案、Package Manifest 和篡改检测；
 - Ruff、mypy、pytest 和 GitHub Actions；
+- ActionCertificate v0.1 的 DSSE/in-toto/Ed25519 预执行验证与进程内重放参考门；
 - AgentTeams v1.2.2 本地点时基础设施、六个 Worker CR 与八个 Skill 分发结果；
 - 三个最小权限 MCP（evidence/rules/calc），均为 `ok` 且各暴露一个工具；
 - Manager 操作员以公开合成数据完成三次 evidence ingest → 四条规则引用 → 确定性计算的工具链，
@@ -62,11 +63,13 @@ GOAI 于 2026 年 8 月 25 日确认初赛作品有效，但项目未晋级复�
 AgentTeams 或 LLM，也不是 SLA。仓库发布的历史供应链点时证据绑定 2026-08-20 观察的最小化 Alpine 镜像
 `sha256:1a4c4efb2d4e4fe37503ba0082282218e0b8c978dd22c1bd1488b5942d087775`：固定数据库点时扫描的
 Unknown/Low/Medium/High/Critical 均为 0，CycloneDX 记录 937 个 components，verdict 仅为
-`NO_HIGH_OR_CRITICAL_FOUND`。供应链 Schema v1.1 还绑定八项当前构建输入的可复核 SHA-256；
+`NO_HIGH_OR_CRITICAL_FOUND`。供应链 Schema v1.1 绑定的是采集时八项构建输入的可复核 SHA-256；
 AgentTeams MCP Schema v1.2 与严格语义 validator 已强制供应链 `subject.image_id`、MCP 快照根级
 `tool_service_image_id` 和脱敏运行观察 `tool_service_runtime.image_id` 三方相等。该交叉绑定与零
-finding 都只是未签名的历史点时证据；其漏洞数据库已超过声明的下一更新时间。它不证明构建关系、数字签名、attestation、远端 registry 状态、
-持续可用性或生产安全，也绝不等于镜像“clean”或无漏洞。当前稳定全仓测试为 `516 passed`。
+finding 都只是未签名的历史点时证据；其漏洞数据库已超过声明的下一更新时间。ActionCertificate
+新增密码学依赖并改变 `src/` 后，这套镜像/SBOM/扫描与构建输入证据已明确标记为 `STALE`，普通模式
+与 release gate 都会失败，只有专用模式可验证“历史快照完整且确实已过时”。它不证明构建关系、数字签名、attestation、远端 registry 状态、
+持续可用性或生产安全，也绝不等于镜像“clean”或无漏洞。当前稳定全仓测试为 `569 passed`。
 
 脱敏点时证据见 [AgentTeams 本地证据](deploy/agentteams/LOCAL_INFRA_EVIDENCE.md)、
 [MCP Manager 操作员冒烟](deploy/agentteams/evidence/mcp-manager-operator-smoke-2026-08-20.json)、
@@ -135,6 +138,10 @@ uv run proofflow package --run-dir .proofflow/runs/demo-001
 uv run proofflow verify --run-dir .proofflow/runs/demo-001
 ```
 
+ActionCertificate 的机器合同、信任边界、CLI 和限制见
+[`docs/13_ACTION_CERTIFICATE_V0P1.md`](docs/13_ACTION_CERTIFICATE_V0P1.md)。它只验证并在当前进程
+原子预留授权意图，不执行真实副作用，也不声称持久化 exactly-once。
+
 成功验真应返回 `"valid": true`。在批准前修改任何 Evidence、Rule、Calculation、Proposal 或
 Audit 对象，批准必须失败；在打包后修改文件，`verify` 必须报告哈希不一致。
 
@@ -197,7 +204,8 @@ uv run mypy
 uv run pytest
 ```
 
-当前稳定全仓测试为 `516 passed`，其中 Demo 定向套件为 `19 passed`。测试覆盖正常链、文件哈希、
+当前稳定全仓测试为 `569 passed`，其中 ActionCertificate 定向套件为 `53 passed`、Demo 定向套件为
+`19 passed`。测试覆盖正常链、文件哈希、
 提示注入字段、地区/时态规则过滤、缺参阻断、确定性重放、冲突检测、Trace 缺失、越权审批、批准后
 篡改、包文件篡改和未执行评测的 `UNKNOWN`/`null` 合同。
 

@@ -73,7 +73,7 @@ def refresh_artifact_record(report: dict[str, Any], evidence: Path, filename: st
     record["sha256"] = f"sha256:{sha256(payload).hexdigest()}"
 
 
-def test_public_supply_chain_evidence_passes_schema_semantics_and_release_gate() -> None:
+def test_public_supply_chain_evidence_is_valid_historical_but_stale_for_release() -> None:
     validator = load_validator()
     report = load_json(EVIDENCE / REPORT_NAME)
     schema = load_json(EVIDENCE / "supply-chain-evidence.schema.json")
@@ -82,8 +82,26 @@ def test_public_supply_chain_evidence_passes_schema_semantics_and_release_gate()
     assert (
         list(Draft202012Validator(schema, format_checker=FormatChecker()).iter_errors(report)) == []
     )
-    validator.validate(EVIDENCE / REPORT_NAME)
-    validator.validate(EVIDENCE / REPORT_NAME, release_gate=True)
+    validator.validate(EVIDENCE / REPORT_NAME, expect_stale_build_inputs=True)
+    with pytest.raises(
+        validator.EvidenceValidationError,
+        match="build-input provenance differs from repository bytes",
+    ):
+        validator.validate(EVIDENCE / REPORT_NAME)
+    with pytest.raises(
+        validator.EvidenceValidationError,
+        match="build-input provenance differs from repository bytes",
+    ):
+        validator.validate(EVIDENCE / REPORT_NAME, release_gate=True)
+    with pytest.raises(
+        validator.EvidenceValidationError,
+        match="stale historical evidence cannot be used as a release gate",
+    ):
+        validator.validate(
+            EVIDENCE / REPORT_NAME,
+            release_gate=True,
+            expect_stale_build_inputs=True,
+        )
 
     assert report["subject"]["image_id"] == (
         "sha256:1a4c4efb2d4e4fe37503ba0082282218e0b8c978dd22c1bd1488b5942d087775"
@@ -119,7 +137,7 @@ def test_public_supply_chain_evidence_passes_schema_semantics_and_release_gate()
         ("extra-root", "schema validation failed"),
         ("claim-escalation", "schema validation failed"),
         ("repin-image", "schema validation failed"),
-        ("forge-build-input", "build-input provenance differs"),
+        ("forge-build-input", "historical build-input provenance snapshot was altered"),
         ("signature-escalation", "schema validation failed"),
         ("absolute-artifact", "schema validation failed"),
         ("weaken-limitations", "limitations were weakened"),
@@ -148,7 +166,7 @@ def test_manifest_attacks_fail_closed(tmp_path: Path, attack: str, expected: str
     write_json(evidence / REPORT_NAME, report)
 
     with pytest.raises(validator.EvidenceValidationError, match=expected):
-        validator.validate(evidence / REPORT_NAME)
+        validator.validate(evidence / REPORT_NAME, expect_stale_build_inputs=True)
 
 
 def test_artifact_digest_tampering_fails_closed(tmp_path: Path) -> None:
@@ -158,7 +176,7 @@ def test_artifact_digest_tampering_fails_closed(tmp_path: Path) -> None:
     path.write_bytes(path.read_bytes() + b"\n")
 
     with pytest.raises(validator.EvidenceValidationError, match=r"artifact .* mismatch"):
-        validator.validate(evidence / REPORT_NAME)
+        validator.validate(evidence / REPORT_NAME, expect_stale_build_inputs=True)
 
 
 @pytest.mark.parametrize(
@@ -182,7 +200,7 @@ def test_public_artifact_leakage_fails_closed(tmp_path: Path, leak_value: str) -
     write_json(evidence / REPORT_NAME, report)
 
     with pytest.raises(validator.EvidenceValidationError, match="detected"):
-        validator.validate(evidence / REPORT_NAME)
+        validator.validate(evidence / REPORT_NAME, expect_stale_build_inputs=True)
 
 
 def test_release_gate_uses_recomputed_high_findings(tmp_path: Path) -> None:
@@ -221,6 +239,13 @@ def test_release_gate_uses_recomputed_high_findings(tmp_path: Path) -> None:
     refresh_artifact_record(report, evidence, trivy_path.name)
     write_json(evidence / REPORT_NAME, report)
 
-    validator.validate(evidence / REPORT_NAME)
-    with pytest.raises(validator.EvidenceValidationError, match="release gate rejected"):
-        validator.validate(evidence / REPORT_NAME, release_gate=True)
+    validator.validate(evidence / REPORT_NAME, expect_stale_build_inputs=True)
+    with pytest.raises(
+        validator.EvidenceValidationError,
+        match="stale historical evidence cannot be used as a release gate",
+    ):
+        validator.validate(
+            evidence / REPORT_NAME,
+            release_gate=True,
+            expect_stale_build_inputs=True,
+        )
