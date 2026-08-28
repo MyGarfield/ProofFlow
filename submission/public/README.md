@@ -1,16 +1,17 @@
-# 公开提交材料目录
+# 公开历史材料目录
 
 状态：`REFERENCE_CORE_VERIFIED / CURRENT_IMAGE_RUNTIME_CROSS_BOUND / WORKERS_STOPPED / EVALUATION_PROTOCOL_VALIDATED_NOT_EXECUTED`
 
-本目录放置可公开审核且不包含个人隐私的提交材料。当前已形成一份经过双重渲染 QA 的复赛答辩
-候选包；它是公开候选版本，不代表平台已经接收、组委会已确认有效或项目已获得评分。
+GOAI 于 2026 年 8 月 25 日确认初赛作品有效，但项目未晋级复赛。本目录放置可公开审核且不包含
+个人隐私的历史材料；带“复赛”文件名的 PPTX/PDF 是赛后形成并经过双重渲染 QA 的公开候选，
+不是组委会接收的复赛提交，也不代表官方评分或晋级结果。
 
 ## 可直接下载的材料
 
 | 材料 | 用途 | SHA-256 |
 |---|---|---|
-| [`ProofFlow_GOAI_复赛答辩_v2.0.pptx`](ProofFlow_GOAI_复赛答辩_v2.0.pptx) | 12 页可编辑答辩稿；12/12 页含 `[Sources]` 讲者备注 | `fabe3102c1ef6550b131d0d230fed3a4eef46c579886ec268fc6c11c298f55a5` |
-| [`ProofFlow_GOAI_复赛答辩_v2.0.pdf`](ProofFlow_GOAI_复赛答辩_v2.0.pdf) | 12 页静态高分辨率交付版 | `6c45562bd6b7fa1a813bac0d713dfa3a3a2d7f54f6e07a3763bbb1306d12e773` |
+| [`ProofFlow_GOAI_复赛答辩_v2.0.pptx`](ProofFlow_GOAI_复赛答辩_v2.0.pptx) | 12 页历史公开候选；12/12 页含 `[Sources]` 讲者备注 | `fabe3102c1ef6550b131d0d230fed3a4eef46c579886ec268fc6c11c298f55a5` |
+| [`ProofFlow_GOAI_复赛答辩_v2.0.pdf`](ProofFlow_GOAI_复赛答辩_v2.0.pdf) | 12 页历史公开候选静态版 | `6c45562bd6b7fa1a813bac0d713dfa3a3a2d7f54f6e07a3763bbb1306d12e773` |
 | [`PROJECT_SUMMARY_500_CN.md`](PROJECT_SUMMARY_500_CN.md) | 500 字以内中文作品简介 | 由 Git 提交固定 |
 | [`submission-manifest.json`](submission-manifest.json) | 文件、哈希、测试数和披露边界 | 由 Git 提交固定 |
 
