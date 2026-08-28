@@ -1,0 +1,9 @@
+{
+  "fixture_status": "SYNTHETIC",
+  "employee_ref": "SYNTHETIC-EMPLOYEE-001",
+  "employer_ref": "SYNTHETIC-EMPLOYER-001",
+  "employment_start_date": "2021-01-01",
+  "work_location": "CN-ZJ-HZ",
+  "contract_type": "fixed_term",
+  "note": "This record is fictional and contains no real personal information."
+}

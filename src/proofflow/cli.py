@@ -7,7 +7,9 @@ import json
 import sys
 from datetime import datetime
 from pathlib import Path
+from typing import Any, NoReturn
 
+from proofflow import __version__
 from proofflow.action_certificate import (
     MAX_ENVELOPE_BYTES,
     ApprovalRevocationSnapshot,
@@ -20,8 +22,10 @@ from proofflow.action_certificate import (
     parse_utc_rfc3339_z,
     verify_action_certificate,
 )
+from proofflow.demo_init import DemoInitializationError, initialize_demo
 from proofflow.models import ApprovalDecision
 from proofflow.reference_runtime import (
+    ReferenceRunBlocked,
     ReferenceRunError,
     approve_reference_run,
     package_reference_run,
@@ -40,12 +44,50 @@ from proofflow.tool_server import (
 from proofflow.trusted_store import DEFAULT_TRUSTED_ARTIFACT_CAPACITY
 
 
+def _write_cli_error(
+    code: str,
+    message: str,
+    *,
+    context: dict[str, Any] | None = None,
+) -> None:
+    error: dict[str, Any] = {"code": code, "message": message}
+    if context:
+        error["context"] = context
+    print(json.dumps({"error": error}, ensure_ascii=False, sort_keys=True), file=sys.stderr)
+
+
+class _JsonArgumentParser(argparse.ArgumentParser):
+    """Keep expected CLI usage failures machine-readable and path-independent."""
+
+    def error(self, message: str) -> NoReturn:
+        del message
+        _write_cli_error(
+            "CLI_USAGE_ERROR",
+            "invalid command-line arguments; run proofflow --help for usage",
+        )
+        raise SystemExit(2)
+
+
+class _CliInputError(ValueError):
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+        self.safe_message = message
+
+
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
+    parser = _JsonArgumentParser(
         prog="proofflow",
         description="Synthetic-data-only deterministic ProofFlow reference runtime",
     )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     commands = parser.add_subparsers(dest="command", required=True)
+
+    init_demo = commands.add_parser(
+        "init-demo",
+        help="initialize a frozen public-synthetic CLI demo from installed package resources",
+    )
+    init_demo.add_argument("--output", type=Path, required=True)
 
     certificate = commands.add_parser(
         "certificate", help="verify a signed ActionCertificate without performing its effect"
@@ -131,7 +173,13 @@ def _read_certificate_envelope(path: Path) -> bytes:
 
 
 def _parse_verification_time(value: str) -> datetime:
-    return parse_utc_rfc3339_z(value, "--at")
+    try:
+        return parse_utc_rfc3339_z(value, "--at")
+    except ValueError as exc:
+        raise _CliInputError(
+            "INVALID_VERIFICATION_TIME",
+            "verification time must use UTC RFC 3339 with a trailing Z",
+        ) from exc
 
 
 def _verify_certificate_command(args: argparse.Namespace) -> int:
@@ -176,10 +224,19 @@ def _verify_certificate_command(args: argparse.Namespace) -> int:
 
 def main() -> int:
     args = _parser().parse_args()
+    output: dict[str, Any]
     try:
-        if args.command == "certificate":
+        if args.command == "init-demo":
+            receipt = initialize_demo(args.output)
+            output = {
+                "classification": receipt.classification,
+                "files": list(receipt.files),
+                "output": str(args.output),
+                "status": "INITIALIZED",
+            }
+        elif args.command == "certificate":
             return _verify_certificate_command(args)
-        if args.command == "prepare":
+        elif args.command == "prepare":
             state = prepare_reference_run(
                 manifest_path=args.manifest,
                 rule_catalog_path=args.rules,
@@ -214,9 +271,18 @@ def main() -> int:
             report = verify_reference_run(args.run_dir)
             output = report.model_dump(mode="json")
             if not report.valid:
-                print(json.dumps(output, ensure_ascii=False, indent=2), file=sys.stderr)
+                _write_cli_error(
+                    "VERIFICATION_FAILED",
+                    "the run package failed deterministic verification",
+                    context={
+                        "checked_artifacts": report.checked_artifacts,
+                        "checked_package_files": report.checked_package_files,
+                        "error_count": len(report.errors),
+                        "valid": False,
+                    },
+                )
                 return 1
-        else:
+        elif args.command == "serve-tools":
             serve_tool_service(
                 host=args.host,
                 port=args.port,
@@ -230,16 +296,41 @@ def main() -> int:
                 read_timeout_seconds=args.read_timeout_seconds,
             )
             return 0
-    except ReferenceRunError as exc:
-        print(f"error: {exc}", file=sys.stderr)
+        else:  # pragma: no cover - argparse enforces the closed command set.
+            raise AssertionError("unreachable command")
+    except DemoInitializationError as exc:
+        _write_cli_error(exc.code, exc.safe_message)
         return 2
-    except ToolServerConfigurationError as exc:
-        print(f"error: {exc}", file=sys.stderr)
+    except ReferenceRunBlocked as exc:
+        _write_cli_error(
+            "REFERENCE_RUN_BLOCKED",
+            "the reference run was blocked by its deterministic contract",
+            context={"stage": exc.stage},
+        )
         return 2
-    except ValueError as exc:
-        print(f"error: {exc}", file=sys.stderr)
+    except ReferenceRunError:
+        _write_cli_error(
+            "REFERENCE_RUN_ERROR",
+            "the reference run input or state is invalid",
+        )
+        return 2
+    except ToolServerConfigurationError:
+        _write_cli_error(
+            "TOOL_SERVER_CONFIGURATION_ERROR",
+            "the tool service configuration is invalid",
+        )
+        return 2
+    except _CliInputError as exc:
+        _write_cli_error(exc.code, exc.safe_message)
+        return 2
+    except ValueError:
+        _write_cli_error("INVALID_INPUT", "the command input is invalid")
+        return 2
+    except OSError:
+        _write_cli_error("FILESYSTEM_ERROR", "a required local file operation failed")
         return 2
     except KeyboardInterrupt:
+        _write_cli_error("INTERRUPTED", "the command was interrupted")
         return 130
     print(json.dumps(output, ensure_ascii=False, indent=2))
     return 0

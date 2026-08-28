@@ -1,0 +1,8 @@
+{
+  "fixture_status": "SYNTHETIC",
+  "currency": "CNY",
+  "monthly_wage_average": "12000.00",
+  "local_previous_year_monthly_average_wage": "10000.00",
+  "wage_months_observed": 12,
+  "note": "The local-average value is synthetic and must not be presented as a Hangzhou statistic."
+}

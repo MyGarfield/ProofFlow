@@ -41,3 +41,35 @@ jobs:
       - run: node --check scripts/qa_public_demo_browser.mjs
       - run: node --test tests/js/test_public_demo_storyboard.cjs
       - run: uv run pytest
+
+  installable-distribution-matrix:
+    name: Installable distribution (${{ matrix.python-version }}, ${{ matrix.dependencies }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python-version: "3.12"
+            dependencies: minimum
+            cryptography-version: "46.0.0"
+            pydantic-version: "2.11.0"
+          - python-version: "3.14"
+            dependencies: maximum
+            cryptography-version: "46.0.7"
+            pydantic-version: "2.13.4"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+      - run: uv sync --locked --dev
+      - name: Build and run wheel/sdist outside the source checkout
+        env:
+          PIP_CONSTRAINT: ${{ github.workspace }}/tests/release/constraints/${{ matrix.dependencies }}.txt
+          PROOFFLOW_EXPECT_CRYPTOGRAPHY: ${{ matrix.cryptography-version }}
+          PROOFFLOW_EXPECT_PYDANTIC: ${{ matrix.pydantic-version }}
+        run: uv run pytest tests/e2e/test_installable_distribution.py

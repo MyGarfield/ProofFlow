@@ -69,7 +69,7 @@ AgentTeams MCP Schema v1.2 与严格语义 validator 已强制供应链 `subject
 finding 都只是未签名的历史点时证据；其漏洞数据库已超过声明的下一更新时间。ActionCertificate
 新增密码学依赖并改变 `src/` 后，这套镜像/SBOM/扫描与构建输入证据已明确标记为 `STALE`，普通模式
 与 release gate 都会失败，只有专用模式可验证“历史快照完整且确实已过时”。它不证明构建关系、数字签名、attestation、远端 registry 状态、
-持续可用性或生产安全，也绝不等于镜像“clean”或无漏洞。当前稳定全仓测试为 `569 passed`。
+持续可用性或生产安全，也绝不等于镜像“clean”或无漏洞。当前稳定全仓测试为 `592 passed`。
 
 脱敏点时证据见 [AgentTeams 本地证据](deploy/agentteams/LOCAL_INFRA_EVIDENCE.md)、
 [MCP Manager 操作员冒烟](deploy/agentteams/evidence/mcp-manager-operator-smoke-2026-08-20.json)、
@@ -92,58 +92,90 @@ finding 都只是未签名的历史点时证据；其漏洞数据库已超过声
 
 ## 5 分钟本地复现
 
-需要 Python 3.12 和 [uv](https://docs.astral.sh/uv/)。
+支持 Python 3.12–3.14。当前 alpha 尚未发布到 PyPI；收到或在源码仓库构建 wheel 后，已安装发行包
+的首次价值路径不依赖源码 checkout、`.git`、`examples/`、`data/`、`schemas/` 或仓库相对路径。
+
+### 维护者：受验证的候选构建
+
+从源码仓库根目录使用唯一受验证的候选构建入口；`--output` 必须指向尚不存在的目录：
 
 ```bash
-uv sync --dev
+uv run --frozen python scripts/build_installable_distribution.py \
+  --output /tmp/proofflow-installable-candidate
 ```
 
-本地可视化演示只绑定 `127.0.0.1`，使用公开合成输入，不调用 LLM、AgentTeams Worker 或外部业务
-系统：
+该命令从不可变 Git tree 或显式闭集工作树快照构建 wheel/sdist，并生成
+`artifact-manifest.json`。它验证源码快照、wheel 成员闭集、METADATA、WHEEL、entry point、许可证、
+RECORD 全闭包以及 sdist 清单，再记录产物 SHA-256。干净 Git tree 可得到
+`snapshot_kind=GIT_COMMIT_TREE` 与 `exact_commit_binding=true`；含未提交改动的构建只能得到
+`snapshot_kind=WORKTREE_COPY`、`exact_commit_binding=false` 和
+`LOCAL_CANDIDATE_NOT_RELEASE_READY`。
+
+直接运行 `uv build` 只会产生未经上述门禁和 receipt 绑定的原始包，不能作为 ProofFlow 候选或
+发布产物。正式 release 还必须显式使用 `--release`，并通过新鲜供应链 release policy；当前证据为
+`STALE`，所以 release 模式必须以 `SUPPLY_CHAIN_RELEASE_GATE_REJECTED` 拒绝且不创建输出目录。
+
+### 已安装 wheel / sdist：CLI 发行合同
+
+在空工作目录和新虚拟环境中安装构建产物，然后初始化包内冻结的公开合成资产：
+
+```bash
+python -m venv .venv
+.venv/bin/python -m pip install /path/to/veriagent_proofflow-0.1.0a0-py3-none-any.whl
+.venv/bin/proofflow --version
+.venv/bin/proofflow init-demo --output proof-demo
+cd proof-demo
+```
+
+`init-demo` 默认拒绝覆盖任何已存在文件或目录。生成的 `README.md`、case manifest、合同、工资、
+通知和规则目录均来自 wheel 内的固定 `PUBLIC_SYNTHETIC` 资产；不调用 LLM、AgentTeams Worker 或
+外部业务系统。接着运行完整 Human Gate 链：
+
+```bash
+../.venv/bin/proofflow prepare \
+  --manifest case/manifest.json \
+  --rules rules/cn_labor_contract_law.catalog.json \
+  --run-dir run
+
+../.venv/bin/proofflow approve \
+  --run-dir run \
+  --approver-id synthetic-reviewer \
+  --role legal-reviewer \
+  --decision APPROVE \
+  --reason "Reviewed the synthetic evidence, rules, calculation, risks, and uncertainties."
+
+../.venv/bin/proofflow package --run-dir run
+../.venv/bin/proofflow verify --run-dir run
+```
+
+`prepare` 必须停在 `AWAITING_APPROVAL`；不会默认批准，也不会由 Agent 模拟人工批准。成功验真应
+返回 `"valid": true`。在批准前修改任何 Evidence、Rule、Calculation、Proposal 或 Audit 对象，
+批准必须失败；在打包后修改文件，`verify` 必须以 `VERIFICATION_FAILED`、`valid=false` 摘要和非零
+`error_count` 拒绝，但 CLI 不回显可能包含本机路径的底层错误明细。
+
+### 源码 checkout：开发与浏览器 Demo
+
+贡献者需要 Python 3.12 和 [uv](https://docs.astral.sh/uv/)：
+
+```bash
+uv sync --locked --dev
+uv run proofflow --version
+uv run proofflow init-demo --output .proofflow/installed-demo
+```
+
+仓库内浏览器演示只绑定 `127.0.0.1`：
 
 ```bash
 uv run python -m demo.server --port 8765
 ```
 
-浏览器打开 `http://127.0.0.1:8765`。完整 90 秒路径、安全边界和故障处理见
-[本地证明链 Demo Runbook](docs/09_SEMIFINAL_DEMO_RUNBOOK.md)；当前 Demo 定向测试为 `19 passed`。
-
-如需直接复现 CLI 参考链：
-
-```bash
-uv run proofflow prepare \
-  --manifest examples/cases/happy_path/manifest.json \
-  --rules data/rules/cn_labor_contract_law.catalog.json \
-  --run-dir .proofflow/runs/demo-001
-```
-
-`prepare` 必须停在 `AWAITING_APPROVAL`。不会默认批准，也不会由 Agent 模拟人工批准。
-
-人工查看 `.proofflow/runs/demo-001/` 内的证据、规则、计算、风险、审计和待批哈希后，显式记录
-本地 Demo 决定：
-
-```bash
-uv run proofflow approve \
-  --run-dir .proofflow/runs/demo-001 \
-  --approver-id synthetic-reviewer \
-  --role legal-reviewer \
-  --decision APPROVE \
-  --reason "Reviewed the synthetic evidence, rules, calculation, risks, and uncertainties."
-```
-
-生成受控草案并独立验真：
-
-```bash
-uv run proofflow package --run-dir .proofflow/runs/demo-001
-uv run proofflow verify --run-dir .proofflow/runs/demo-001
-```
+浏览器打开 `http://127.0.0.1:8765`。`demo/`、`public-demo/`、其 90 秒 Runbook 与 Git-bound
+validator 是源码仓库的演示/历史证据资产，不包含在 wheel，也不属于已安装发行包的运行合同。
+源码演示的安全边界和故障处理见[本地证明链 Demo Runbook](docs/09_SEMIFINAL_DEMO_RUNBOOK.md)。
 
 ActionCertificate 的机器合同、信任边界、CLI 和限制见
 [`docs/13_ACTION_CERTIFICATE_V0P1.md`](docs/13_ACTION_CERTIFICATE_V0P1.md)。它只验证并在当前进程
 原子预留授权意图，不执行真实副作用，也不声称持久化 exactly-once。
-
-成功验真应返回 `"valid": true`。在批准前修改任何 Evidence、Rule、Calculation、Proposal 或
-Audit 对象，批准必须失败；在打包后修改文件，`verify` 必须报告哈希不一致。
 
 ## 为什么第一版不使用 LLM
 
@@ -204,7 +236,7 @@ uv run mypy
 uv run pytest
 ```
 
-当前稳定全仓测试为 `569 passed`，其中 ActionCertificate 定向套件为 `53 passed`、Demo 定向套件为
+当前稳定全仓测试为 `592 passed`，其中 ActionCertificate 定向套件为 `53 passed`、Demo 定向套件为
 `19 passed`。测试覆盖正常链、文件哈希、
 提示注入字段、地区/时态规则过滤、缺参阻断、确定性重放、冲突检测、Trace 缺失、越权审批、批准后
 篡改、包文件篡改和未执行评测的 `UNKNOWN`/`null` 合同。
