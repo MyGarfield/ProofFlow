@@ -16,7 +16,6 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
 
-
 ROOT = Path(__file__).resolve().parents[2]
 OUT = Path(__file__).resolve().parent
 BASE = "http://127.0.0.1:8765"
@@ -51,7 +50,9 @@ def guard_url(url: str) -> None:
         raise RuntimeError(f"NON_LOOPBACK_REQUEST_BLOCKED: {url}")
 
 
-def direct_request(method: str, url: str, headers: dict[str, str] | None = None, payload: dict | None = None):
+def direct_request(
+    method: str, url: str, headers: dict[str, str] | None = None, payload: dict | None = None
+):
     """Make one direct HTTP request; never reads proxy env or follows redirects."""
     guard_url(url)
     parsed = urlsplit(url)
@@ -82,10 +83,11 @@ def request(method: str, path: str, token: str | None = None, payload: dict | No
 
 def run_redirect_regression() -> dict[str, object]:
     """Prove a 302 Location is observed, not followed to a sink."""
+
     class RedirectHandler(BaseHTTPRequestHandler):
         sink_requests = 0
 
-        def do_GET(self):  # noqa: N802
+        def do_GET(self):
             if self.path == "/sink":
                 type(self).sink_requests += 1
             self.send_response(302)
@@ -106,7 +108,12 @@ def run_redirect_regression() -> dict[str, object]:
         "redirect regression did not return the expected 302 Location",
     )
     require(RedirectHandler.sink_requests == 0, "redirect regression followed the sink")
-    return {"status": status, "location_observed": True, "redirect_followed": False, "sink_requests": 0}
+    return {
+        "status": status,
+        "location_observed": True,
+        "redirect_followed": False,
+        "sink_requests": 0,
+    }
 
 
 def write(name: str, value: object) -> None:
@@ -121,7 +128,15 @@ def main() -> None:
     network = []
     for path in ("/", "/app.js", "/styles.css"):
         status, _raw, _headers = direct_request("GET", BASE + path, {"Origin": BASE})
-        network.append({"seq": len(network), "method": "GET", "url": BASE + path, "decision": "ALLOW_LOOPBACK", "status": status})
+        network.append(
+            {
+                "seq": len(network),
+                "method": "GET",
+                "url": BASE + path,
+                "decision": "ALLOW_LOOPBACK",
+                "status": status,
+            }
+        )
     blocked_target = "https://external.invalid/blocked-by-loopback-policy"
     try:
         guard_url(blocked_target)
@@ -141,15 +156,33 @@ def main() -> None:
     status, bootstrap, _headers = request("GET", "/api/bootstrap")
     require(status == 200 and bootstrap.get("ok") is True, "bootstrap failed")
     token = bootstrap["request_token"]
-    network.append({"seq": len(network), "method": "GET", "url": BASE + "/api/bootstrap", "decision": "ALLOW_LOOPBACK", "status": status})
+    network.append(
+        {
+            "seq": len(network),
+            "method": "GET",
+            "url": BASE + "/api/bootstrap",
+            "decision": "ALLOW_LOOPBACK",
+            "status": status,
+        }
+    )
 
     ledger = []
     states = []
 
-    def action(name: str, payload: dict | None, expected_status: int, expected_code: str | None = None):
+    def action(
+        name: str, payload: dict | None, expected_status: int, expected_code: str | None = None
+    ):
         nonlocal network
         status_code, result, _headers = request("POST", "/api/" + name, token, payload)
-        network.append({"seq": len(network), "method": "POST", "url": BASE + "/api/" + name, "decision": "ALLOW_LOOPBACK", "status": status_code})
+        network.append(
+            {
+                "seq": len(network),
+                "method": "POST",
+                "url": BASE + "/api/" + name,
+                "decision": "ALLOW_LOOPBACK",
+                "status": status_code,
+            }
+        )
         state = result.get("state")
         ledger.append(
             {
@@ -160,12 +193,21 @@ def main() -> None:
                 "code": (result.get("error") or {}).get("code") or result.get("action"),
                 "expected_code": expected_code,
                 "stage": (state or {}).get("run", {}).get("stage"),
-                "evidence": "PASS" if status_code == expected_status and ((expected_code is None) or (result.get("error") or {}).get("code") == expected_code) else "FAIL",
+                "evidence": "PASS"
+                if status_code == expected_status
+                and (
+                    (expected_code is None)
+                    or (result.get("error") or {}).get("code") == expected_code
+                )
+                else "FAIL",
             }
         )
         if state is not None:
             states.append({"seq": len(states) + 1, "state": state, "action": name.upper()})
-        require(status_code == expected_status, f"{name} returned {status_code}, expected {expected_status}")
+        require(
+            status_code == expected_status,
+            f"{name} returned {status_code}, expected {expected_status}",
+        )
         if expected_code:
             require(
                 (result.get("error") or {}).get("code") == expected_code,
@@ -175,7 +217,15 @@ def main() -> None:
 
     action("prepare", {}, 200)
     action("package", {}, 409, "HUMAN_GATE_REQUIRED")
-    action("approve", {"reason": "已核验公开合成证据、规则时效、确定性计算、风险与不确定项，同意仅生成本地评审包。"}, 200)
+    action(
+        "approve",
+        {
+            "reason": (
+                "已核验公开合成证据、规则时效、确定性计算、风险与不确定项,同意仅生成本地评审包。"
+            )
+        },
+        200,
+    )
     action("package", {}, 200)
     action("verify", {}, 200)
     benchmark = action("benchmark", {}, 200)
@@ -190,42 +240,51 @@ def main() -> None:
         "benchmark report hash was not a SHA-256 digest",
     )
 
-    write("action-ledger.json", {
-        "schema": "proofflow.reference-runtime.action-ledger.v1",
-        "captured_at": started,
-        "runtime_status": "REFERENCE_RUNTIME_EVIDENCE_ONLY",
-        "classification": "PUBLIC_SYNTHETIC",
-        "workers": "Stopped",
-        "readyWorkers": 0,
-        "llm": "OFF",
-        "fixture_pin": FIXTURE,
-        "rule_pin": RULES,
-        "actions": ledger,
-        "benchmark_contract_pass_fraction": benchmark["result"]["contract_pass_fraction"],
-        "benchmark_accuracy_claim": "NOT_MEASURED",
-        "benchmark_report_hash": benchmark_report_hash,
-        "benchmark_report_hash_reproducible": False,
-        "benchmark_report_hash_provenance": (
-            "server-generated synthetic report digest observed by the capture client; "
-            "a replay does not independently reproduce this field"
-        ),
-    })
-    write("network-ledger.json", {
-        "schema": "proofflow.reference-runtime.network-ledger.v1",
-        "policy": NETWORK_POLICY,
-        "client": "http.client.HTTPConnection",
-        "proxy_env_used": False,
-        "redirects_followed": False,
-        "requests": network,
-        "redirect_regression": run_redirect_regression(),
-        "non_loopback_requests_sent": 0,
-    })
-    write("dom-states.json", {
-        "schema": "proofflow.reference-runtime.dom-state-capture.v1",
-        "page": BASE,
-        "states": states,
-        "fixed_sequence": FIXED_SEQUENCE,
-    })
+    write(
+        "action-ledger.json",
+        {
+            "schema": "proofflow.reference-runtime.action-ledger.v1",
+            "captured_at": started,
+            "runtime_status": "REFERENCE_RUNTIME_EVIDENCE_ONLY",
+            "classification": "PUBLIC_SYNTHETIC",
+            "workers": "Stopped",
+            "readyWorkers": 0,
+            "llm": "OFF",
+            "fixture_pin": FIXTURE,
+            "rule_pin": RULES,
+            "actions": ledger,
+            "benchmark_contract_pass_fraction": benchmark["result"]["contract_pass_fraction"],
+            "benchmark_accuracy_claim": "NOT_MEASURED",
+            "benchmark_report_hash": benchmark_report_hash,
+            "benchmark_report_hash_reproducible": False,
+            "benchmark_report_hash_provenance": (
+                "server-generated synthetic report digest observed by the capture client; "
+                "a replay does not independently reproduce this field"
+            ),
+        },
+    )
+    write(
+        "network-ledger.json",
+        {
+            "schema": "proofflow.reference-runtime.network-ledger.v1",
+            "policy": NETWORK_POLICY,
+            "client": "http.client.HTTPConnection",
+            "proxy_env_used": False,
+            "redirects_followed": False,
+            "requests": network,
+            "redirect_regression": run_redirect_regression(),
+            "non_loopback_requests_sent": 0,
+        },
+    )
+    write(
+        "dom-states.json",
+        {
+            "schema": "proofflow.reference-runtime.dom-state-capture.v1",
+            "page": BASE,
+            "states": states,
+            "fixed_sequence": FIXED_SEQUENCE,
+        },
+    )
 
 
 if __name__ == "__main__":

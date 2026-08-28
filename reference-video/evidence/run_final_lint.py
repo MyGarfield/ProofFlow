@@ -7,7 +7,6 @@ import json
 import subprocess
 from pathlib import Path
 
-
 VIDEO_ROOT = Path(__file__).resolve().parents[1]
 SUMMARY = VIDEO_ROOT / "evidence/lint-summary.json"
 

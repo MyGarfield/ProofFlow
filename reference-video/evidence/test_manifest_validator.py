@@ -10,7 +10,6 @@ from pathlib import Path
 
 from validate_manifest import aggregate_hash, claim_scan, digest, strict_load
 
-
 EVIDENCE = Path(__file__).resolve().parent
 VIDEO_ROOT = EVIDENCE.parent
 MANIFEST = VIDEO_ROOT / "manifest.json"
@@ -35,7 +34,9 @@ def require(condition: bool, message: str) -> None:
         raise AssertionError(message)
 
 
-def command_for(manifest_path: Path, root: Path, tool_overrides: dict[str, Path] | None = None) -> list[str]:
+def command_for(
+    manifest_path: Path, root: Path, tool_overrides: dict[str, Path] | None = None
+) -> list[str]:
     tools = dict(TOOL_PATHS)
     tools.update(tool_overrides or {})
     return [
@@ -74,7 +75,6 @@ def clone_package(root: Path) -> None:
 
 def materialize_file(root: Path, relative: str) -> Path:
     destination = root / relative
-    parent = destination.parent
     top = root / relative.split("/", 1)[0]
     if top.is_symlink():
         top.unlink()
@@ -107,8 +107,12 @@ def run_mutation(name: str, mutate) -> None:
         manifest_path.write_text(json.dumps(manifest, sort_keys=True), encoding="utf-8")
         environment = dict(os.environ)
         environment["PYTHONPATH"] = str(EVIDENCE)
-        result = subprocess.run(command_for(manifest_path, root), env=environment, capture_output=True, text=True)
-        require(result.returncode != 0, f"{name} attack was accepted: {result.stdout} {result.stderr}")
+        result = subprocess.run(
+            command_for(manifest_path, root), env=environment, capture_output=True, text=True
+        )
+        require(
+            result.returncode != 0, f"{name} attack was accepted: {result.stdout} {result.stderr}"
+        )
 
 
 def test_duplicate_key_is_rejected() -> None:
@@ -138,7 +142,9 @@ def test_non_finite_number_is_rejected() -> None:
 def test_optimized_valid_manifest_passes() -> None:
     environment = dict(os.environ)
     environment["PYTHONPATH"] = str(EVIDENCE)
-    result = subprocess.run(command_for(MANIFEST, VIDEO_ROOT), env=environment, capture_output=True, text=True)
+    result = subprocess.run(
+        command_for(MANIFEST, VIDEO_ROOT), env=environment, capture_output=True, text=True
+    )
     require(result.returncode == 0, f"optimized validator rejected valid manifest: {result.stderr}")
 
 
@@ -147,13 +153,19 @@ def test_fake_commit_is_rejected() -> None:
 
 
 def test_overclaim_field_is_rejected() -> None:
-    run_mutation("overclaim-field", lambda value, _root: value["claims"].update(benchmark_11_of_11="ACCURACY_MEASURED"))
+    run_mutation(
+        "overclaim-field",
+        lambda value, _root: value["claims"].update(benchmark_11_of_11="ACCURACY_MEASURED"),
+    )
 
 
 def test_overclaim_visible_text_is_rejected_even_after_rehash() -> None:
     def mutate(value, root):
         path = materialize_file(root, "index.html")
-        path.write_text(path.read_text(encoding="utf-8") + "\nSIX AGENT LIVE / LEGAL ACCURACY 100%\n", encoding="utf-8")
+        path.write_text(
+            path.read_text(encoding="utf-8") + "\nSIX AGENT LIVE / LEGAL ACCURACY 100%\n",
+            encoding="utf-8",
+        )
         refresh_hashes(value, root, "index.html")
         lint = materialize_file(root, "evidence/lint-summary.json")
         lint_value = json.loads(lint.read_text(encoding="utf-8"))
@@ -168,7 +180,9 @@ def test_package_schema_cannot_define_truth() -> None:
     def mutate(value, root):
         schema = materialize_file(root, "evidence/manifest.schema.json")
         schema.write_text(
-            schema.read_text(encoding="utf-8").replace('"additionalProperties": false', '"additionalProperties": true', 1),
+            schema.read_text(encoding="utf-8").replace(
+                '"additionalProperties": false', '"additionalProperties": true', 1
+            ),
             encoding="utf-8",
         )
         value["schema_sha256"] = digest(schema)
@@ -185,7 +199,10 @@ def test_path_fake_ffprobe_is_ignored_and_rejected() -> None:
         fake_path.mkdir()
         fake = fake_path / "ffprobe"
         fake.write_text(
-            "#!/bin/sh\nif [ \"$1\" = \"-version\" ]; then echo 'ffprobe version 9.9.9'; exit 0; fi\nprintf '{\"format\":{\"duration\":\"1.000000\"},\"streams\":[]}'\n",
+            "#!/bin/sh\n"
+            'if [ "$1" = "-version" ]; then '
+            "echo 'ffprobe version 9.9.9'; exit 0; fi\n"
+            'printf \'{"format":{"duration":"1.000000"},"streams":[]}\'\n',
             encoding="utf-8",
         )
         fake.chmod(0o755)
@@ -205,23 +222,36 @@ def test_path_fake_ffprobe_is_ignored_and_rejected() -> None:
 
 
 def test_deleted_video_hash_is_rejected() -> None:
-    run_mutation("deleted-video-hash", lambda value, _root: value["artifact_hashes"].pop("renders/reference-runtime-evidence.mp4"))
+    run_mutation(
+        "deleted-video-hash",
+        lambda value, _root: value["artifact_hashes"].pop("renders/reference-runtime-evidence.mp4"),
+    )
 
 
 def test_deleted_render_input_is_rejected() -> None:
-    run_mutation("deleted-render-input", lambda value, _root: value["render_input_hashes"].pop("snapshots/frame-06-at-84s.png"))
+    run_mutation(
+        "deleted-render-input",
+        lambda value, _root: value["render_input_hashes"].pop("snapshots/frame-06-at-84s.png"),
+    )
 
 
 def test_fake_keyframe_is_rejected() -> None:
-    run_mutation("fake-keyframe", lambda value, _root: value["keyframe_probes"][0].update(key_frame=0))
+    run_mutation(
+        "fake-keyframe", lambda value, _root: value["keyframe_probes"][0].update(key_frame=0)
+    )
 
 
 def test_slowstart_flag_is_rejected() -> None:
-    run_mutation("slowstart", lambda value, _root: value.update(faststart=False, moov_atom_before_mdat=False))
+    run_mutation(
+        "slowstart", lambda value, _root: value.update(faststart=False, moov_atom_before_mdat=False)
+    )
 
 
 def test_hash_tamper_is_rejected() -> None:
-    run_mutation("hash-tamper", lambda value, _root: value["artifact_hashes"].update({"index.html": "sha256:" + "0" * 64}))
+    run_mutation(
+        "hash-tamper",
+        lambda value, _root: value["artifact_hashes"].update({"index.html": "sha256:" + "0" * 64}),
+    )
 
 
 def test_snapshot_duplicate_is_rejected_after_hash_recalculation() -> None:
@@ -268,7 +298,10 @@ def test_qa_6_to_7_second_overclaim_injection_is_caught_by_live_ocr() -> None:
         text_file = Path(directory) / "qa-overclaim.txt"
         text_file.write_text("SIX AGENTS LIVE LEGAL ACCURACY 100%\n", encoding="utf-8")
         outputbase = Path(directory) / "qa-overclaim"
-        require(TEXT2IMAGE.is_file(), f"missing explicit text2image helper beside tesseract: {TEXT2IMAGE}")
+        require(
+            TEXT2IMAGE.is_file(),
+            f"missing explicit text2image helper beside tesseract: {TEXT2IMAGE}",
+        )
         subprocess.run(
             [
                 str(TEXT2IMAGE),
@@ -322,14 +355,19 @@ def test_qa_6_to_7_second_overclaim_injection_is_caught_by_live_ocr() -> None:
         shutil.copy2(MANIFEST, root / "manifest.json")
         matches, _digest = claim_scan(root, TOOL_PATHS["tesseract"])
         patterns = {item["pattern"] for item in matches}
-        require({"six_agents_live", "legal_accuracy_100"}.issubset(patterns), f"live OCR missed QA overclaim: {matches}")
+        require(
+            {"six_agents_live", "legal_accuracy_100"}.issubset(patterns),
+            f"live OCR missed QA overclaim: {matches}",
+        )
 
 
 def test_privacy_is_recomputed_not_read_from_stale_summary() -> None:
     def mutate(value, root):
         path = materialize_file(root, "index.html")
         leaked = "/" + "Users/attacker/private"
-        path.write_text(path.read_text(encoding="utf-8") + f"\nconst leaked = '{leaked}';\n", encoding="utf-8")
+        path.write_text(
+            path.read_text(encoding="utf-8") + f"\nconst leaked = '{leaked}';\n", encoding="utf-8"
+        )
         refresh_hashes(value, root, "index.html")
         lint = materialize_file(root, "evidence/lint-summary.json")
         lint_value = json.loads(lint.read_text(encoding="utf-8"))
@@ -343,7 +381,9 @@ def test_privacy_is_recomputed_not_read_from_stale_summary() -> None:
 def test_slowstart_and_frame_chain_cannot_be_forged_together() -> None:
     def mutate(value, root):
         value.update(faststart=False, moov_atom_before_mdat=False)
-        value["frame_bindings"][0]["video_sample_sha256"] = value["frame_bindings"][1]["video_sample_sha256"]
+        value["frame_bindings"][0]["video_sample_sha256"] = value["frame_bindings"][1][
+            "video_sample_sha256"
+        ]
 
     run_mutation("forged-media-chain", mutate)
 
@@ -351,7 +391,9 @@ def test_slowstart_and_frame_chain_cannot_be_forged_together() -> None:
 def test_external_validator_pin_rejects_replaced_package_validator() -> None:
     def mutate(value, root):
         path = materialize_file(root, "evidence/validate_manifest.py")
-        path.write_text(path.read_text(encoding="utf-8") + "\n# replaced package validator\n", encoding="utf-8")
+        path.write_text(
+            path.read_text(encoding="utf-8") + "\n# replaced package validator\n", encoding="utf-8"
+        )
         value["artifact_hashes"]["evidence/validate_manifest.py"] = digest(path)
 
     run_mutation("validator-replacement", mutate)

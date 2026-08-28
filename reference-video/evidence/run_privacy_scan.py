@@ -2,15 +2,26 @@
 
 from __future__ import annotations
 
-import json
 import hashlib
+import json
 import re
 from pathlib import Path
 
-
 VIDEO_ROOT = Path(__file__).resolve().parents[1]
 SUMMARY = VIDEO_ROOT / "evidence/privacy-scan.json"
-SKIP_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".mp4", ".m4a", ".wav", ".woff", ".woff2", ".pyc"}
+SKIP_SUFFIXES = {
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".webp",
+    ".mp4",
+    ".m4a",
+    ".wav",
+    ".woff",
+    ".woff2",
+    ".pyc",
+}
 EXCLUDED_FROM_DIGEST = {"manifest.json", "evidence/privacy-scan.json"}
 PATTERNS = {
     "absolute_path": re.compile(r"/(?:Users|private)/[A-Za-z0-9_.-]+"),
@@ -28,7 +39,11 @@ def digest(path: Path) -> str:
 def inventory() -> list[str]:
     paths = []
     for path in sorted(VIDEO_ROOT.rglob("*")):
-        if not path.is_file() or path.suffix.lower() in SKIP_SUFFIXES or "__pycache__" in path.parts:
+        if (
+            not path.is_file()
+            or path.suffix.lower() in SKIP_SUFFIXES
+            or "__pycache__" in path.parts
+        ):
             continue
         relative = path.relative_to(VIDEO_ROOT).as_posix()
         if relative in EXCLUDED_FROM_DIGEST:
@@ -38,14 +53,16 @@ def inventory() -> list[str]:
 
 
 def aggregate(paths: list[str]) -> str:
-    payload = "".join(f"{relative}\t{digest(VIDEO_ROOT / relative)}\n" for relative in sorted(paths)).encode("utf-8")
+    payload = "".join(
+        f"{relative}\t{digest(VIDEO_ROOT / relative)}\n" for relative in sorted(paths)
+    ).encode("utf-8")
     return "sha256:" + hashlib.sha256(payload).hexdigest()
 
 
 def main() -> None:
     files = inventory()
     matches = []
-    scan_paths = files + ["manifest.json", "evidence/privacy-scan.json"]
+    scan_paths = [*files, "manifest.json", "evidence/privacy-scan.json"]
     for relative in scan_paths:
         path = VIDEO_ROOT / relative
         if not path.is_file():
@@ -64,9 +81,13 @@ def main() -> None:
         "files_scanned": scan_paths,
         "patterns": sorted(PATTERNS),
         "matches": matches,
-        "path_policy": "published text contains no workstation absolute paths or credential-shaped values",
+        "path_policy": (
+            "published text contains no workstation absolute paths or credential-shaped values"
+        ),
     }
-    SUMMARY.write_text(json.dumps(summary, ensure_ascii=False, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+    SUMMARY.write_text(
+        json.dumps(summary, ensure_ascii=False, sort_keys=True, indent=2) + "\n", encoding="utf-8"
+    )
     if matches:
         raise SystemExit("privacy scan found matches")
     print(json.dumps({"files_scanned": len(files), "matches": 0}, sort_keys=True))

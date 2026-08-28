@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-
 SNAPSHOT_PATHS = (
     "snapshots/frame-00-at-5s.png",
     "snapshots/frame-01-at-18s.png",
@@ -12,7 +11,8 @@ SNAPSHOT_PATHS = (
     "snapshots/frame-05-at-70s.png",
     "snapshots/frame-06-at-84s.png",
 )
-RENDER_INPUT_PATHS = SNAPSHOT_PATHS + (
+RENDER_INPUT_PATHS = (
+    *SNAPSHOT_PATHS,
     "silent-aac.m4a",
     "evidence/ffmpeg-image-sequence.txt",
 )

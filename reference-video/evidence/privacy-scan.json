@@ -38,7 +38,7 @@
     "manifest.json",
     "evidence/privacy-scan.json"
   ],
-  "input_digest": "sha256:65ecca53e530d2158b29cabf9e8c9a886f476f7cc28ab4830a9ddf122079b502",
+  "input_digest": "sha256:9b01d83a3f2c337657918c564a513c9aee9d500385707e9be1b7a26f563026cb",
   "input_paths": [
     "DESIGN.md",
     "SCRIPT.md",
@@ -82,6 +82,6 @@
     "private_key"
   ],
   "scanner": "run_privacy_scan.py",
-  "scanner_sha256": "sha256:738cc8bc5c6b3e2d3aa364a95926d4a469a9b485ae1bfce35f65a5752a2715cd",
+  "scanner_sha256": "sha256:f22fad5d6c9ab66b7e179a6469cfec959725b0eebecfa8f0855475af3164e085",
   "schema": "proofflow.reference-runtime.privacy-scan.v2"
 }

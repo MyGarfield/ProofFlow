@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import json
 import argparse
-import subprocess
+import json
 import sys
 from pathlib import Path
 
@@ -16,22 +15,21 @@ from validate_manifest import (
     CLAIM_SCANNER_NAME,
     FIXED_SEQUENCE,
     REPORT_HASH_PROVENANCE,
-    SNAPSHOT_BINDINGS,
     SCHEMA_ID,
+    SNAPSHOT_BINDINGS,
+    absolute_tool_path,
+    aggregate_hash,
+    atom_positions,
     claim_scan,
     compare_frame,
     digest,
     ffprobe,
+    git_output,
     inspect_tooling,
     keyframe_probes,
     privacy_provenance,
-    atom_positions,
-    aggregate_hash,
-    absolute_tool_path,
-    git_output,
     verify_frame_commitment,
 )
-
 
 ROOT = Path(__file__).resolve().parents[2]
 VIDEO_ROOT = ROOT / "reference-video"
@@ -40,7 +38,9 @@ TARGETS = (0, 15, 30, 42, 60, 72, 89)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Recompute the final evidence manifest from delivered bytes.")
+    parser = argparse.ArgumentParser(
+        description="Recompute the final evidence manifest from delivered bytes."
+    )
     parser.add_argument("--video-root", type=Path, default=VIDEO_ROOT)
     parser.add_argument("--manifest", type=Path)
     parser.add_argument("--trusted-git-root", type=Path, required=True)
@@ -72,13 +72,20 @@ def main() -> None:
     action = json.loads((video_root / "evidence/action-ledger.json").read_text(encoding="utf-8"))
     network = json.loads((video_root / "evidence/network-ledger.json").read_text(encoding="utf-8"))
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    for legacy_key in ("source_commit", "artifact_commit", "artifact_payload_commit", "artifact_payload_commit_semantics"):
+    for legacy_key in (
+        "source_commit",
+        "artifact_commit",
+        "artifact_payload_commit",
+        "artifact_payload_commit_semantics",
+    ):
         manifest.pop(legacy_key, None)
 
     schema_sha256 = digest(video_root / "evidence/manifest.schema.json")
     validator_sha256 = digest(video_root / "evidence/validate_manifest.py")
     tooling = inspect_tooling(tool_paths)
-    privacy_paths, privacy_digest, privacy_matches = privacy_provenance(video_root, validator_sha256)
+    privacy_paths, privacy_digest, privacy_matches = privacy_provenance(
+        video_root, validator_sha256
+    )
     claim_matches, claim_digest = claim_scan(video_root, tool_paths["tesseract"])
     frame_commitment = verify_frame_commitment(video_root, video, tool_paths["ffmpeg"])
     frame_bindings = []
@@ -87,7 +94,9 @@ def main() -> None:
         binding["snapshot"] = relative
         frame_bindings.append(binding)
     atom_order = atom_positions(video)
-    faststart = "moov" in atom_order and "mdat" in atom_order and atom_order["moov"] < atom_order["mdat"]
+    faststart = (
+        "moov" in atom_order and "mdat" in atom_order and atom_order["moov"] < atom_order["mdat"]
+    )
     report_hash = action["benchmark_report_hash"]
     manifest.update(
         {
@@ -125,7 +134,11 @@ def main() -> None:
             "claim_provenance": {
                 "scanner": CLAIM_SCANNER_NAME,
                 "scanner_sha256": validator_sha256,
-                "input_paths": ["index.html", "subtitles.srt", *[path for path, _target in SNAPSHOT_BINDINGS]],
+                "input_paths": [
+                    "index.html",
+                    "subtitles.srt",
+                    *[path for path, _target in SNAPSHOT_BINDINGS],
+                ],
                 "excluded_from_digest": ["manifest.json"],
                 "input_digest": claim_digest,
                 "forbidden_matches": claim_matches,

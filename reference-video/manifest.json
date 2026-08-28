@@ -15,20 +15,20 @@
     "capture/screenshots/full-page.png": "sha256:3c82145c9cb65e073621d548b66b28a49af938ecc5749e7f77a6a0c45719e297",
     "capture/screenshots/scroll-000.png": "sha256:6bddbe1bc73e4f9e0f96a2a42ae811b6e66a41c51d26230583e3ed68e67e830a",
     "evidence/action-ledger.json": "sha256:32f34b0537cd0795b94c87c2f112cae9893e751d94bd76469288e5d80eaaed4b",
-    "evidence/artifact_spec.py": "sha256:dcc5611f57e34f0bbe3cd5bc882f7e5a7807a2650e8a32b69df3e162a84b64f6",
+    "evidence/artifact_spec.py": "sha256:03b18d632dda0245b970d4ba3ae276664ca16164fa388bcba39c67eaa95aaeb2",
     "evidence/audio-pcm.framemd5": "sha256:8da4d8edd6db8e97691d40f33c7cf6bd71936b7545f36564484bca7d88dd23fb",
-    "evidence/capture_sequence.py": "sha256:5ac3521234bde19554308ac481299306e548f163c62a8be434634e537bfa73ca",
+    "evidence/capture_sequence.py": "sha256:e4b0773e035b63315a70b0830327c4bd13331f44af177f3ef5da6f649804f1b7",
     "evidence/dom-states.json": "sha256:14045b87342160137ec1d3189a95c689d87e7513fb0c828e94b0620aa61e8aa3",
     "evidence/ffmpeg-image-sequence.txt": "sha256:7351dc0f3d79373193651cf5e845f6d5c1f13396f8848303f9d232fd19a526d9",
-    "evidence/finalize_manifest.py": "sha256:4244358233a2416473f1aca56a47cd46eb91344e335d6b090b4ce2b4acac2eda",
+    "evidence/finalize_manifest.py": "sha256:583e2bf2e085b47e391b757fb908897065025569494d36490a96ea2f0ca52493",
     "evidence/lint-summary.json": "sha256:2de33e6b316e0173ff4d86ea75011a0acbd2537fa17a644db2ffde6677675743",
     "evidence/manifest.schema.json": "sha256:3af014e66ce304a5f205e5cb9b2900157d6469b72ff5601e1c7a1d447224c104",
     "evidence/network-ledger.json": "sha256:0ea4696637b8308e90fa78ba1fbeeb87d51bc1081869619bbb9dcfb047643bdf",
-    "evidence/privacy-scan.json": "sha256:4ad11920d602aaea568151807ad3de7e37d54689a709d95e4604c53e59c8d0f9",
-    "evidence/run_final_lint.py": "sha256:f84e9349b809b7150857af290a25d64b74849c5fdaee538929576fa5b9813725",
-    "evidence/run_privacy_scan.py": "sha256:738cc8bc5c6b3e2d3aa364a95926d4a469a9b485ae1bfce35f65a5752a2715cd",
-    "evidence/test_manifest_validator.py": "sha256:0445fe74a0915ab68b57bcb6b7047fabbeb47a3be2ade4d316ad35bf67a01a27",
-    "evidence/validate_manifest.py": "sha256:4ab59e2f1330e19847e07375093478e053c0bb6c06f12c5784f0e4ff7e716252",
+    "evidence/privacy-scan.json": "sha256:d6905f3e0e8964f6c8a14806cebaac21d08941ee923d820b0760016fdf1d07cd",
+    "evidence/run_final_lint.py": "sha256:9fe3ece8d70f3c2582274f68477dbb92172c364a1aceb012a07fb82d0267fc34",
+    "evidence/run_privacy_scan.py": "sha256:f22fad5d6c9ab66b7e179a6469cfec959725b0eebecfa8f0855475af3164e085",
+    "evidence/test_manifest_validator.py": "sha256:6d07b2614dac40c8ccae545f5c1550976acaeeb453998f00a9a9b61c20a48ea8",
+    "evidence/validate_manifest.py": "sha256:9286b832252ee59143c0de327fdc489b610c4a6de12fac202ac53c8c8548f642",
     "evidence/video-frames.framemd5": "sha256:d7f1593cc4acccf2c630a878384952e547f281a508129c31c170450c6f13c1c0",
     "index.html": "sha256:c7d1032d17805c33f4d5515dffc28c56eb0a31f227a5a3c5590d8d69e52827af",
     "renders/reference-runtime-evidence.mp4": "sha256:9083e55e359d56a85c727d825545ad45a264b74f90b19dcff54a81348e4bf619",
@@ -66,7 +66,7 @@
       "snapshots/frame-06-at-84s.png"
     ],
     "scanner": "trusted-validator-live+tesseract",
-    "scanner_sha256": "sha256:4ab59e2f1330e19847e07375093478e053c0bb6c06f12c5784f0e4ff7e716252"
+    "scanner_sha256": "sha256:9286b832252ee59143c0de327fdc489b610c4a6de12fac202ac53c8c8548f642"
   },
   "claims": {
     "benchmark_11_of_11": "STRUCTURE_COMPLETE_ONLY",
@@ -323,7 +323,7 @@
       "evidence/privacy-scan.json",
       "manifest.json"
     ],
-    "input_digest": "sha256:65ecca53e530d2158b29cabf9e8c9a886f476f7cc28ab4830a9ddf122079b502",
+    "input_digest": "sha256:9b01d83a3f2c337657918c564a513c9aee9d500385707e9be1b7a26f563026cb",
     "input_paths": [
       "DESIGN.md",
       "SCRIPT.md",
@@ -359,7 +359,7 @@
     ],
     "matches": [],
     "scanner": "trusted-validator-live",
-    "scanner_sha256": "sha256:4ab59e2f1330e19847e07375093478e053c0bb6c06f12c5784f0e4ff7e716252"
+    "scanner_sha256": "sha256:9286b832252ee59143c0de327fdc489b610c4a6de12fac202ac53c8c8548f642"
   },
   "readyWorkers": 0,
   "recorded_source_commit": "b63eeb60d1072c73d2d0d1d6061b3c8f800487a4",
@@ -413,7 +413,7 @@
       "version": "5.5.2"
     }
   },
-  "validator_sha256": "sha256:4ab59e2f1330e19847e07375093478e053c0bb6c06f12c5784f0e4ff7e716252",
+  "validator_sha256": "sha256:9286b832252ee59143c0de327fdc489b610c4a6de12fac202ac53c8c8548f642",
   "video": "renders/reference-runtime-evidence.mp4",
   "voiceover_status": "UNAVAILABLE_LOCAL_TTS",
   "workers": "Stopped"
