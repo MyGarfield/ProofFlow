@@ -11,24 +11,28 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import logging
 import os
 import re
+import shutil
+import stat
 import subprocess
+import sys
 import tarfile
 import tempfile
+import uuid
 from collections import Counter
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_OUTPUT = ROOT / "deploy/tool-service/evidence"
+LOGGER = logging.getLogger(__name__)
 
 TARGET_TAG = "proofflow-tool-service:0.1.0a0"
-TARGET_IMAGE_ID = "sha256:1a4c4efb2d4e4fe37503ba0082282218e0b8c978dd22c1bd1488b5942d087775"
-TARGET_REFERENCE = f"proofflow-tool-service@{TARGET_IMAGE_ID}"
 BASE_IMAGE_REFERENCE = (
     "python:3.12-alpine@sha256:285a71327884a4d50efbea30104473b0fa43ecefa499458899670ca30dae76e5"
 )
@@ -91,9 +95,22 @@ def _reject_json_constant(value: str) -> None:
     raise CollectionError("non-finite JSON numbers are not allowed")
 
 
+def _reject_duplicate_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise CollectionError("duplicate JSON object keys are not allowed")
+        result[key] = value
+    return result
+
+
 def load_json_bytes(payload: bytes, label: str) -> dict[str, Any]:
     try:
-        value = json.loads(payload, parse_constant=_reject_json_constant)
+        value = json.loads(
+            payload,
+            object_pairs_hook=_reject_duplicate_pairs,
+            parse_constant=_reject_json_constant,
+        )
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise CollectionError(f"{label} is not valid UTF-8 JSON") from exc
     if not isinstance(value, dict):
@@ -103,6 +120,20 @@ def load_json_bytes(payload: bytes, label: str) -> dict[str, Any]:
 
 def sha256_bytes(payload: bytes) -> str:
     return f"sha256:{hashlib.sha256(payload).hexdigest()}"
+
+
+def canonical_sha256(value: dict[str, Any]) -> str:
+    try:
+        payload = json.dumps(
+            value,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        ).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise CollectionError("release binding contains a non-canonical value") from exc
+    return sha256_bytes(payload)
 
 
 def _is_generated_python_cache(relative_path: Path) -> bool:
@@ -174,7 +205,7 @@ def build_input_provenance() -> dict[str, Any]:
                 "file_count": len(files),
             }
         )
-    return {
+    provenance: dict[str, Any] = {
         "claim_level": "UNSIGNED_LOCAL_BUILD_INPUT_DIGEST_SNAPSHOT",
         "hash_algorithm": "SHA-256",
         "directory_bundle_format": DIRECTORY_BUNDLE_FORMAT,
@@ -182,30 +213,49 @@ def build_input_provenance() -> dict[str, Any]:
         "build_relationship_attested": False,
         "inputs": inputs,
     }
+    provenance["aggregate_sha256"] = canonical_sha256(provenance)
+    return provenance
 
 
-def docker_image_metadata() -> dict[str, Any]:
+def source_revision() -> dict[str, Any]:
+    git = ["git", "-C", str(ROOT)]
+    commit_sha = run([*git, "rev-parse", "HEAD"], timeout=30).stdout.decode("ascii").strip()
+    tree_sha = run([*git, "rev-parse", "HEAD^{tree}"], timeout=30).stdout.decode("ascii").strip()
+    if not re.fullmatch(r"[0-9a-f]{40}", commit_sha) or not re.fullmatch(r"[0-9a-f]{40}", tree_sha):
+        raise CollectionError("Git returned an invalid source revision")
+    working_tree_status = run([*git, "status", "--porcelain"], timeout=30).stdout
+    if working_tree_status.strip():
+        raise CollectionError("working tree must be clean before evidence collection")
+    return {
+        "repository": "https://github.com/MyGarfield/ProofFlow",
+        "commit_sha": commit_sha,
+        "tree_sha": tree_sha,
+        "working_tree_clean": True,
+    }
+
+
+def docker_image_metadata(target_tag: str) -> dict[str, Any]:
     template = "{{.Id}}\t{{.Os}}\t{{.Architecture}}\t{{.Created}}\t{{json .RepoDigests}}"
-    output = run(["docker", "image", "inspect", "--format", template, TARGET_TAG]).stdout
+    output = run(["docker", "image", "inspect", "--format", template, target_tag]).stdout
     fields = output.decode("utf-8").strip().split("\t", maxsplit=4)
     if len(fields) != 5:
         raise CollectionError("unexpected docker image inspect output")
     image_id, operating_system, architecture, created_at, repo_digests_json = fields
     repo_digests = json.loads(repo_digests_json)
-    if image_id != TARGET_IMAGE_ID:
-        raise CollectionError(
-            f"target tag moved: expected {TARGET_IMAGE_ID}, observed {image_id or '<empty>'}"
-        )
-    if TARGET_REFERENCE not in repo_digests:
-        raise CollectionError("target immutable reference is absent from local RepoDigests")
+    if not re.fullmatch(r"sha256:[0-9a-f]{64}", image_id):
+        raise CollectionError("target image ID is not an immutable SHA-256 digest")
     if (operating_system, architecture) != ("linux", "amd64"):
         raise CollectionError(
             "unsupported scan platform: expected linux/amd64, observed "
             f"{operating_system}/{architecture}"
         )
+    repository = target_tag.rsplit(":", maxsplit=1)[0]
+    immutable_reference = f"{repository}@{image_id}"
+    if repo_digests and immutable_reference not in repo_digests:
+        raise CollectionError("target tag RepoDigests conflict with the observed image ID")
     return {
-        "tag": TARGET_TAG,
-        "immutable_reference": TARGET_REFERENCE,
+        "tag": target_tag,
+        "immutable_reference": immutable_reference,
         "image_id": image_id,
         "platform": f"{operating_system}/{architecture}",
         "created_at": created_at,
@@ -403,9 +453,15 @@ def write_atomic(path: Path, payload: bytes) -> None:
     os.replace(temporary, path)
 
 
-def collect(output_dir: Path) -> dict[str, Any]:
-    output_dir.mkdir(parents=True, exist_ok=True)
-    subject = docker_image_metadata()
+def _collect_into(
+    output_dir: Path,
+    *,
+    target_tag: str,
+    source: dict[str, Any],
+    scan_started_at: datetime,
+) -> dict[str, Any]:
+    output_dir.mkdir(parents=True, exist_ok=False)
+    subject = docker_image_metadata(target_tag)
 
     # The AgentTeams Docker daemon runs in a VM that shares the repository's
     # /Users path but not macOS's /var/folders default temporary directory.
@@ -416,7 +472,7 @@ def collect(output_dir: Path) -> dict[str, Any]:
         workdir = Path(directory)
         os.chmod(workdir, 0o755)
         archive = workdir / "target.tar"
-        run(["docker", "image", "save", "--output", str(archive), TARGET_REFERENCE])
+        run(["docker", "image", "save", "--output", str(archive), subject["image_id"]])
         archive.chmod(0o644)
         subject["image_config_digest"] = docker_archive_config_digest(archive)
 
@@ -448,12 +504,14 @@ def collect(output_dir: Path) -> dict[str, Any]:
         cyclonedx = load_json_bytes(cyclonedx_raw, "CycloneDX SBOM")
         spdx = load_json_bytes(spdx_raw, "SPDX SBOM")
 
+        refresh_started_at = datetime.now(UTC)
         scanner_run(
             TRIVY_IMAGE,
             ["image", "--download-db-only", "--cache-dir", "/root/.cache/trivy", "--quiet"],
             cache_volume=cache_volume,
             network="bridge",
         )
+        refresh_completed_at = datetime.now(UTC)
         trivy_version_raw = scanner_run(
             TRIVY_IMAGE,
             ["version", "--format", "json"],
@@ -535,10 +593,16 @@ def collect(output_dir: Path) -> dict[str, Any]:
         ]
 
         high_or_critical = vulnerability_counts["HIGH"] + vulnerability_counts["CRITICAL"]
+        scan_completed_at = datetime.now(UTC)
         report: dict[str, Any] = {
-            "schema_version": "1.1.0",
-            "collected_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+            "schema_version": "1.2.0",
+            "collected_at": scan_completed_at.isoformat().replace("+00:00", "Z"),
             "claim_level": "POINT_IN_TIME_PACKAGE_VULNERABILITY_SCAN",
+            "scan": {
+                "started_at": scan_started_at.isoformat().replace("+00:00", "Z"),
+                "completed_at": scan_completed_at.isoformat().replace("+00:00", "Z"),
+            },
+            "source": source,
             "subject": subject,
             "build_input_provenance": build_input_provenance(),
             "scope": {
@@ -578,6 +642,12 @@ def collect(output_dir: Path) -> dict[str, Any]:
                 "downloaded_at": database.get("DownloadedAt"),
                 "sha256": database_hash_before_scan,
                 "bytes": database_size,
+                "refresh": {
+                    "status": "SUCCEEDED",
+                    "started_at": refresh_started_at.isoformat().replace("+00:00", "Z"),
+                    "completed_at": refresh_completed_at.isoformat().replace("+00:00", "Z"),
+                    "network_scope": "VULNERABILITY_DATABASE_ONLY",
+                },
             },
             "artifacts": artifacts,
             "summary": {
@@ -624,6 +694,34 @@ def collect(output_dir: Path) -> dict[str, Any]:
             ],
         }
 
+        report["raw_artifact_set"] = sorted(
+            [
+                {
+                    "path": record["path"],
+                    "media_type": record["media_type"],
+                    "sha256": record["sha256"],
+                    "bytes": record["bytes"],
+                }
+                for record in artifacts
+            ],
+            key=lambda record: record["path"],
+        )
+        bound_fields = [
+            "scan",
+            "source",
+            "build_input_provenance",
+            "subject",
+            "raw_artifact_set",
+            "vulnerability_database",
+        ]
+        evidence_set_id = canonical_sha256({field: report[field] for field in bound_fields})
+        report["evidence_set_id"] = evidence_set_id
+        report["release_binding"] = {
+            "algorithm": "CANONICAL_JSON_SHA256_V1",
+            "bound_fields": bound_fields,
+            "evidence_set_id": evidence_set_id,
+        }
+
     report_path = output_dir / "supply-chain-evidence.json"
     write_atomic(
         report_path,
@@ -632,11 +730,116 @@ def collect(output_dir: Path) -> dict[str, Any]:
     return report
 
 
+def _seed_contract_files(candidate_dir: Path) -> None:
+    for source in DEFAULT_OUTPUT.glob("*.schema.json"):
+        if not source.is_file() or source.is_symlink():
+            raise CollectionError(f"unsafe schema contract file: {source.name}")
+        shutil.copy2(source, candidate_dir / source.name)
+
+
+def _self_validate(candidate_dir: Path) -> None:
+    validator = ROOT / "deploy/tool-service/scripts/validate_supply_chain_evidence.py"
+    report = candidate_dir / "supply-chain-evidence.json"
+    run(
+        [sys.executable, str(validator), str(report), "--mode", "consistency"],
+        timeout=120,
+    )
+
+
+def _safe_output_path(output_dir: Path) -> Path:
+    """Resolve an output path only after rejecting existing symlink components."""
+
+    absolute = Path(os.path.abspath(os.fspath(output_dir)))
+
+    def reject_symlink_components(path: Path) -> None:
+        current = Path(path.anchor)
+        for component in path.parts[1:]:
+            current /= component
+            try:
+                mode = os.lstat(current).st_mode
+            except FileNotFoundError:
+                break
+            except OSError as exc:
+                raise CollectionError("could not inspect evidence output path") from exc
+            if stat.S_ISLNK(mode):
+                raise CollectionError("evidence output path must not contain symlinks")
+
+    reject_symlink_components(absolute)
+    absolute.parent.mkdir(parents=True, exist_ok=True)
+    reject_symlink_components(absolute)
+    resolved_parent = absolute.parent.resolve(strict=True)
+    if resolved_parent != absolute.parent:
+        raise CollectionError("evidence output parent changed during path validation")
+    return resolved_parent / absolute.name
+
+
+def _promote_directory(candidate_dir: Path, output_dir: Path) -> Path | None:
+    if output_dir.is_symlink():
+        raise CollectionError("evidence output directory must not be a symlink")
+    backup: Path | None = None
+    if output_dir.exists():
+        if not output_dir.is_dir():
+            raise CollectionError("evidence output path must be a directory")
+        backup = output_dir.parent / f".{output_dir.name}.backup-{uuid.uuid4().hex}"
+        os.replace(output_dir, backup)
+    try:
+        os.replace(candidate_dir, output_dir)
+    except BaseException:
+        if backup is not None and not output_dir.exists():
+            os.replace(backup, output_dir)
+        raise
+    if backup is not None:
+        try:
+            shutil.rmtree(backup)
+        except OSError as exc:
+            with suppress(Exception):
+                LOGGER.warning(
+                    "validated evidence is live; previous backup retained as %s: %s",
+                    backup.name,
+                    exc,
+                )
+            return backup
+    return None
+
+
+def collect(
+    output_dir: Path,
+    *,
+    target_tag: str = TARGET_TAG,
+) -> dict[str, Any]:
+    """Collect a consistency-only candidate, validate, then promote without partial overwrite."""
+
+    output_dir = _safe_output_path(output_dir)
+    source = source_revision()
+    scan_started_at = datetime.now(UTC)
+    staging_root = Path(
+        tempfile.mkdtemp(prefix=f".{output_dir.name}.staging-", dir=output_dir.parent)
+    )
+    candidate_dir = staging_root / "candidate"
+    try:
+        report = _collect_into(
+            candidate_dir,
+            target_tag=target_tag,
+            source=source,
+            scan_started_at=scan_started_at,
+        )
+        _seed_contract_files(candidate_dir)
+        _self_validate(candidate_dir)
+        _promote_directory(candidate_dir, output_dir)
+    finally:
+        shutil.rmtree(staging_root, ignore_errors=True)
+    return report
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument("--target-tag", default=TARGET_TAG)
     arguments = parser.parse_args()
-    report = collect(arguments.output.resolve())
+    report = collect(
+        arguments.output,
+        target_tag=arguments.target_tag,
+    )
     print(
         json.dumps(
             {
@@ -644,6 +847,7 @@ def main() -> int:
                 "components": report["summary"]["cyclonedx_components"],
                 "vulnerabilities": report["summary"]["vulnerability_records"],
                 "verdict": report["summary"]["verdict"],
+                "release_validation": "NOT_PERFORMED_EXTERNAL_POLICY_REQUIRED",
             },
             sort_keys=True,
         )

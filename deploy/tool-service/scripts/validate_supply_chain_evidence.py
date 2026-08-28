@@ -7,17 +7,39 @@ import argparse
 import hashlib
 import json
 import re
+import subprocess
 import sys
 from collections import Counter
-from datetime import UTC, datetime
+from collections.abc import Mapping
+from datetime import UTC, datetime, timedelta
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import Any, Literal, NamedTuple
 
 from jsonschema import Draft202012Validator, FormatChecker
 
 ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_EVIDENCE = ROOT / "deploy/tool-service/evidence/supply-chain-evidence.json"
 DEFAULT_SCHEMA = ROOT / "deploy/tool-service/evidence/supply-chain-evidence.schema.json"
+DEFAULT_RELEASE_POLICY_SCHEMA = (
+    ROOT / "deploy/tool-service/evidence/supply-chain-release-policy.schema.json"
+)
+
+ValidationMode = Literal["consistency", "release"]
+CURRENT_SCHEMA_VERSION = "1.2.0"
+HISTORICAL_SCHEMA_VERSION = "1.1.0"
+MAX_SNAPSHOT_AGE = timedelta(hours=6)
+MAX_DATABASE_AGE = timedelta(hours=24)
+MAX_SCAN_DURATION = timedelta(minutes=30)
+MAX_FUTURE_SKEW = timedelta(minutes=5)
+RELEASE_BINDING_ALGORITHM = "CANONICAL_JSON_SHA256_V1"
+RELEASE_BINDING_FIELDS = (
+    "scan",
+    "source",
+    "build_input_provenance",
+    "subject",
+    "raw_artifact_set",
+    "vulnerability_database",
+)
 
 SEVERITIES = ("UNKNOWN", "LOW", "MEDIUM", "HIGH", "CRITICAL")
 EXPECTED_ARTIFACTS = {
@@ -86,8 +108,25 @@ MOBILE_VALUE = re.compile(r"1[3-9][0-9]{9}")
 CJK_TEXT = re.compile(r"[\u3400-\u9fff]")
 
 
+class VerificationResult(NamedTuple):
+    """Successful verification outcome with an explicit non-escalating release decision."""
+
+    mode: ValidationMode
+    schema_version: str
+    evidence_set_id: str | None
+    release_eligible: bool
+    status: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return self._asdict()
+
+
 class EvidenceValidationError(ValueError):
-    """Raised for a public-evidence contract violation."""
+    """Raised for a public-evidence contract violation with a stable machine code."""
+
+    def __init__(self, message: str, *, code: str = "EVIDENCE_CONTRACT_INVALID") -> None:
+        super().__init__(message)
+        self.code = code
 
 
 def _reject_constant(value: str) -> None:
@@ -217,26 +256,61 @@ def _build_input_provenance_sha256(provenance: dict[str, Any]) -> str:
     return _sha256(payload)
 
 
+def _build_input_binding_sha256(provenance: Mapping[str, Any]) -> str:
+    bound = {key: value for key, value in provenance.items() if key != "aggregate_sha256"}
+    payload = json.dumps(
+        bound,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    return _sha256(payload)
+
+
 def _validate_build_input_provenance(
-    report: dict[str, Any], *, expect_stale_build_inputs: bool
-) -> None:
+    report: dict[str, Any], *, expect_stale_build_inputs: bool, require_current: bool
+) -> bool:
     provenance = report["build_input_provenance"]
     if provenance["directory_bundle_format"] != DIRECTORY_BUNDLE_FORMAT:
         raise EvidenceValidationError("unexpected build-input directory bundle format")
-    dockerignore = set((ROOT / ".dockerignore").read_text(encoding="utf-8").splitlines())
-    if not {"demo", "**/__pycache__/", "**/*.py[cod]"} <= dockerignore:
-        raise EvidenceValidationError("Docker build context exclusions were weakened")
-    matches_current = provenance["inputs"] == _expected_build_input_records()
+    if require_current:
+        dockerignore = set((ROOT / ".dockerignore").read_text(encoding="utf-8").splitlines())
+        if not {"demo", "**/__pycache__/", "**/*.py[cod]"} <= dockerignore:
+            raise EvidenceValidationError(
+                "Docker build context exclusions were weakened",
+                code="BUILD_INPUT_MISMATCH",
+            )
+    try:
+        matches_current = provenance["inputs"] == _expected_build_input_records()
+    except EvidenceValidationError:
+        if require_current:
+            raise
+        matches_current = False
+    if report["schema_version"] == CURRENT_SCHEMA_VERSION:
+        if provenance["aggregate_sha256"] != _build_input_binding_sha256(provenance):
+            raise EvidenceValidationError(
+                "build-input aggregate digest is inconsistent",
+                code="BUILD_INPUT_MISMATCH",
+            )
+        if expect_stale_build_inputs:
+            raise EvidenceValidationError(
+                "v1.2 evidence cannot use the v1.1 historical-staleness override",
+                code="BUILD_INPUT_MISMATCH",
+            )
+        if require_current and not matches_current:
+            raise EvidenceValidationError(
+                "build-input provenance differs from repository bytes",
+                code="BUILD_INPUT_MISMATCH",
+            )
+        return matches_current
     if expect_stale_build_inputs:
         if _build_input_provenance_sha256(provenance) != (HISTORICAL_BUILD_INPUT_PROVENANCE_SHA256):
             raise EvidenceValidationError("historical build-input provenance snapshot was altered")
-        if matches_current:
-            raise EvidenceValidationError(
-                "expected stale build inputs, but historical evidence matches repository bytes"
-            )
-        return
+        return False
     if not matches_current:
         raise EvidenceValidationError("build-input provenance differs from repository bytes")
+    return True
 
 
 def _parse_datetime(value: str, label: str) -> datetime:
@@ -293,18 +367,30 @@ def _artifact_paths(
         raw_path = record["path"]
         posix = PurePosixPath(raw_path)
         if posix.is_absolute() or ".." in posix.parts or len(posix.parts) != 1:
-            raise EvidenceValidationError("artifact paths must be relative basenames")
+            raise EvidenceValidationError(
+                "artifact paths must be relative basenames",
+                code="ARTIFACT_SET_MISMATCH",
+            )
         if raw_path in records:
-            raise EvidenceValidationError("artifact paths must be unique")
+            raise EvidenceValidationError(
+                "artifact paths must be unique",
+                code="ARTIFACT_SET_MISMATCH",
+            )
         resolved = (evidence_dir / raw_path).resolve()
         if resolved.parent != evidence_dir:
             raise EvidenceValidationError("artifact path escapes the evidence directory")
         if not resolved.is_file():
-            raise EvidenceValidationError(f"artifact is missing: {raw_path}")
+            raise EvidenceValidationError(
+                f"artifact is missing: {raw_path}",
+                code="ARTIFACT_SET_MISMATCH",
+            )
         records[raw_path] = record
         paths[raw_path] = resolved
     if set(paths) != set(EXPECTED_ARTIFACTS):
-        raise EvidenceValidationError("artifact set does not match the public contract")
+        raise EvidenceValidationError(
+            "artifact set does not match the public contract",
+            code="ARTIFACT_SET_MISMATCH",
+        )
     return paths, records
 
 
@@ -315,11 +401,20 @@ def _validate_artifact_integrity(
         payload = path.read_bytes()
         record = records[name]
         if record["media_type"] != EXPECTED_ARTIFACTS[name]:
-            raise EvidenceValidationError(f"artifact media type mismatch: {name}")
+            raise EvidenceValidationError(
+                f"artifact media type mismatch: {name}",
+                code="ARTIFACT_SET_MISMATCH",
+            )
         if record["bytes"] != len(payload):
-            raise EvidenceValidationError(f"artifact byte count mismatch: {name}")
+            raise EvidenceValidationError(
+                f"artifact byte count mismatch: {name}",
+                code="ARTIFACT_SET_MISMATCH",
+            )
         if record["sha256"] != _sha256(payload):
-            raise EvidenceValidationError(f"artifact digest mismatch: {name}")
+            raise EvidenceValidationError(
+                f"artifact digest mismatch: {name}",
+                code="ARTIFACT_SET_MISMATCH",
+            )
 
 
 def _high_or_critical_findings(trivy: dict[str, Any]) -> list[dict[str, Any]]:
@@ -487,24 +582,360 @@ def _validate_trivy(
         raise EvidenceValidationError("vulnerability verdict is inconsistent with record counts")
 
 
-def validate(
+def _canonical_sha256(value: Mapping[str, Any]) -> str:
+    try:
+        payload = json.dumps(
+            value,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        ).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise EvidenceValidationError(
+            "release binding contains a non-canonical value",
+            code="RELEASE_BINDING_INVALID",
+        ) from exc
+    return _sha256(payload)
+
+
+def _expected_raw_artifact_set(report: Mapping[str, Any]) -> list[dict[str, Any]]:
+    return sorted(
+        [
+            {
+                "path": record["path"],
+                "media_type": record["media_type"],
+                "sha256": record["sha256"],
+                "bytes": record["bytes"],
+            }
+            for record in report["artifacts"]
+        ],
+        key=lambda record: record["path"],
+    )
+
+
+def release_binding_payload(report: Mapping[str, Any]) -> dict[str, Any]:
+    """Return the canonical v1.2 fields covered by ``evidence_set_id``."""
+
+    return {field: report[field] for field in RELEASE_BINDING_FIELDS}
+
+
+def release_binding_sha256(report: Mapping[str, Any]) -> str:
+    """Compute the self-contained v1.2 evidence-set identifier."""
+
+    return _canonical_sha256(release_binding_payload(report))
+
+
+def _validate_release_binding(report: dict[str, Any]) -> None:
+    expected_artifacts = _expected_raw_artifact_set(report)
+    if report["raw_artifact_set"] != expected_artifacts:
+        raise EvidenceValidationError(
+            "release raw-artifact set differs from artifact records",
+            code="ARTIFACT_SET_MISMATCH",
+        )
+    binding = report["release_binding"]
+    if binding["algorithm"] != RELEASE_BINDING_ALGORITHM:
+        raise EvidenceValidationError(
+            "release binding algorithm is unsupported",
+            code="RELEASE_BINDING_INVALID",
+        )
+    if tuple(binding["bound_fields"]) != RELEASE_BINDING_FIELDS:
+        raise EvidenceValidationError(
+            "release binding field set or order is invalid",
+            code="RELEASE_BINDING_INVALID",
+        )
+    expected_identifier = release_binding_sha256(report)
+    if (
+        report["evidence_set_id"] != expected_identifier
+        or binding["evidence_set_id"] != expected_identifier
+    ):
+        raise EvidenceValidationError(
+            "release evidence-set digest does not bind the declared fields",
+            code="RELEASE_BINDING_INVALID",
+        )
+
+
+def _validate_timestamp_order(report: dict[str, Any]) -> dict[str, datetime]:
+    scan = report["scan"]
+    database = report["vulnerability_database"]
+    refresh = database["refresh"]
+    timestamps = {
+        "collected_at": _parse_datetime(report["collected_at"], "collected_at"),
+        "scan.started_at": _parse_datetime(scan["started_at"], "scan.started_at"),
+        "scan.completed_at": _parse_datetime(scan["completed_at"], "scan.completed_at"),
+        "database.updated_at": _parse_datetime(database["updated_at"], "database.updated_at"),
+        "database.downloaded_at": _parse_datetime(
+            database["downloaded_at"], "database.downloaded_at"
+        ),
+        "database.next_update": _parse_datetime(database["next_update"], "database.next_update"),
+        "database.refresh.started_at": _parse_datetime(
+            refresh["started_at"], "database.refresh.started_at"
+        ),
+        "database.refresh.completed_at": _parse_datetime(
+            refresh["completed_at"], "database.refresh.completed_at"
+        ),
+    }
+    if not (
+        timestamps["collected_at"] == timestamps["scan.completed_at"]
+        and timestamps["scan.started_at"]
+        <= timestamps["database.refresh.started_at"]
+        <= timestamps["database.downloaded_at"]
+        <= timestamps["database.refresh.completed_at"]
+        <= timestamps["scan.completed_at"]
+        < timestamps["database.next_update"]
+        and timestamps["database.updated_at"] <= timestamps["database.downloaded_at"]
+    ):
+        raise EvidenceValidationError(
+            "scan and database timestamps violate the v1.2 ordering contract",
+            code="TIMESTAMP_ORDER_INVALID",
+        )
+    return timestamps
+
+
+def _normalise_now(now: datetime | None) -> datetime:
+    observed = datetime.now(UTC) if now is None else now
+    if observed.tzinfo is None:
+        raise EvidenceValidationError(
+            "verification clock must be timezone-aware",
+            code="CLOCK_SKEW_FUTURE",
+        )
+    return observed.astimezone(UTC)
+
+
+def _load_release_policy(
+    policy: Path | Mapping[str, Any] | None,
+    *,
+    expected_policy_sha256: str | None,
+) -> dict[str, Any]:
+    if policy is None:
+        raise EvidenceValidationError(
+            "release mode requires an explicit release policy",
+            code="RELEASE_POLICY_MISSING",
+        )
+    try:
+        if isinstance(policy, Path):
+            if expected_policy_sha256 is None:
+                raise EvidenceValidationError(
+                    "path-based release policy requires an independently supplied SHA-256",
+                    code="RELEASE_POLICY_MISSING",
+                )
+            try:
+                payload = policy.resolve().read_bytes()
+            except OSError as exc:
+                raise EvidenceValidationError(
+                    "release policy file could not be read",
+                    code="RELEASE_POLICY_INVALID",
+                ) from exc
+            if _sha256(payload) != expected_policy_sha256:
+                raise EvidenceValidationError(
+                    "release policy file differs from the external policy SHA-256",
+                    code="RELEASE_POLICY_INVALID",
+                )
+            parsed = json.loads(
+                payload,
+                object_pairs_hook=_reject_duplicate_pairs,
+                parse_constant=_reject_constant,
+            )
+        else:
+            serialised = json.dumps(policy, ensure_ascii=False, allow_nan=False)
+            parsed = json.loads(
+                serialised,
+                object_pairs_hook=_reject_duplicate_pairs,
+                parse_constant=_reject_constant,
+            )
+            if expected_policy_sha256 is not None and _canonical_sha256(parsed) != (
+                expected_policy_sha256
+            ):
+                raise EvidenceValidationError(
+                    "trusted release policy mapping differs from its external SHA-256",
+                    code="RELEASE_POLICY_INVALID",
+                )
+    except EvidenceValidationError as exc:
+        if exc.code in {"RELEASE_POLICY_MISSING", "RELEASE_POLICY_INVALID"}:
+            raise
+        raise EvidenceValidationError(
+            "release policy is not strict JSON",
+            code="RELEASE_POLICY_INVALID",
+        ) from exc
+    except (OSError, UnicodeError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise EvidenceValidationError(
+            "release policy is not strict JSON",
+            code="RELEASE_POLICY_INVALID",
+        ) from exc
+    if not isinstance(parsed, dict):
+        raise EvidenceValidationError(
+            "release policy root must be an object",
+            code="RELEASE_POLICY_INVALID",
+        )
+    document = parsed
+    try:
+        schema = load_json_strict(DEFAULT_RELEASE_POLICY_SCHEMA)
+        _validate_schema(document, schema)
+    except EvidenceValidationError as exc:
+        raise EvidenceValidationError(
+            "release policy failed its strict schema",
+            code="RELEASE_POLICY_INVALID",
+        ) from exc
+    expected_limits = {
+        "max_snapshot_age_seconds": int(MAX_SNAPSHOT_AGE.total_seconds()),
+        "max_database_age_seconds": int(MAX_DATABASE_AGE.total_seconds()),
+        "max_scan_duration_seconds": int(MAX_SCAN_DURATION.total_seconds()),
+        "max_future_skew_seconds": int(MAX_FUTURE_SKEW.total_seconds()),
+    }
+    if any(document[key] != value for key, value in expected_limits.items()):
+        raise EvidenceValidationError(
+            "release policy freshness limits are unsupported",
+            code="RELEASE_POLICY_INVALID",
+        )
+    return document
+
+
+def _validate_policy_binding(report: dict[str, Any], policy: dict[str, Any]) -> None:
+    expected_source = policy["expected_source"]
+    source = report["source"]
+    if any(source[key] != expected_source[key] for key in expected_source):
+        raise EvidenceValidationError(
+            "evidence source revision differs from release policy",
+            code="SOURCE_REVISION_MISMATCH",
+        )
+    try:
+        observed_commit = subprocess.run(
+            ["git", "-C", str(ROOT), "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        ).stdout.strip()
+        observed_tree = subprocess.run(
+            ["git", "-C", str(ROOT), "rev-parse", "HEAD^{tree}"],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        ).stdout.strip()
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise EvidenceValidationError(
+            "release verifier could not observe the repository revision",
+            code="SOURCE_REVISION_MISMATCH",
+        ) from exc
+    if source["commit_sha"] != observed_commit or source["tree_sha"] != observed_tree:
+        raise EvidenceValidationError(
+            "evidence source revision differs from the checked-out repository",
+            code="SOURCE_REVISION_MISMATCH",
+        )
+    if (
+        report["build_input_provenance"]["aggregate_sha256"]
+        != policy["expected_build_input_sha256"]
+    ):
+        raise EvidenceValidationError(
+            "evidence build inputs differ from release policy",
+            code="BUILD_INPUT_MISMATCH",
+        )
+    expected_subject = policy["expected_subject"]
+    subject = report["subject"]
+    if any(subject[key] != expected_subject[key] for key in expected_subject):
+        raise EvidenceValidationError(
+            "evidence subject differs from release policy",
+            code="SUBJECT_MISMATCH",
+        )
+    observed_raw_artifacts = {
+        item["path"]: {
+            "media_type": item["media_type"],
+            "sha256": item["sha256"],
+            "bytes": item["bytes"],
+        }
+        for item in report["raw_artifact_set"]
+    }
+    if observed_raw_artifacts != policy["expected_raw_artifacts"]:
+        raise EvidenceValidationError(
+            "evidence raw-artifact identities differ from release policy",
+            code="ARTIFACT_SET_MISMATCH",
+        )
+    if report["vulnerability_database"] != policy["expected_database"]:
+        raise EvidenceValidationError(
+            "vulnerability database identity differs from release policy",
+            code="RELEASE_BINDING_INVALID",
+        )
+    if report["evidence_set_id"] != policy["expected_evidence_set_id"]:
+        raise EvidenceValidationError(
+            "evidence-set identifier differs from release policy",
+            code="RELEASE_BINDING_INVALID",
+        )
+
+
+def _validate_release_freshness(
+    report: dict[str, Any], policy: dict[str, Any], *, now: datetime | None
+) -> None:
+    timestamps = _validate_timestamp_order(report)
+    observed_now = _normalise_now(now)
+    future_limit = observed_now + timedelta(seconds=policy["max_future_skew_seconds"])
+    future_checked = (
+        "collected_at",
+        "scan.started_at",
+        "scan.completed_at",
+        "database.updated_at",
+        "database.downloaded_at",
+        "database.refresh.started_at",
+        "database.refresh.completed_at",
+    )
+    if any(timestamps[label] > future_limit for label in future_checked):
+        raise EvidenceValidationError(
+            "evidence timestamp is beyond the allowed future clock skew",
+            code="CLOCK_SKEW_FUTURE",
+        )
+    scan_duration = timestamps["scan.completed_at"] - timestamps["scan.started_at"]
+    if scan_duration > timedelta(seconds=policy["max_scan_duration_seconds"]):
+        raise EvidenceValidationError(
+            "scan duration exceeds the release policy",
+            code="TIMESTAMP_ORDER_INVALID",
+        )
+    if report["vulnerability_database"]["refresh"]["status"] != "SUCCEEDED":
+        raise EvidenceValidationError(
+            "vulnerability database refresh did not succeed",
+            code="DATABASE_REFRESH_FAILED",
+        )
+    snapshot_age = observed_now - timestamps["scan.completed_at"]
+    if snapshot_age > timedelta(seconds=policy["max_snapshot_age_seconds"]):
+        raise EvidenceValidationError(
+            "scan snapshot exceeds the release maximum age",
+            code="SNAPSHOT_EXPIRED",
+        )
+    database_age = observed_now - timestamps["database.updated_at"]
+    if database_age > timedelta(seconds=policy["max_database_age_seconds"]):
+        raise EvidenceValidationError(
+            "vulnerability database exceeds the release maximum age",
+            code="DATABASE_EXPIRED",
+        )
+    if observed_now >= timestamps["database.next_update"]:
+        raise EvidenceValidationError(
+            "vulnerability database has reached its declared refresh time",
+            code="DATABASE_REFRESH_DUE",
+        )
+
+
+def _validate_common(
     evidence_path: Path = DEFAULT_EVIDENCE,
     *,
-    release_gate: bool = False,
     expect_stale_build_inputs: bool = False,
-) -> None:
-    if release_gate and expect_stale_build_inputs:
-        raise EvidenceValidationError("stale historical evidence cannot be used as a release gate")
+    require_current_build_inputs: bool = False,
+) -> tuple[dict[str, Any], dict[str, dict[str, Any]], bool]:
     evidence_path = evidence_path.resolve()
     report = load_json_strict(evidence_path)
     schema = load_json_strict(DEFAULT_SCHEMA)
     _validate_schema(report, schema)
-    _validate_build_input_provenance(report, expect_stale_build_inputs=expect_stale_build_inputs)
+    build_inputs_current = _validate_build_input_provenance(
+        report,
+        expect_stale_build_inputs=expect_stale_build_inputs,
+        require_current=require_current_build_inputs,
+    )
 
     dockerfile = (ROOT / "deploy/tool-service/Dockerfile").read_text(encoding="utf-8")
     expected_from = f"FROM {report['scope']['base_image']}\n"
-    if not dockerfile.startswith(expected_from):
-        raise EvidenceValidationError("Dockerfile base image differs from the evidence")
+    if build_inputs_current and not dockerfile.startswith(expected_from):
+        raise EvidenceValidationError(
+            "Dockerfile base image differs from the evidence",
+            code="BUILD_INPUT_MISMATCH",
+        )
 
     paths, records = _artifact_paths(evidence_path, report)
     _validate_artifact_integrity(paths, records)
@@ -537,47 +968,179 @@ def validate(
     downloaded_at = _parse_datetime(database["downloaded_at"], "database.downloaded_at")
     next_update = _parse_datetime(database["next_update"], "database.next_update")
     if not updated_at <= downloaded_at <= collected_at < next_update:
-        raise EvidenceValidationError("vulnerability database timestamps are inconsistent")
+        raise EvidenceValidationError(
+            "vulnerability database timestamps are inconsistent",
+            code="TIMESTAMP_ORDER_INVALID",
+        )
     if tuple(report["limitations"]) != EXPECTED_LIMITATIONS:
         raise EvidenceValidationError("limitations were weakened or rewritten")
 
     _validate_no_public_leakage(evidence_path.name, evidence_path.read_bytes(), report)
+    if report["schema_version"] == CURRENT_SCHEMA_VERSION:
+        _validate_release_binding(report)
+        _validate_timestamp_order(report)
+    return report, documents, build_inputs_current
+
+
+def verify(
+    evidence_path: Path = DEFAULT_EVIDENCE,
+    *,
+    mode: ValidationMode = "consistency",
+    release_policy: Path | Mapping[str, Any] | None = None,
+    release_policy_sha256: str | None = None,
+    now: datetime | None = None,
+    expect_stale_build_inputs: bool | None = None,
+) -> VerificationResult:
+    """Verify historical consistency or current release eligibility.
+
+    ``now`` is deliberately a library-only dependency-injection seam. The production CLI always
+    obtains the current UTC clock and exposes no rollback flag.
+    """
+
+    if mode not in {"consistency", "release"}:
+        raise EvidenceValidationError("unsupported verification mode")
+    evidence_path = evidence_path.resolve()
+    report_header = load_json_strict(evidence_path)
+    schema_version = report_header.get("schema_version")
+    if mode == "release" and schema_version == HISTORICAL_SCHEMA_VERSION:
+        raise EvidenceValidationError(
+            "v1.1 is a historical consistency schema and is not release eligible",
+            code="HISTORICAL_SCHEMA_NOT_RELEASE_ELIGIBLE",
+        )
+    historical = schema_version == HISTORICAL_SCHEMA_VERSION
+    if expect_stale_build_inputs is not None and expect_stale_build_inputs != historical:
+        raise EvidenceValidationError(
+            "historical build-input expectation conflicts with the evidence schema"
+        )
+    policy = (
+        _load_release_policy(
+            release_policy,
+            expected_policy_sha256=release_policy_sha256,
+        )
+        if mode == "release" and schema_version == CURRENT_SCHEMA_VERSION
+        else None
+    )
+    report, _documents, build_inputs_current = _validate_common(
+        evidence_path,
+        expect_stale_build_inputs=historical,
+        require_current_build_inputs=mode == "release",
+    )
+    if mode == "consistency":
+        status = (
+            "HISTORICAL_CONSISTENT_STALE"
+            if historical
+            else (
+                "CONSISTENT_CURRENT_BUILD_INPUTS_NOT_RELEASE_EVALUATED"
+                if build_inputs_current
+                else "CONSISTENT_STALE"
+            )
+        )
+        return VerificationResult(
+            mode=mode,
+            schema_version=report["schema_version"],
+            evidence_set_id=report.get("evidence_set_id"),
+            release_eligible=False,
+            status=status,
+        )
+    if report["schema_version"] != CURRENT_SCHEMA_VERSION:
+        raise EvidenceValidationError(
+            "release mode requires v1.2 evidence",
+            code="HISTORICAL_SCHEMA_NOT_RELEASE_ELIGIBLE",
+        )
+    assert policy is not None
+    _validate_policy_binding(report, policy)
+    _validate_release_freshness(report, policy, now=now)
+    counts = report["summary"]["vulnerability_records"]
+    if counts["HIGH"] or counts["CRITICAL"]:
+        raise EvidenceValidationError(
+            "release policy rejected recomputed HIGH or CRITICAL findings",
+            code="RELEASE_BLOCKED_FINDINGS",
+        )
+    return VerificationResult(
+        mode=mode,
+        schema_version=report["schema_version"],
+        evidence_set_id=report["evidence_set_id"],
+        release_eligible=True,
+        status="RELEASE_ELIGIBLE",
+    )
+
+
+def validate(
+    evidence_path: Path = DEFAULT_EVIDENCE,
+    *,
+    mode: ValidationMode = "consistency",
+    release_policy: Path | Mapping[str, Any] | None = None,
+    release_policy_sha256: str | None = None,
+    now: datetime | None = None,
+    release_gate: bool = False,
+    expect_stale_build_inputs: bool | None = None,
+) -> None:
+    """Compatibility wrapper that raises on failure and discards the structured result."""
+
     if release_gate:
-        counts = report["summary"]["vulnerability_records"]
-        if counts["HIGH"] or counts["CRITICAL"]:
-            raise EvidenceValidationError("release gate rejected high or critical findings")
+        if mode != "consistency":
+            raise EvidenceValidationError("release mode was selected more than once")
+        mode = "release"
+    verify(
+        evidence_path,
+        mode=mode,
+        release_policy=release_policy,
+        release_policy_sha256=release_policy_sha256,
+        now=now,
+        expect_stale_build_inputs=expect_stale_build_inputs,
+    )
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("evidence", nargs="?", type=Path, default=DEFAULT_EVIDENCE)
     parser.add_argument(
-        "--release-gate",
-        action="store_true",
-        help="also fail when HIGH or CRITICAL vulnerability records are present",
+        "--mode",
+        choices=("consistency", "release"),
+        default="consistency",
+        help="validate historical/internal consistency or evaluate release eligibility",
+    )
+    parser.add_argument(
+        "--release-policy",
+        type=Path,
+        help="strict external binding and freshness policy required by release mode",
+    )
+    parser.add_argument(
+        "--release-policy-sha256",
+        help=(
+            "independently supplied sha256:<64hex> of the exact policy file; required with a "
+            "path-based release policy"
+        ),
     )
     parser.add_argument(
         "--expect-stale-build-inputs",
         action="store_true",
-        help=(
-            "validate the pinned historical snapshot and require its build inputs to differ "
-            "from the repository; this mode can never be a release gate"
-        ),
+        help=("deprecated compatibility assertion for the committed v1.1 historical snapshot"),
     )
     arguments = parser.parse_args()
     try:
-        validate(
+        result = verify(
             arguments.evidence,
-            release_gate=arguments.release_gate,
-            expect_stale_build_inputs=arguments.expect_stale_build_inputs,
+            mode=arguments.mode,
+            release_policy=arguments.release_policy,
+            release_policy_sha256=arguments.release_policy_sha256,
+            expect_stale_build_inputs=(True if arguments.expect_stale_build_inputs else None),
         )
     except EvidenceValidationError as exc:
-        print(f"invalid supply-chain evidence: {exc}", file=sys.stderr)
+        print(
+            json.dumps(
+                {
+                    "code": exc.code,
+                    "message": str(exc),
+                    "release_eligible": False,
+                    "valid": False,
+                },
+                sort_keys=True,
+            ),
+            file=sys.stderr,
+        )
         return 1
-    if arguments.expect_stale_build_inputs:
-        print("valid historical supply-chain evidence; STALE for current build inputs")
-    else:
-        print("valid supply-chain evidence")
+    print(json.dumps({**result.to_dict(), "valid": True}, sort_keys=True))
     return 0
 
 

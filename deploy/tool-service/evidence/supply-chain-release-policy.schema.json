@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://proofflow.dev/schemas/supply-chain-release-policy-v1.json",
+  "title": "ProofFlow tool-service release evidence policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "max_snapshot_age_seconds",
+    "max_database_age_seconds",
+    "max_scan_duration_seconds",
+    "max_future_skew_seconds",
+    "blocked_severities",
+    "expected_source",
+    "expected_build_input_sha256",
+    "expected_subject",
+    "expected_raw_artifacts",
+    "expected_database",
+    "expected_evidence_set_id"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "max_snapshot_age_seconds": { "const": 21600 },
+    "max_database_age_seconds": { "const": 86400 },
+    "max_scan_duration_seconds": { "const": 1800 },
+    "max_future_skew_seconds": { "const": 300 },
+    "blocked_severities": { "const": ["HIGH", "CRITICAL"] },
+    "expected_source": { "$ref": "#/$defs/source" },
+    "expected_build_input_sha256": { "$ref": "#/$defs/sha256" },
+    "expected_subject": { "$ref": "#/$defs/subject" },
+    "expected_raw_artifacts": { "$ref": "#/$defs/rawArtifacts" },
+    "expected_database": { "$ref": "#/$defs/database" },
+    "expected_evidence_set_id": { "$ref": "#/$defs/sha256" }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "commit_sha", "tree_sha", "working_tree_clean"],
+      "properties": {
+        "repository": { "const": "https://github.com/MyGarfield/ProofFlow" },
+        "commit_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "tree_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "working_tree_clean": { "const": true }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["immutable_reference", "image_id", "image_config_digest", "platform"],
+      "properties": {
+        "immutable_reference": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._/-]*@sha256:[0-9a-f]{64}$",
+          "maxLength": 240
+        },
+        "image_id": { "$ref": "#/$defs/sha256" },
+        "image_config_digest": { "$ref": "#/$defs/sha256" },
+        "platform": { "const": "linux/amd64" }
+      }
+    },
+    "rawArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["media_type", "sha256", "bytes"],
+      "properties": {
+        "media_type": { "type": "string" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "bytes": { "type": "integer", "minimum": 2 }
+      }
+    },
+    "rawArtifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sbom.cyclonedx.json",
+        "sbom.spdx.json",
+        "vulnerabilities.trivy.json"
+      ],
+      "properties": {
+        "sbom.cyclonedx.json": {
+          "allOf": [
+            { "$ref": "#/$defs/rawArtifact" },
+            {
+              "properties": {
+                "media_type": { "const": "application/vnd.cyclonedx+json" }
+              }
+            }
+          ]
+        },
+        "sbom.spdx.json": {
+          "allOf": [
+            { "$ref": "#/$defs/rawArtifact" },
+            {
+              "properties": {
+                "media_type": { "const": "application/spdx+json" }
+              }
+            }
+          ]
+        },
+        "vulnerabilities.trivy.json": {
+          "allOf": [
+            { "$ref": "#/$defs/rawArtifact" },
+            {
+              "properties": {
+                "media_type": { "const": "application/vnd.aquasec.trivy.report+json" }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "databaseRefresh": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "started_at", "completed_at", "network_scope"],
+      "properties": {
+        "status": { "enum": ["SUCCEEDED", "FAILED"] },
+        "started_at": { "type": "string", "format": "date-time" },
+        "completed_at": { "type": "string", "format": "date-time" },
+        "network_scope": { "const": "VULNERABILITY_DATABASE_ONLY" }
+      }
+    },
+    "database": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "updated_at",
+        "next_update",
+        "downloaded_at",
+        "sha256",
+        "bytes",
+        "refresh"
+      ],
+      "properties": {
+        "schema_version": { "const": 2 },
+        "updated_at": { "type": "string", "format": "date-time" },
+        "next_update": { "type": "string", "format": "date-time" },
+        "downloaded_at": { "type": "string", "format": "date-time" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "bytes": { "type": "integer", "minimum": 1 },
+        "refresh": { "$ref": "#/$defs/databaseRefresh" }
+      }
+    }
+  }
+}
