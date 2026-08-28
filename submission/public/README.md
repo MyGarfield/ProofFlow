@@ -30,6 +30,6 @@ v1.2 与严格语义 validator 已强制供应链 subject、MCP 快照根级和�
 在该数据库点时的所有 severity 均为 0，但数据库已超过声明的下一更新时间；摘要与交叉绑定不是当前 release scan、clean 结论、签名、build attestation、
 构建关系证明、持续运行证明或生产安全认证。
 
-当前稳定全仓测试为 `516 passed`，本地 loopback Demo 定向测试为 `19 passed`。三臂评测资产已经
+当前稳定全仓测试为 `651 passed`，本地 loopback Demo 定向测试为 `19 passed`。三臂评测资产已经
 集成，但状态仍为 `PROTOCOL_VALIDATED_NOT_EXECUTED`；三臂与五项官方评分均为 `UNKNOWN`，分值为
 `null`，不得描述为已完成评测或已获得官方分数。

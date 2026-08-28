@@ -798,6 +798,7 @@ def test_collector_cli_cannot_self_assert_release_eligibility() -> None:
 def test_collector_build_input_aggregate_is_recomputable() -> None:
     collector = load_collector()
     validator = load_validator()
+    assert collector.EXPECTED_SRC_DATA_FILES == validator.EXPECTED_SRC_DATA_FILES
     provenance = collector.build_input_provenance()
     assert provenance["aggregate_sha256"] == validator._build_input_binding_sha256(provenance)
 
