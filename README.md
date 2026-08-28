@@ -6,12 +6,16 @@ ProofFlow 的目标不是再造一个 Agent Runtime，也不是提供“自动�
 AgentTeams 等协作运行时之上，将 Agent、Skill、证据、规则、确定性计算、审计、人工批准和
 交付物绑定为可复核的证明链。
 
-## 复赛公开材料
+## 历史 GOAI 材料
+
+GOAI 于 2026 年 8 月 25 日确认初赛作品有效，但项目未晋级复赛。下列带“复赛”文件名的材料是
+赛后形成的公开候选与工程审计快照，不是组委会接收的复赛提交，也不代表官方评分或晋级结果。
+它们保留用于复现项目演进和披露边界；当前产品状态以本 README 与全球产品路线图为准。
 
 - [材料总览与披露边界](submission/public/README.md)
 - [500 字内项目简介](submission/public/PROJECT_SUMMARY_500_CN.md)
-- [答辩方案 PPTX](submission/public/ProofFlow_GOAI_复赛答辩_v2.0.pptx)
-- [答辩方案 PDF](submission/public/ProofFlow_GOAI_复赛答辩_v2.0.pdf)
+- [历史公开候选 PPTX](submission/public/ProofFlow_GOAI_复赛答辩_v2.0.pptx)
+- [历史公开候选 PDF](submission/public/ProofFlow_GOAI_复赛答辩_v2.0.pdf)
 - [提交清单与 SHA-256](submission/public/submission-manifest.json)
 
 ## 当前真实状态
@@ -78,6 +82,10 @@ finding 都只是未签名的点时证据，不证明构建关系、数字签名
 [冠军证据策略](docs/11_FRONTIER_RESEARCH_AND_CHAMPION_STRATEGY.md)；21 条一手来源及 30 个分层 claim
 登记在 [`research/frontier_sources.json`](research/frontier_sources.json)。外部研究只用于形成可检验
 假设，不等于 ProofFlow 已实现或已取得效果。
+
+比赛后的长期产品定位、标准锚点、北极星指标与 30/60/90 天验收门见
+[全球产品路线图](docs/12_GLOBAL_PRODUCT_ROADMAP.md)。该路线图明确把 ProofFlow 收敛为跨 Runtime 的
+可验证授权、执行回执与结果闭环平面，而不是另一个通用 Agent Runtime。
 
 ## 5 分钟本地复现
 
