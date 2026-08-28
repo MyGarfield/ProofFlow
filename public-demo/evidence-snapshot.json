@@ -5,9 +5,9 @@
   "repository": "https://github.com/MyGarfield/ProofFlow",
   "source": {
     "branch": "main",
-    "commit": "610f5d87006567055c658ca8adb66b61284f7603",
-    "tree": "883d36075bb9149bddb1122c0b4b401a34d38d05",
-    "committed_at": "2026-08-29T04:15:26+08:00",
+    "commit": "68911dbb2858be3b217b0b80c62eea9df57ed595",
+    "tree": "be7d5d59ddbdb25bd9ab0d2480e833da829de03f",
+    "committed_at": "2026-08-29T05:34:46+08:00",
     "commit_signature_verified_by_generator": false
   },
   "landing": {
@@ -29,8 +29,15 @@
       "schema_count": 7
     },
     "test_counts": {
-      "provenance": "SOURCE_README_DECLARATION",
-      "full_repo_passed": 569,
+      "full_repo_provenance": "PINNED_MAIN_CI_DECLARATION",
+      "full_repo_ci_run_id": 33213175597,
+      "full_repo_ci_run_url": "https://github.com/MyGarfield/ProofFlow/actions/runs/33213175597",
+      "full_repo_ci_head_sha": "68911dbb2858be3b217b0b80c62eea9df57ed595",
+      "full_repo_total": 610,
+      "full_repo_passed": 609,
+      "full_repo_skipped": 1,
+      "source_readme_declared_full_repo_passed": 569,
+      "action_certificate_provenance": "SOURCE_README_DECLARATION",
       "action_certificate_passed": 53,
       "generator_executed_tests": false
     }
@@ -55,11 +62,14 @@
     "status": "STALE",
     "historical_snapshot_only": true,
     "release_eligible": false,
-    "fresh_build_scan_and_provenance_required": true
+    "fresh_build_scan_and_provenance_required": true,
+    "freshness_release_gate_implemented": true,
+    "release_policy_schema_bound": true,
+    "release_workflow_is_disabled_design": true
   },
   "product_assets": {
     "hash_kind": "UNSIGNED_GIT_BLOB_CONTENT_DIGEST",
-    "bundle_sha256": "72febbf664d2889a9f433b88ebc78bb6c42d3007f41aa62f99f643ab5a34f6f2",
+    "bundle_sha256": "2fb8dab56c9e100dbd2ebd310f1c00cb13cf703b1808090160e96ff512301c48",
     "entries": [
       {
         "path": "README.md",
@@ -68,8 +78,8 @@
       },
       {
         "path": ".github/workflows/ci.yml",
-        "sha256": "ce268258c08cff48a226f2070d0a74d19e333482b6dc8c5a93aa3c2d62db1b1a",
-        "bytes": 1770
+        "sha256": "729b2c47ea61b7be20b7d14023cf29eeff581033452cc3298e933ca82a03fcd2",
+        "bytes": 1761
       },
       {
         "path": "docs/12_GLOBAL_PRODUCT_ROADMAP.md",
@@ -88,8 +98,8 @@
       },
       {
         "path": "deploy/tool-service/SUPPLY_CHAIN_EVIDENCE.md",
-        "sha256": "3cdc2ccd2be8f1c9dc44ece82163e364a9f64ea3d5102b4aa9b284dafcd01b05",
-        "bytes": 9075
+        "sha256": "3e2d2b8ce958c934b1efec4339fde9701f1c0a54c3a1ba193c5127b9cec6722a",
+        "bytes": 12043
       },
       {
         "path": "src/proofflow/action_certificate.py",
@@ -130,6 +140,31 @@
         "path": "schemas/action-certificate-verification-result-v0p1.schema.json",
         "sha256": "a60e42bbe2bbed7d24304a2e7c8fa4d9f3fd53a5ba5a9d1d3168bc5c229f845c",
         "bytes": 4740
+      },
+      {
+        "path": ".github/workflows/release-supply-chain-evidence.yml",
+        "sha256": "7d0395e268143a2efb954d8186a21515c541d95b759aa395393d3d6923b90c2e",
+        "bytes": 2067
+      },
+      {
+        "path": "deploy/tool-service/evidence/supply-chain-evidence.schema.json",
+        "sha256": "58b075ca28fbb4eb665fce26433fc1379d3fc37f8a5b2cb3850fca6f152b6549",
+        "bytes": 17513
+      },
+      {
+        "path": "deploy/tool-service/evidence/supply-chain-release-policy.schema.json",
+        "sha256": "006a1973983ccfce93e0c101aec77fae355ebae471de15b02877c267013aebe7",
+        "bytes": 4956
+      },
+      {
+        "path": "deploy/tool-service/scripts/collect_supply_chain_evidence.py",
+        "sha256": "e5a5ba2e845905d7323300d37f4d45666daac823f9678e28c448d0331f9d67ab",
+        "bytes": 33603
+      },
+      {
+        "path": "deploy/tool-service/scripts/validate_supply_chain_evidence.py",
+        "sha256": "32b7dc526e635e95611e50b4ce4f3248b3d66deb730a0a175d401eb30c960189",
+        "bytes": 45606
       }
     ]
   },

@@ -56,8 +56,17 @@ def test_snapshot_is_exact_deterministic_git_object_derivation() -> None:
     assert snapshot["landing"]["included_in_source_commit"] is False
     assert snapshot["landing"]["self_authenticating"] is False
     assert snapshot["current_core"]["test_counts"] == {
-        "provenance": "SOURCE_README_DECLARATION",
-        "full_repo_passed": 569,
+        "full_repo_provenance": "PINNED_MAIN_CI_DECLARATION",
+        "full_repo_ci_run_id": 33213175597,
+        "full_repo_ci_run_url": (
+            "https://github.com/MyGarfield/ProofFlow/actions/runs/33213175597"
+        ),
+        "full_repo_ci_head_sha": SOURCE_COMMIT,
+        "full_repo_total": 610,
+        "full_repo_passed": 609,
+        "full_repo_skipped": 1,
+        "source_readme_declared_full_repo_passed": 569,
+        "action_certificate_provenance": "SOURCE_README_DECLARATION",
         "action_certificate_passed": 53,
         "generator_executed_tests": False,
     }
@@ -70,7 +79,25 @@ def test_snapshot_generator_rejects_unreviewed_source_commit() -> None:
 
 def test_product_asset_records_match_pinned_git_blobs() -> None:
     snapshot = build_snapshot(ROOT)
-    for record in snapshot["product_assets"]["entries"]:
+    records = snapshot["product_assets"]["entries"]
+    assert len(records) == 19
+    assert {record["path"] for record in records} >= {
+        ".github/workflows/release-supply-chain-evidence.yml",
+        "deploy/tool-service/evidence/supply-chain-evidence.schema.json",
+        "deploy/tool-service/evidence/supply-chain-release-policy.schema.json",
+        "deploy/tool-service/scripts/collect_supply_chain_evidence.py",
+        "deploy/tool-service/scripts/validate_supply_chain_evidence.py",
+    }
+    assert snapshot["supply_chain_boundary"] == {
+        "status": "STALE",
+        "historical_snapshot_only": True,
+        "release_eligible": False,
+        "fresh_build_scan_and_provenance_required": True,
+        "freshness_release_gate_implemented": True,
+        "release_policy_schema_bound": True,
+        "release_workflow_is_disabled_design": True,
+    }
+    for record in records:
         blob = subprocess.run(
             ["git", "cat-file", "blob", f"{SOURCE_COMMIT}:{record['path']}"],
             cwd=ROOT,

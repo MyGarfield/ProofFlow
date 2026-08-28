@@ -3,15 +3,15 @@
 ## 结论与信任边界
 
 `public-demo/` 是只读静态页面，绑定产品源提交
-`610f5d87006567055c658ca8adb66b61284f7603` 及其 tree
-`883d36075bb9149bddb1122c0b4b401a34d38d05`。页面代码晚于该产品提交，因此机器快照明确记录：
+`68911dbb2858be3b217b0b80c62eea9df57ed595` 及其 tree
+`be7d5d59ddbdb25bd9ab0d2480e833da829de03f`。页面代码晚于该产品提交，因此机器快照明确记录：
 
 - `included_in_source_commit=false`；
 - `self_authenticating=false`；
 - `commit_signature_verified_by_generator=false`；
 - 产品资产和 fixture 的 SHA-256 都是 unsigned Git blob 内容摘要。
 
-生成器从固定 Git object 读取 14 个产品资产和 4 个 `PUBLIC_SYNTHETIC` fixture，不读取当前工作树来
+生成器从固定 Git object 读取 19 个产品资产和 4 个 `PUBLIC_SYNTHETIC` fixture，不读取当前工作树来
 替代它们。validator 从独立的 expected source 常量重新生成预期对象，并要求 JSON closed shape、确定性
 序列化和精确 hash。这个结构可发现漂移，但不能让 landing 自己成为来源真实性、测试执行或产品语义的
 信任根。
@@ -19,7 +19,8 @@
 ## 页面披露的当前状态
 
 - ActionCertificate v0.1 已进入固定源提交，范围是预执行授权验证切片，不是生产发布门；
-- `53 passed` 与 `569 passed` 是固定源 README 的声明，生成器本身没有执行测试；
+- ActionCertificate 的 `53 passed` 是固定源 README 声明；固定 main CI 记录
+  `610 collected / 609 passed + 1 skipped`，而源 README 仍保留较早的 `569 passed`；生成器本身没有执行测试；
 - `Workers Stopped`、`readyWorkers=0`、Worker 容器为 0、`LLM OFF`；
 - 评测为 `PROTOCOL_VALIDATED_NOT_EXECUTED`，各臂与官方分值保持 `UNKNOWN / null`；
 - 供应链证据为 `STALE`，当前不可用于 release eligibility；
@@ -35,9 +36,9 @@ GOAI 初赛作品有效，但项目未晋级复赛。竞赛候选 PPT/PDF 仅在
 
 ```bash
 uv run --frozen python scripts/generate_public_demo_snapshot.py --check \
-  --source-commit 610f5d87006567055c658ca8adb66b61284f7603
+  --source-commit 68911dbb2858be3b217b0b80c62eea9df57ed595
 uv run --frozen python scripts/validate_public_demo_landing.py \
-  --expected-source-commit 610f5d87006567055c658ca8adb66b61284f7603
+  --expected-source-commit 68911dbb2858be3b217b0b80c62eea9df57ed595
 node --check public-demo/app.js
 node --check scripts/qa_public_demo_browser.mjs
 node --test tests/js/test_public_demo_storyboard.cjs

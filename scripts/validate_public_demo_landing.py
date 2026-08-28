@@ -37,8 +37,11 @@ from generate_public_demo_snapshot import (  # noqa: E402
 SITE_ROOT: Final = ROOT / "public-demo"
 
 # These verifier pins are deliberately duplicated outside the generated JSON.
-EXPECTED_SOURCE_COMMIT: Final = "610f5d87006567055c658ca8adb66b61284f7603"
-EXPECTED_SOURCE_TREE: Final = "883d36075bb9149bddb1122c0b4b401a34d38d05"
+EXPECTED_SOURCE_COMMIT: Final = "68911dbb2858be3b217b0b80c62eea9df57ed595"
+EXPECTED_SOURCE_TREE: Final = "be7d5d59ddbdb25bd9ab0d2480e833da829de03f"
+EXPECTED_SOURCE_CI_RUN_URL: Final = (
+    "https://github.com/MyGarfield/ProofFlow/actions/runs/33213175597"
+)
 
 EXPECTED_SITE_FILES: Final = frozenset(
     {
@@ -72,10 +75,7 @@ EXPECTED_EXTERNAL_ANCHORS: Final = frozenset(
             f"{EXPECTED_SOURCE_COMMIT}/docs/13_ACTION_CERTIFICATE_V0P1.md"
         ),
         f"https://github.com/MyGarfield/ProofFlow/tree/{EXPECTED_SOURCE_COMMIT}/schemas",
-        (
-            "https://github.com/MyGarfield/ProofFlow/blob/"
-            f"{EXPECTED_SOURCE_COMMIT}/.github/workflows/ci.yml"
-        ),
+        EXPECTED_SOURCE_CI_RUN_URL,
         (
             "https://github.com/MyGarfield/ProofFlow/blob/"
             f"{EXPECTED_SOURCE_COMMIT}/deploy/tool-service/SUPPLY_CHAIN_EVIDENCE.md"
@@ -127,7 +127,7 @@ REQUIRED_VISIBLE_BOUNDARIES: Final = (
     "非法律意见",
     "ActionCertificate v0.1",
     "53 certificate tests",
-    "569 full repo tests",
+    "610 collected / 609 passed + 1 skipped",
     "LANDING POST-DATES SOURCE",
     "NOT RELEASE ELIGIBLE",
     "ExecutionReceipt 未实现",
@@ -140,7 +140,7 @@ REQUIRED_VISIBLE_BOUNDARIES: Final = (
     "self_authenticating=false",
     EXPECTED_SOURCE_COMMIT,
     EXPECTED_SOURCE_TREE,
-    "72febbf664d2889a9f433b88ebc78bb6c42d3007f41aa62f99f643ab5a34f6f2",
+    "2fb8dab56c9e100dbd2ebd310f1c00cb13cf703b1808090160e96ff512301c48",
     "a050229692db496056f26fd9af52bbb41f0e53f96c8446c93ae3bd87a0d887f5",
 )
 
@@ -793,7 +793,7 @@ def validate_public_demo(
             external_anchors.add(url)
             if parsed.scheme != "https" or parsed.hostname != "github.com":
                 errors.append(f"external navigation host is not allowed: {url}")
-            if expected_source_commit not in url:
+            if expected_source_commit not in url and url != EXPECTED_SOURCE_CI_RUN_URL:
                 errors.append(f"external source link is not fixed to the expected commit: {url}")
             rel = set(anchor.get("rel", "").casefold().split())
             if anchor.get("target") != "_blank" or not {"noopener", "noreferrer"} <= rel:

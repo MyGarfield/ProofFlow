@@ -314,7 +314,7 @@ async function inspectViewport({ debuggingPort, outputDirectory, url, viewport }
     if (facts.reducedMotionAnimationName !== "none") {
       errors.push(`reduced-motion did not disable hero animation: ${facts.reducedMotionAnimationName}`);
     }
-    if (facts.sourceCommit !== "610f5d87006567055c658ca8adb66b61284f7603") {
+    if (facts.sourceCommit !== "68911dbb2858be3b217b0b80c62eea9df57ed595") {
       errors.push(`visible page source pin drifted: ${facts.sourceCommit}`);
     }
     if (!facts.requiredBoundaryVisible) {

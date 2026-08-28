@@ -15,7 +15,7 @@
     window.addEventListener("resize", recordGeometry, { passive: true });
   }
 })(function createPublicSnapshotApi() {
-  const EXPECTED_SOURCE_COMMIT = "610f5d87006567055c658ca8adb66b61284f7603";
+  const EXPECTED_SOURCE_COMMIT = "68911dbb2858be3b217b0b80c62eea9df57ed595";
 
   function hasHorizontalOverflow(root) {
     return root.scrollWidth > root.clientWidth;

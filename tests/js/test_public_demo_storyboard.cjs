@@ -11,7 +11,7 @@ const {
 } = require("../../public-demo/app.js");
 
 test("static snapshot is pinned to the reviewed product source", () => {
-  assert.equal(EXPECTED_SOURCE_COMMIT, "610f5d87006567055c658ca8adb66b61284f7603");
+  assert.equal(EXPECTED_SOURCE_COMMIT, "68911dbb2858be3b217b0b80c62eea9df57ed595");
   assert.equal(hasExactStaticBoundary(snapshot), true);
 });
 

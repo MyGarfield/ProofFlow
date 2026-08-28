@@ -3,6 +3,10 @@
 The landing page is intentionally newer than the product source commit.  This
 generator reads product files with ``git cat-file`` so an edited worktree cannot
 silently become evidence for the pinned product snapshot.
+
+The full-suite count is a separately pinned GitHub Actions declaration for that
+commit.  It is not derived from Git blobs and never changes
+``generator_executed_tests=false``.
 """
 
 from __future__ import annotations
@@ -18,9 +22,11 @@ from typing import Any, Final
 ROOT: Final = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT: Final = ROOT / "public-demo" / "evidence-snapshot.json"
 
-SOURCE_COMMIT: Final = "610f5d87006567055c658ca8adb66b61284f7603"
-SOURCE_TREE: Final = "883d36075bb9149bddb1122c0b4b401a34d38d05"
-SOURCE_COMMITTED_AT: Final = "2026-08-29T04:15:26+08:00"
+SOURCE_COMMIT: Final = "68911dbb2858be3b217b0b80c62eea9df57ed595"
+SOURCE_TREE: Final = "be7d5d59ddbdb25bd9ab0d2480e833da829de03f"
+SOURCE_COMMITTED_AT: Final = "2026-08-29T05:34:46+08:00"
+SOURCE_CI_RUN_ID: Final = 33213175597
+SOURCE_CI_RUN_URL: Final = "https://github.com/MyGarfield/ProofFlow/actions/runs/33213175597"
 
 ACTION_SCHEMA_PATHS: Final = (
     "schemas/action-certificate-dsse-envelope.schema.json",
@@ -32,6 +38,14 @@ ACTION_SCHEMA_PATHS: Final = (
     "schemas/action-certificate-verification-result-v0p1.schema.json",
 )
 
+SUPPLY_FRESHNESS_ASSET_PATHS: Final = (
+    ".github/workflows/release-supply-chain-evidence.yml",
+    "deploy/tool-service/evidence/supply-chain-evidence.schema.json",
+    "deploy/tool-service/evidence/supply-chain-release-policy.schema.json",
+    "deploy/tool-service/scripts/collect_supply_chain_evidence.py",
+    "deploy/tool-service/scripts/validate_supply_chain_evidence.py",
+)
+
 PRODUCT_ASSET_PATHS: Final = (
     "README.md",
     ".github/workflows/ci.yml",
@@ -41,6 +55,7 @@ PRODUCT_ASSET_PATHS: Final = (
     "deploy/tool-service/SUPPLY_CHAIN_EVIDENCE.md",
     "src/proofflow/action_certificate.py",
     *ACTION_SCHEMA_PATHS,
+    *SUPPLY_FRESHNESS_ASSET_PATHS,
 )
 
 FIXTURE_PATHS: Final = (
@@ -125,6 +140,7 @@ def _require_source_claims(repository_root: Path, commit: str) -> None:
         (evaluation_doc, "UNKNOWN"),
         (supply_doc, "Current status: historical snapshot, stale for this branch"),
         (supply_doc, "not evidence for the current build"),
+        (supply_doc, "v1.2 freshness and release binding contract"),
     )
     missing = [fragment for text, fragment in required_fragments if fragment not in text]
     if missing:
@@ -187,8 +203,15 @@ def build_snapshot(
                 "schema_count": len(ACTION_SCHEMA_PATHS),
             },
             "test_counts": {
-                "provenance": "SOURCE_README_DECLARATION",
-                "full_repo_passed": 569,
+                "full_repo_provenance": "PINNED_MAIN_CI_DECLARATION",
+                "full_repo_ci_run_id": SOURCE_CI_RUN_ID,
+                "full_repo_ci_run_url": SOURCE_CI_RUN_URL,
+                "full_repo_ci_head_sha": SOURCE_COMMIT,
+                "full_repo_total": 610,
+                "full_repo_passed": 609,
+                "full_repo_skipped": 1,
+                "source_readme_declared_full_repo_passed": 569,
+                "action_certificate_provenance": "SOURCE_README_DECLARATION",
                 "action_certificate_passed": 53,
                 "generator_executed_tests": False,
             },
@@ -214,6 +237,9 @@ def build_snapshot(
             "historical_snapshot_only": True,
             "release_eligible": False,
             "fresh_build_scan_and_provenance_required": True,
+            "freshness_release_gate_implemented": True,
+            "release_policy_schema_bound": True,
+            "release_workflow_is_disabled_design": True,
         },
         "product_assets": {
             "hash_kind": "UNSIGNED_GIT_BLOB_CONTENT_DIGEST",
