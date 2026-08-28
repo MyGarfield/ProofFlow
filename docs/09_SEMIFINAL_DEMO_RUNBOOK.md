@@ -1,5 +1,10 @@
 # ProofFlow 复赛本地证明链控制台 Runbook
 
+文档状态：`ACTIVE_LOCAL_REFERENCE_DEMO / HISTORICAL_FILENAME`
+
+该文件名来自历史竞赛准备。项目未晋级 GOAI 复赛，本 Runbook 不是复赛提交说明；其本地
+`PUBLIC_SYNTHETIC` 证明链仍作为产品参考 Demo 使用。
+
 ## 1. 演示结论先行
 
 该控制台用一个固定的 `PUBLIC_SYNTHETIC` 劳动合同场景，现场证明以下闭环：

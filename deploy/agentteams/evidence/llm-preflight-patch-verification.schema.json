@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://proofflow.local/schemas/agentteams-llm-preflight-patch-verification-v1.json",
+  "title": "AgentTeams llm-preflight patch verification",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "observed_at_utc", "status", "source", "patch", "tests", "runtime_boundary", "release_gate"],
+  "properties": {
+    "schema_version": {"const": "agentteams-llm-preflight-patch-verification/v1"},
+    "observed_at_utc": {"type": "string", "format": "date-time"},
+    "status": {"enum": ["PASS", "FAIL"]},
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "commit", "expected_commit", "source_worktree_clean", "isolated_clone_created", "isolated_checkout_clean"],
+      "properties": {
+        "version": {"const": "v1.2.2"},
+        "commit": {"const": "849182af8e017168a5a200a87b1062142caf462d"},
+        "expected_commit": {"const": "849182af8e017168a5a200a87b1062142caf462d"},
+        "source_worktree_clean": {"type": "boolean"},
+        "isolated_clone_created": {"type": "boolean"},
+        "isolated_checkout_clean": {"type": "boolean"}
+      }
+    },
+    "patch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "sha256", "git_apply_check", "applied_in_isolated_checkout"],
+      "properties": {
+        "name": {"const": "v1.2.2-llm-preflight-help-redaction.patch"},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "git_apply_check": {"enum": ["PASS", "FAIL", "NOT_RUN"]},
+        "applied_in_isolated_checkout": {"type": "boolean"}
+      }
+    },
+    "tests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["command", "status"],
+      "properties": {
+        "command": {"const": "go test ./cmd/agt -run TestLLMPreflight -count=1"},
+        "status": {"enum": ["PASS", "FAIL", "NOT_RUN"]}
+      }
+    },
+    "runtime_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["live_manager_env_read", "live_manager_help_or_completion_run", "worker_started", "llm_started", "runtime_binary_fixed", "patch_deployed"],
+      "properties": {
+        "live_manager_env_read": {"const": false},
+        "live_manager_help_or_completion_run": {"const": false},
+        "worker_started": {"const": false},
+        "llm_started": {"const": false},
+        "runtime_binary_fixed": {"const": false},
+        "patch_deployed": {"const": false}
+      }
+    },
+    "release_gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["old_exposed_credentials_revoked_and_rotated", "manager_rebuilt_and_replaced", "new_sbom_and_scan_verified", "runtime_verification_complete", "workers_may_start"],
+      "properties": {
+        "old_exposed_credentials_revoked_and_rotated": {"type": "boolean"},
+        "manager_rebuilt_and_replaced": {"type": "boolean"},
+        "new_sbom_and_scan_verified": {"type": "boolean"},
+        "runtime_verification_complete": {"type": "boolean"},
+        "workers_may_start": {"const": false}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "PASS"}}},
+      "then": {
+        "properties": {
+          "source": {
+            "properties": {
+              "source_worktree_clean": {"const": true},
+              "isolated_clone_created": {"const": true},
+              "isolated_checkout_clean": {"const": true}
+            }
+          },
+          "patch": {
+            "properties": {
+              "git_apply_check": {"const": "PASS"},
+              "applied_in_isolated_checkout": {"const": true}
+            }
+          },
+          "tests": {"properties": {"status": {"const": "PASS"}}}
+        }
+      }
+    }
+  ]
+}

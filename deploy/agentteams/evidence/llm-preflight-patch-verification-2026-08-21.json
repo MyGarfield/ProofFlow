@@ -1,0 +1,38 @@
+{
+  "schema_version": "agentteams-llm-preflight-patch-verification/v1",
+  "observed_at_utc": "2026-08-21T06:09:20Z",
+  "status": "PASS",
+  "source": {
+    "version": "v1.2.2",
+    "commit": "849182af8e017168a5a200a87b1062142caf462d",
+    "expected_commit": "849182af8e017168a5a200a87b1062142caf462d",
+    "source_worktree_clean": true,
+    "isolated_clone_created": true,
+    "isolated_checkout_clean": true
+  },
+  "patch": {
+    "name": "v1.2.2-llm-preflight-help-redaction.patch",
+    "sha256": "5974fdcf569ae8a70392a151cec8ed38407408cdd5e0e9b556f732427b470567",
+    "git_apply_check": "PASS",
+    "applied_in_isolated_checkout": true
+  },
+  "tests": {
+    "command": "go test ./cmd/agt -run TestLLMPreflight -count=1",
+    "status": "PASS"
+  },
+  "runtime_boundary": {
+    "live_manager_env_read": false,
+    "live_manager_help_or_completion_run": false,
+    "worker_started": false,
+    "llm_started": false,
+    "runtime_binary_fixed": false,
+    "patch_deployed": false
+  },
+  "release_gate": {
+    "old_exposed_credentials_revoked_and_rotated": false,
+    "manager_rebuilt_and_replaced": false,
+    "new_sbom_and_scan_verified": false,
+    "runtime_verification_complete": false,
+    "workers_may_start": false
+  }
+}

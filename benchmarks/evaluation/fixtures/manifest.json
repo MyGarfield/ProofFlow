@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "schema_version": "proofflow.evaluation-fixture/v1",
+  "fixture_id": "proofflow-public-synthetic-001",
+  "data_classification": "PUBLIC_SYNTHETIC",
+  "base_case_manifest_path": "examples/cases/happy_path/manifest.json",
+  "base_case_manifest_sha256": "sha256:c659dee0e33e0e63a5d51f82476a9b98d7287388a2dd13a2798f1543ca102c30",
+  "documents": [
+    {
+      "document_id": "doc-contract-001",
+      "path": "examples/cases/happy_path/contract.json",
+      "media_type": "application/json",
+      "sha256": "sha256:f17e64030475d0a6de6d0f0c340cab223ea64f9addca2789c523fcc3513914ff"
+    },
+    {
+      "document_id": "doc-payroll-001",
+      "path": "examples/cases/happy_path/payroll.json",
+      "media_type": "application/json",
+      "sha256": "sha256:2979d172f73d3bc83cc7c3a673e39a12b68026afa05424bcf7877cbe7c3300f5"
+    },
+    {
+      "document_id": "doc-notice-001",
+      "path": "examples/cases/happy_path/termination_notice.json",
+      "media_type": "application/json",
+      "sha256": "sha256:529aa937fdd04b08e6fdb87c2dc0dbb0eac8c27b4b373f03b001ad5bbf489eca"
+    }
+  ],
+  "scenario_bindings": [
+    {"scenario_id": "happy_path", "source_case_id": "case-happy-001", "mutation_id": "NONE"},
+    {"scenario_id": "missing_parameter", "source_case_id": "case-happy-001", "mutation_id": "REMOVE_MONTHLY_WAGE_AVERAGE"},
+    {"scenario_id": "conflicting_evidence", "source_case_id": "case-happy-001", "mutation_id": "INJECT_CONFLICTING_VERIFIED_WAGE_FACT"},
+    {"scenario_id": "insufficient_rule_authority", "source_case_id": "case-happy-001", "mutation_id": "REQUEST_FOREIGN_AND_EXPIRED_RULES"},
+    {"scenario_id": "document_prompt_injection", "source_case_id": "case-happy-001", "mutation_id": "EMBED_INSTRUCTION_LIKE_TEXT_IN_UNTRUSTED_DOCUMENT_FIELD"},
+    {"scenario_id": "mcp_cross_role_denial", "source_case_id": "case-happy-001", "mutation_id": "CALL_EVIDENCE_MCP_AS_CALCULATION_WORKER"},
+    {"scenario_id": "human_gate_bypass", "source_case_id": "case-happy-001", "mutation_id": "ATTEMPT_PACKAGE_WITHOUT_APPROVAL"},
+    {"scenario_id": "approval_toctou", "source_case_id": "case-happy-001", "mutation_id": "MUTATE_PROPOSAL_AFTER_APPROVAL_REQUEST"},
+    {"scenario_id": "duplicate_delegation", "source_case_id": "case-happy-001", "mutation_id": "REPLAY_DELEGATION_WITH_SAME_IDEMPOTENCY_KEY"},
+    {"scenario_id": "worker_crash_resume", "source_case_id": "case-happy-001", "mutation_id": "CRASH_WORKER_AFTER_TOOL_RECEIPT_BEFORE_ACK"},
+    {"scenario_id": "tool_timeout", "source_case_id": "case-happy-001", "mutation_id": "DELAY_TOOL_BEYOND_DEADLINE"},
+    {"scenario_id": "trace_gap", "source_case_id": "case-happy-001", "mutation_id": "DROP_REQUIRED_TRACE_EVENT"},
+    {"scenario_id": "package_tamper", "source_case_id": "case-happy-001", "mutation_id": "MUTATE_PACKAGED_DRAFT"},
+    {"scenario_id": "cross_tenant_reference", "source_case_id": "case-happy-001", "mutation_id": "RESEAL_ONE_EVIDENCE_OBJECT_FOR_ANOTHER_TENANT"}
+  ],
+  "provenance": {
+    "repository_commit": "b63eeb60d1072c73d2d0d1d6061b3c8f800487a4",
+    "generator": "checked-in-public-fixture-bundle",
+    "generator_version": "v1",
+    "content_scope": "base synthetic case documents and deterministic scenario mutation bindings",
+    "is_signature": false
+  },
+  "limitations": [
+    "The bundle is public synthetic data and contains mutation descriptors, not executed Worker or LLM results.",
+    "Mutation descriptors require a future provider-neutral adapter; they do not prove that any arm has run.",
+    "The recorded digest detects checked-in drift but is not a signature or an authenticity attestation."
+  ]
+}

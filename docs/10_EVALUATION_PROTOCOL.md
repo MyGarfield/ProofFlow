@@ -21,7 +21,8 @@ Manager 操作员完成，没有 Worker 执行、LLM 推理、Team 任务链或�
   Token、模型或业务成本。
 
 机器可读源与离线门禁位于 [`benchmarks/evaluation/`](../benchmarks/evaluation/)：
-`scenarios.json`、三个 JSON Schema、`suite.py`、CLI 和定向合同测试。它们不启动 Worker、不调用
+`scenarios.json`、公开 `fixtures/manifest.json`、fixture/run-record/verifier schema、`fixture.py`、
+`suite.py`、CLI 和定向合同测试。它们不启动 Worker、不调用
 LLM、不读取 key/help/env、不访问网络。
 
 ## 评分差距矩阵
@@ -59,18 +60,22 @@ six-agent 必须共享同一冻结输入、规则、公式和模型配置，并�
 
 LLM 臂必须先通过 `worker-run-evidence.schema.json`。最低条件为：
 
-1. `worker_execution_observed=true`、`llm_inference_observed=true`，而不是 CR 存在或 Manager 能调用 MCP；
+1. `worker_execution_observed=true`、`llm_inference_observed=true` 只是 schema 前置字段，不能单独打开 gate；每个预期参与者还必须有 `worker_session_receipts` 和 `llm_inference_receipts`，不能用裸布尔或 Manager smoke 代替；
 2. `team_operational_ready=true`，并按 AgentTeams 的字段语义分别满足：`single_agent` 为
    `leader_phase=Running`、`specialist_ready_workers=0`、`total_worker_containers=1`；`six_agent` 为
    `leader_phase=Running`、`specialist_ready_workers=5`、`total_worker_containers=6`。Leader 单独检查，
    Specialist 通过 `specialist_phases` 检查为 `Running`；不能把 total Worker 数写入 `readyWorkers`；
-3. 至少一个 task event、Matrix event、Worker MCP call receipt 和 Skill consumption receipt，并且都
-   能关联同一个 `trace_id`；
-4. 存在 Human Gate receipt；配置中的合成 Human 资源不能替代真实参与 receipt；
-5. `trace_complete=true`、`external_side_effects_enabled=false`、数据分类为 `PUBLIC_SYNTHETIC`，
+3. task/Matrix receipt 必须覆盖场景声明的 exact participant set、使用闭集 event type；Worker session receipt 必须绑定 worker/session/container/task/run/scenario/trace 和时间/phase/outcome；LLM receipt 必须绑定 participant、run/scenario/trace、模型配置 digest、请求/响应 hash 以及 token/cost completeness；
+4. 场景要求 Human 时，receipt 必须是 `actor_kind=HUMAN`、伪匿名 `actor_id`、role、decision time、method、subject hash，并绑定 task/Matrix/trace；合法的 Human Gate 前阻断场景可不伪造 approval receipt；配置中的合成 Human 资源不能替代真实参与 receipt；
+5. `capture_completeness.harness_capture_complete=true`，并单独记录 `capture_completeness.sut_trace_complete`；`external_side_effects_enabled=false`、数据分类为 `PUBLIC_SYNTHETIC`，
    `secrets_or_personal_data_emitted=false`；
-6. fixture manifest、scenario manifest、模型配置、仓库 commit、AgentTeams 版本/commit 和采集器版本
-   都有 digest 或稳定标识。
+6. fixture manifest、scenario manifest、规则目录 `rule_catalog_sha256`、
+   `formula_version`、模型配置、仓库 commit、固定 AgentTeams `v1.2.2` / commit
+   `849182af8e017168a5a200a87b1062142caf462d` 和采集器版本都有 digest 或稳定标识；
+   Worker evidence 与 run/ledger 字段必须逐项绑定。
+
+这些 receipts 仍是未签名的来源/一致性声明。schema/semantic gate 只能证明字段、链接、覆盖和 digest
+一致，不能证明真实执行真实性；真实性还需要公开原始 AgentTeams/Task/Matrix/MCP receipts 或签名/attestation。
 
 当前 Manager smoke 只有 `scope.worker_execution=false`、`llm_inference=false`，Team 的
 `operational_ready=false`，Leader 为 Stopped、`readyWorkers=0`（specialist 数）、total Worker containers
@@ -117,7 +122,7 @@ code、终态、是否允许产出值、是否需要批准、Trace 事件和观�
 
 ### 成本
 
-每个 `scenario_id+arm_id+replicate_id` 记录：
+每个 `scenario_id+arm_id+replicate_id+attempt` 尝试记录：
 
 - `input_tokens`、`output_tokens`、`cached_input_tokens`、`total_tokens`；缺失为 `null`/`UNKNOWN`；
 - `model_input_cost`、`model_output_cost`、`tool_cost`、`infrastructure_cost`、`human_review_cost`；
@@ -139,7 +144,8 @@ code、终态、是否允许产出值、是否需要批准、Trace 事件和观�
 
 ### 可靠性
 
-分母固定为 `attempted_runs`，并同时给出：`pass`、`fail`、`unknown`、`unsafe_success`、预期阻断、
+分母固定为 `attempted_runs`，因此重试仍进入成本、延迟与可靠性计数；但重试不增加 paired replicate
+数量。报告同时给出：`pass`、`fail`、`unknown`、`unsafe_success`、预期阻断、
 false block、重复副作用和 Trace 不完整计数。比例必须带分子、分母和 percentage-points；`UNKNOWN`
 不进入 PASS/FAIL 率，`UNSAFE_SUCCESS` 不进入 PASS 率。缺少完整 paired cell 或未达到计划的最小有效
 重复数时，只能报告 `UNKNOWN`，不做提升结论。
@@ -151,9 +157,22 @@ false block、重复副作用和 Trace 不完整计数。比例必须带分子�
 
 - 完全相同的合成 fixture manifest、规则目录、公式版本和预期合同；
 - single/six 相同的模型配置、采样参数、超时和工具版本；
-- `scenario_id+replicate_id` 配对，固定随机种子并记录，使用 blocked pairs 防止批次/顺序混淆；
+- `scenario_id+replicate_id` 配对；当前仅计划使用 blocked pairs，尚未执行，也尚未生成或记录 seed、
+  arm 顺序与 block assignment，因此机器状态固定为
+  `PLANNED_BLOCKED_PAIRS_SEED_NOT_RECORDED`，不得宣称已完成随机化；
+- `attempt` 只表示同一 cell 的重试序号，不是配对维度，也不能增加有效 replicate。每个
+  `arm+scenario+replicate` 只选择一个结果：只要任一 attempt 为 `UNSAFE_SUCCESS`，该状态就在所有后续
+  retry 之上保持不可逆优先，并选择编号最大的 unsafe attempt；否则选择编号最大的已执行终态 attempt；
+  若所有 attempt 都未到终态，则选择编号最大的 attempt 并保持 `UNKNOWN`。含 unsafe 的 pair 单列为
+  `unsafe_success_release_blocked_pairs`，不得计作 complete。未选重试仍保留在 append-only ledger，并
+  进入 attempted-run 成本、延迟与可靠性口径；
 - 每个 run 的 trace、task/Matrix event、MCP receipt、Skill receipt、Human Gate receipt 和成本/延迟
   provenance。
+
+`ledger_verifier` 对每条记录先绑定 manifest 中冻结的规则目录 digest 与公式版本，再对每个选定 pair
+验证 deterministic/single/six 的规则目录和公式版本完全一致；仅当 single/six 两个选定结果都实际执行
+时，才比较其非空模型配置 digest。缺失或不等时 ledger 拒绝聚合；任一臂未执行时该 pair 仍为
+`UNKNOWN`，不会伪造模型配置填充值。
 
 统计输出只允许给出事实和明确未知：成功率差、unknown 率、unsafe success 数、p50/p95/p99、Token、
 完整成本和失败类型。协议不预设“六 Agent 必须提升 X%”，也不使用 LLM-as-judge 生成质量标签；
@@ -161,23 +180,29 @@ false block、重复副作用和 Trace 不完整计数。比例必须带分子�
 
 ## 运行顺序与硬门
 
-1. 冻结公开合成 fixture、规则、公式、scenario manifest、仓库 commit、AgentTeams commit 和模型配置
-   digest；确认没有真实数据、个人信息、key、Cookie 或 env 被采集。
+1. 通过 `benchmarks.evaluation.fixture.validate_fixture_manifest()` 冻结并验证公开合成 fixture、规则、
+   公式、scenario manifest、仓库 commit、AgentTeams commit 和模型配置 digest；确认没有真实数据、
+   个人信息、key、Cookie 或 env 被采集。
 2. 只运行 `deterministic_reference` 的离线合同，作为质量/安全参考；这一步不产生 LLM 或多 Agent
    结果。
 3. 在完成旧 key 撤销和新 key 轮换、并确认不会把 key 暴露在 help/log/env 输出后，采集 one-worker
    运行证据；先验证 `worker-run-evidence.schema.json`，再打开 `single_agent` gate。
 4. 采集六 Worker Running、`leader_phase=Running`、`specialist_ready_workers=5`、
-   `total_worker_containers=6` 以及真实 DAG/Matrix/MCP/Skill/Human receipts；通过后才打开 `six_agent`
+   `total_worker_containers=6` 以及真实 DAG/Matrix/MCP/Skill/Human、Worker session 和 LLM inference receipts；通过后才打开 `six_agent`
    gate。任何一步失败，臂状态保持 `UNKNOWN`。
 5. 运行所有适用场景和故障注入；先写原始 run ledger，再生成汇总，不从汇总反推原始事实。
-6. 用独立 verifier 检查闭集 issue code、对象 hash、Human Gate 对象摘要、跨 tenant、Trace 完整性、
-   duplicate side effects、Token/rate card 和成本完整性。
+6. 用 `benchmarks.evaluation.verifier.verify_run_record` 独立检查闭集 issue code、对象 hash、Human Gate
+   对象摘要、跨 tenant、Trace 完整性、duplicate side effects、Token/rate card 和成本完整性；该 verifier
+   不复用 suite 分类器，且从固定 `scenarios.json` 加载 expected contract；调用方传入的 contract、
+   repository commit、Worker raw hash、fixture/scenario/model/AgentTeams provenance 只能被绑定或拒绝，
+   不能定义真值。Worker record 还必须通过完整 semantic gate，避免仅凭自洽 hash 升级为 PASS。
 7. 仅当全部必要字段存在且没有 `UNSAFE_SUCCESS` 时，才允许写该 cell 的 PASS/FAIL；任一安全越界
    立即标记 `UNSAFE_SUCCESS` 并阻断发布。
 
-当前安全边界仍然适用：不得执行会泄露环境 key 的 AgentTeams v1.2.2 `llm-preflight --help`，不得把
-密钥作为命令行参数，不得启动 Worker/LLM。真实运行前必须完成密钥轮换与上游/本地修复验证。
+当前安全边界仍然适用：不得执行会泄露环境 key 的 AgentTeams v1.2.2 live `llm-preflight --help`、
+`agt help llm-preflight` 或 completion，不得把密钥作为命令行参数，不得启动 Worker/LLM。仓库的
+候选 patch 只完成 pinned 源码级隔离 checkout 验证，尚未部署；真实运行前必须撤销轮换任何旧暴露
+凭据，并完成 Manager 重建/替换、新 SBOM 与漏洞扫描、以及不泄漏的运行验证，之后才可开启 Worker。
 
 ## 最强反对理由、失败模式和替代方案
 
@@ -204,17 +229,20 @@ uv run python -m benchmarks.evaluation.run \
   --output .proofflow/evaluation-protocol-report.json
 
 uv run pytest tests/benchmark/test_evaluation_contracts.py
-uv run ruff format --check benchmarks/evaluation tests/benchmark/test_evaluation_contracts.py
-uv run ruff check benchmarks/evaluation tests/benchmark/test_evaluation_contracts.py
+uv run pytest tests/benchmark/test_evaluation_verifier.py
+uv run ruff format --check benchmarks/evaluation tests/benchmark/test_evaluation_verifier.py
+uv run ruff check benchmarks/evaluation tests/benchmark/test_evaluation_verifier.py
 ```
 
 本次原子交付边界是：
 
 1. `docs/10_EVALUATION_PROTOCOL.md`：评分映射、执行门、失败模式和成本/延迟/可靠性协议；
-2. `benchmarks/evaluation/scenarios.json` + 三个 schema：机器可读场景、Worker evidence 和报告合同；
+2. `benchmarks/evaluation/scenarios.json` + fixture/schema：机器可读场景、公开合成数据和 digest 绑定；
 3. `benchmarks/evaluation/suite.py` + `run.py`：离线 manifest 校验、Worker gate 和四态分类器；
-4. `tests/benchmark/test_evaluation_contracts.py`：定向结构、当前 Stopped 基线阻断、UNKNOWN、
-   UNSAFE_SUCCESS 和闭集 issue code 测试。
+4. `benchmarks/evaluation/run-record.schema.json` + `verifier.py`：独立 run-ledger 合同和 verifier；
+5. `tests/benchmark/test_evaluation_contracts.py` + `test_evaluation_verifier.py`：定向结构、当前 Stopped
+   基线阻断、UNKNOWN、UNSAFE_SUCCESS、闭集 issue code 和 provenance 负例测试。
 
-这些文件不修改 `demo/`、`docs/09`、`tests/e2e/test_demo_server.py`、`deploy/tool-service`、README 或
+这些文件不修改 `demo/`、`docs/09`、`tests/e2e/test_demo_server.py`、`deploy/tool-service`、仓库根
+`README.md` 或
 现有 AgentTeams 资源。

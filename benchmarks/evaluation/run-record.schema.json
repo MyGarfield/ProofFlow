@@ -1,0 +1,181 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/proofflow/evaluation-run-record.schema.json",
+  "title": "ProofFlow provider-neutral evaluation run record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "arm_id",
+    "scenario_id",
+    "replicate_id",
+    "attempt",
+    "execution_status",
+    "fixture_manifest_sha256",
+    "scenario_manifest_sha256",
+    "rule_catalog_sha256",
+    "formula_version",
+    "provenance",
+    "model",
+    "worker_evidence",
+    "measurements",
+    "observation"
+  ],
+  "properties": {
+    "schema_version": {"const": "proofflow.evaluation-run/v1"},
+    "run_id": {"type": "string", "minLength": 1},
+    "arm_id": {"enum": ["deterministic_reference", "single_agent", "six_agent"]},
+    "scenario_id": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+    "replicate_id": {"type": "integer", "minimum": 1},
+    "attempt": {"type": "integer", "minimum": 1},
+    "execution_status": {"const": "EXECUTED"},
+    "fixture_manifest_sha256": {"$ref": "#/$defs/digest"},
+    "scenario_manifest_sha256": {"$ref": "#/$defs/digest"},
+    "rule_catalog_sha256": {"$ref": "#/$defs/digest"},
+    "formula_version": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"},
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository_commit",
+        "agentteams_version",
+        "agentteams_commit",
+        "collector_version",
+        "evidence_bundle_sha256",
+        "recorded_at"
+      ],
+      "properties": {
+        "repository_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "agentteams_version": {"type": ["string", "null"]},
+        "agentteams_commit": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"},
+        "collector_version": {"type": "string", "minLength": 1},
+        "evidence_bundle_sha256": {"$ref": "#/$defs/digest"},
+        "recorded_at": {"type": "string", "format": "date-time"}
+      }
+    },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider_id", "model_id", "configuration_digest", "worker_evidence_sha256"],
+      "properties": {
+        "provider_id": {"type": ["string", "null"]},
+        "model_id": {"type": ["string", "null"]},
+        "configuration_digest": {"type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$"},
+        "worker_evidence_sha256": {"type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$"}
+      }
+    },
+    "worker_evidence": {"type": ["object", "null"]},
+    "measurements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cost", "latency"],
+      "properties": {
+        "cost": {"$ref": "#/$defs/cost"},
+        "latency": {"$ref": "#/$defs/latency"}
+      }
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "outcome_class",
+        "terminal_stage",
+        "issue_codes",
+        "approval_required",
+        "external_side_effects_enabled",
+        "value_emitted",
+        "artifact_verification_valid",
+        "trace_events",
+        "unsafe_signals"
+      ],
+      "properties": {
+        "outcome_class": {"enum": ["PASS", "FAIL"]},
+        "terminal_stage": {"type": "string", "minLength": 1},
+        "issue_codes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[A-Z0-9_]+$"}
+        },
+        "approval_required": {"type": "boolean"},
+        "external_side_effects_enabled": {"const": false},
+        "value_emitted": {"type": "boolean"},
+        "artifact_verification_valid": {"type": ["boolean", "null"]},
+        "trace_events": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[A-Z0-9_]+$"}
+        },
+        "unsafe_signals": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "human_gate_bypassed",
+            "cross_tenant_reference_accepted",
+            "forbidden_external_side_effect_observed",
+            "trace_incomplete_with_result"
+          ],
+          "properties": {
+            "human_gate_bypassed": {"type": "boolean"},
+            "cross_tenant_reference_accepted": {"type": "boolean"},
+            "forbidden_external_side_effect_observed": {"type": "boolean"},
+            "trace_incomplete_with_result": {"type": "boolean"}
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "nullableNonNegativeInteger": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "nullableNonNegativeNumber": {
+      "type": ["number", "null"],
+      "minimum": 0
+    },
+    "cost": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input_tokens",
+        "output_tokens",
+        "cached_input_tokens",
+        "total_tokens",
+        "total_cost",
+        "currency",
+        "rate_card_id",
+        "cost_complete"
+      ],
+      "properties": {
+        "input_tokens": {"$ref": "#/$defs/nullableNonNegativeInteger"},
+        "output_tokens": {"$ref": "#/$defs/nullableNonNegativeInteger"},
+        "cached_input_tokens": {"$ref": "#/$defs/nullableNonNegativeInteger"},
+        "total_tokens": {"$ref": "#/$defs/nullableNonNegativeInteger"},
+        "total_cost": {"$ref": "#/$defs/nullableNonNegativeNumber"},
+        "currency": {"type": ["string", "null"], "pattern": "^[A-Z]{3}$"},
+        "rate_card_id": {"type": ["string", "null"], "minLength": 1},
+        "cost_complete": {"type": "boolean"}
+      }
+    },
+    "latency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "end_to_end_ms",
+        "active_compute_ms",
+        "human_wait_ms",
+        "clock_source",
+        "latency_complete"
+      ],
+      "properties": {
+        "end_to_end_ms": {"$ref": "#/$defs/nullableNonNegativeNumber"},
+        "active_compute_ms": {"$ref": "#/$defs/nullableNonNegativeNumber"},
+        "human_wait_ms": {"$ref": "#/$defs/nullableNonNegativeNumber"},
+        "clock_source": {"type": "string", "minLength": 1},
+        "latency_complete": {"type": "boolean"}
+      }
+    }
+  }
+}

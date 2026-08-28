@@ -1,16 +1,15 @@
 # 冠军执行计划
 
-状态：`ACTIVE / EVIDENCE-DRIVEN`
+状态：`HISTORICAL_GOAI_PLAN / NOT_ACTIVE`
 
-更新：2026-08-20
+历史更新时间：2026-08-20；状态纠正：2026-08-29
 
 ## 目标与边界
 
-目标是以可验证工程、评测和现场表达最大化 ProofFlow 获得 GOAI Agent Infra「新智基座」第一名
-以及全场奖的概率。第一名由评委和其他参赛作品共同决定，无法保证；内部不使用“必胜”替代证据。
-
-当前参赛资格仍以组委会对补交申诉的书面确认及后续通知为准。在获得确认前，仓库不能将“申诉中”
-表述为“已成功参赛”。研发继续推进，因为复赛公开窗口仅为 2026-08-25 至 09-03。
+本文件曾用于以可验证工程、评测和现场表达提升 GOAI Agent Infra 竞赛表现。GOAI 于
+2026 年 8 月 25 日确认初赛作品有效但未晋级复赛，因此本计划不再执行，也不得作为当前赛程、
+资格或提交说明。可复用的工程与评测思想已迁移到
+[全球产品路线图](12_GLOBAL_PRODUCT_ROADMAP.md)。
 
 官方评分权重：场景价值与复制性 25%、多 Agent 协同闭环 25%、Skill 工程与复用 25%、工程落地／
 运行验证／安全审计 20%、开放开源 5%。来源：[官方赛道页](https://www.goaihz.com/tracks?track=infra)、
@@ -61,7 +60,7 @@ ProofFlow 不以“法律聊天更聪明”为核心，而以以下命题参赛�
   Schema v1.1、SBOM、固定数据库点时漏洞扫描和八项 unsigned build-input hashes；
 - [x] 替换本地运行容器并刷新 AgentTeams MCP Schema v1.2 证据；严格语义 validator 已强制供应链
   subject、MCP 快照根级和运行观察三处 image ID 相等；
-- [x] 当前格式、类型、Schema、证据 validator 与稳定全仓 `366 passed` 门禁通过；
+- [x] 当前格式、类型、Schema、证据 validator 与稳定全仓 `516 passed` 门禁通过；
 - [ ] 加入缺参、冲突、异地/过期规则、审批后修改、越权角色异常样例；
 - [x] 建立本地演示 UI、90 秒 runbook 与 `19 passed` 定向套件；它不运行 Worker/LLM 或产生外部副作用；
 - [x] 集成三臂评测协议、Schema、CLI 与合同测试；当前状态为
@@ -125,7 +124,7 @@ ProofFlow 不以“法律聊天更聪明”为核心，而以以下命题参赛�
   `tool_service_runtime.image_id` 三方相等。摘要、交叉绑定与点时零 finding 不是 clean 结论、签名、
   build attestation、构建关系证明、持续运行证明或生产安全认证；Debian 4 Critical/22 High 仅是未附
   原始报告的操作员历史观察；
-- 稳定全仓测试为 `366 passed`，本地 Demo 定向测试为 `19 passed`；
+- 稳定全仓测试为 `516 passed`，本地 Demo 定向测试为 `19 passed`；
 - [`10_EVALUATION_PROTOCOL.md`](10_EVALUATION_PROTOCOL.md) 与
   [`benchmarks/evaluation/`](../benchmarks/evaluation/) 已集成，但报告状态仍为
   `PROTOCOL_VALIDATED_NOT_EXECUTED`；`deterministic_reference`、`single_agent`、`six_agent` 三臂和

@@ -1,0 +1,98 @@
+{
+  "schema_version": "1.0",
+  "snapshot_scope": "HISTORICAL_REFERENCE_CORE_AND_PUBLIC_MATERIALS",
+  "observed_on": "2026-08-22",
+  "classification": "PUBLIC_SYNTHETIC",
+  "repository": "https://github.com/MyGarfield/ProofFlow",
+  "source": {
+    "branch": "main",
+    "commit": "b63eeb60d1072c73d2d0d1d6061b3c8f800487a4",
+    "tree": "2e58bc7cf5a2677ec156490108ad91f35d5c41c1",
+    "signature_verified": false,
+    "landing_page_in_source_commit": false
+  },
+  "landing": {
+    "mode": "STATIC_READ_ONLY_OUTER_LAYER",
+    "runtime_connected": false,
+    "tracking_enabled": false,
+    "remote_runtime_exposed": false,
+    "base_path_contract": "/ProofFlow/"
+  },
+  "runtime_boundary": {
+    "workers": "Stopped",
+    "readyWorkers": 0,
+    "worker_containers": 0,
+    "llm_enabled": false,
+    "external_side_effects_enabled": false,
+    "real_case_data_used": false,
+    "legal_advice": false
+  },
+  "reference_flow": [
+    {
+      "step": "prepare",
+      "observed_outcome": "AWAITING_APPROVAL"
+    },
+    {
+      "step": "409",
+      "observed_outcome": "HUMAN_GATE_REQUIRED"
+    },
+    {
+      "step": "approve",
+      "observed_outcome": "LOCAL_DEMO"
+    },
+    {
+      "step": "package",
+      "observed_outcome": "2_FILES"
+    },
+    {
+      "step": "verify",
+      "observed_outcome": "VALID_TRUE_25_ARTIFACTS_2_PACKAGE_FILES"
+    },
+    {
+      "step": "11/11",
+      "observed_outcome": "STRUCTURAL_CONTRACTS_ONLY"
+    }
+  ],
+  "input_pins": {
+    "fixture_bundle": "sha256:60ce3111c813c8869e4be65ae5f4fcd9712e388769b35645393dc270184c7f9d",
+    "rule_catalog": "sha256:27686c904451870dd5953ec6e47c155a395b2f279995e50f68aea984e6bf91de",
+    "hash_kind": "UNSIGNED_CONTENT_DIGEST"
+  },
+  "contract_suite": {
+    "result": "11/11",
+    "report_hash": "sha256:f81883cca94268e35375e8fcb7eb6afb60b769e15040130cbe7359c6bb23bc17",
+    "scope": "LOCAL_DETERMINISTIC_SYNTHETIC_STRUCTURAL_CONTRACTS",
+    "legal_accuracy_measured": false,
+    "performance_measured": false,
+    "official_score": null
+  },
+  "public_artifacts": [
+    {
+      "path": "submission/public/ProofFlow_GOAI_复赛答辩_v2.0.pptx",
+      "sha256": "fabe3102c1ef6550b131d0d230fed3a4eef46c579886ec268fc6c11c298f55a5",
+      "bytes": 901601
+    },
+    {
+      "path": "submission/public/ProofFlow_GOAI_复赛答辩_v2.0.pdf",
+      "sha256": "6c45562bd6b7fa1a813bac0d713dfa3a3a2d7f54f6e07a3763bbb1306d12e773",
+      "bytes": 1523247
+    },
+    {
+      "path": "submission/public/submission-manifest.json",
+      "sha256": "6b36d4b98fd6bb5261460f8a3d394f06419ce31821ebc085efed4b79175365d6",
+      "bytes": 1621
+    }
+  ],
+  "evaluation_boundary": {
+    "status": "PROTOCOL_VALIDATED_NOT_EXECUTED",
+    "deterministic_reference_score": null,
+    "single_agent_score": null,
+    "six_agent_score": null,
+    "official_score": null
+  },
+  "media": {
+    "publication_status": "NOT_PUBLISHED",
+    "contract": "media/video-contract.json"
+  },
+  "digest_disclaimer": "SHA-256 values are unsigned content digests, not digital signatures, source authenticity, legal correctness, official acceptance, or competition scores."
+}

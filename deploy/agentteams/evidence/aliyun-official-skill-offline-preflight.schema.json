@@ -1,0 +1,618 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/MyGarfield/ProofFlow/deploy/agentteams/evidence/aliyun-official-skill-offline-preflight.schema.json",
+  "title": "ProofFlow offline Aliyun official Skill preflight evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "evidence_id",
+    "collected_at",
+    "claim_level",
+    "subject",
+    "official_source",
+    "implementation_audit",
+    "execution_boundary",
+    "skill_inputs",
+    "scan",
+    "integration",
+    "limitations"
+  ],
+  "properties": {
+    "$schema": {"const": "./aliyun-official-skill-offline-preflight.schema.json"},
+    "schema_version": {"const": "1.2"},
+    "evidence_id": {"const": "aliyun-official-skill-offline-preflight-2026-08-21"},
+    "collected_at": {"type": "string", "format": "date-time"},
+    "claim_level": {"const": "OFFLINE_PINNED_SOURCE_AND_STATIC_CONTRACT_REPLAY_ONLY"},
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "proof_flow_base_commit",
+        "public_skill_root",
+        "expected_skill_count",
+        "expected_skill_names",
+        "input_data_class"
+      ],
+      "properties": {
+        "proof_flow_base_commit": {"$ref": "#/$defs/gitCommit"},
+        "public_skill_root": {"const": "deploy/agentteams/skills"},
+        "expected_skill_count": {"const": 8},
+        "expected_skill_names": {
+          "type": "array",
+          "minItems": 8,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/skillName"}
+        },
+        "input_data_class": {"const": "PUBLIC_SKILL_CONTRACTS_ONLY"}
+      }
+    },
+    "official_source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository_url",
+        "tag",
+        "tag_object_type",
+        "commit",
+        "repository_path",
+        "vendored_path",
+        "tag_resolution_claim",
+        "modification_status",
+        "acquisition",
+        "source_files",
+        "git_object_manifest",
+        "license"
+      ],
+      "properties": {
+        "repository_url": {"const": "https://github.com/aliyun/alibabacloud-aiops-skills"},
+        "tag": {"const": "alibabacloud-openclaw-skill-security-scan-0.0.1"},
+        "tag_object_type": {"const": "commit"},
+        "commit": {"const": "3cdce6a5ead21b4aec740d97ae30eb0b71c1c786"},
+        "repository_path": {"const": "skills/security/riskmanagement/alibabacloud-openclaw-skill-security-scan"},
+        "vendored_path": {"const": "third_party/aliyun/alibabacloud-openclaw-skill-security-scan/upstream"},
+        "tag_resolution_claim": {"const": "UNSIGNED_POINT_IN_TIME_GIT_OBSERVATION"},
+        "modification_status": {"const": "UNMODIFIED_HASH_MATCHED_VENDOR_SNAPSHOT"},
+        "acquisition": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mode",
+            "network_used",
+            "credentials_used",
+            "occurred_before_offline_collection",
+            "content_reverified_by_hash_inside_sandbox"
+          ],
+          "properties": {
+            "mode": {"const": "PUBLIC_GIT_HTTPS_WITH_CLEAN_ENVIRONMENT"},
+            "network_used": {"const": true},
+            "credentials_used": {"const": false},
+            "occurred_before_offline_collection": {"const": true},
+            "content_reverified_by_hash_inside_sandbox": {"const": true}
+          }
+        },
+        "source_files": {
+          "type": "array",
+          "minItems": 8,
+          "maxItems": 8,
+          "items": {"$ref": "#/$defs/fileRecord"}
+        },
+        "git_object_manifest": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "object_format",
+            "tag_ref",
+            "tag_object_type",
+            "tag_ref_target",
+            "commit",
+            "root_tree",
+            "subtree_path",
+            "subtree_tree",
+            "entry_source",
+            "entry_count",
+            "vendored_blob_oids_recomputed",
+            "subtree_tree_recomputed",
+            "tag_to_commit_offline_verified",
+            "commit_to_root_tree_offline_verified",
+            "provenance_semantics"
+          ],
+          "properties": {
+            "object_format": {"const": "sha1"},
+            "tag_ref": {
+              "const": "refs/tags/alibabacloud-openclaw-skill-security-scan-0.0.1"
+            },
+            "tag_object_type": {"const": "commit"},
+            "tag_ref_target": {"const": "3cdce6a5ead21b4aec740d97ae30eb0b71c1c786"},
+            "commit": {"const": "3cdce6a5ead21b4aec740d97ae30eb0b71c1c786"},
+            "root_tree": {"const": "c0d8dde900cce28dd7b07321a873cca1efa40d94"},
+            "subtree_path": {
+              "const": "skills/security/riskmanagement/alibabacloud-openclaw-skill-security-scan"
+            },
+            "subtree_tree": {"const": "3f097e3281d89bb59ce9a638e846070d47bcbcdc"},
+            "entry_source": {"const": "official_source.source_files"},
+            "entry_count": {"const": 8},
+            "vendored_blob_oids_recomputed": {"const": true},
+            "subtree_tree_recomputed": {"const": true},
+            "tag_to_commit_offline_verified": {"const": false},
+            "commit_to_root_tree_offline_verified": {"const": false},
+            "provenance_semantics": {"type": "string", "minLength": 100, "maxLength": 400}
+          }
+        },
+        "license": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["spdx_expression", "path", "sha256", "copyright", "license_text_vendored"],
+          "properties": {
+            "spdx_expression": {"const": "MIT"},
+            "path": {"const": "assets/LICENSE.txt"},
+            "sha256": {"$ref": "#/$defs/sha256"},
+            "copyright": {"const": "Copyright (c) 2026 AliyunSecAI"},
+            "license_text_vendored": {"const": true}
+          }
+        }
+      }
+    },
+    "implementation_audit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "inventory_status",
+        "files_reviewed",
+        "scripts_reviewed",
+        "main_required_commands",
+        "main_optional_commands",
+        "packager_commands",
+        "cloud_environment_default",
+        "collection_cloud_environment",
+        "cloud_disable_guards_verified",
+        "cloud_upload_functions_present",
+        "cloud_endpoint_declared",
+        "cloud_enabled_data_classes",
+        "host_override_supported",
+        "presigned_upload_url_host_allowlist_enforced",
+        "residual_openclaw_config_audit_when_cloud_disabled",
+        "main_script_minimum_bash_major",
+        "local_bash_major_observed",
+        "official_main_execution_status",
+        "official_main_non_execution_reasons",
+        "official_static_target_policy",
+        "official_static_pattern_invocations"
+      ],
+      "properties": {
+        "inventory_status": {"const": "ALL_8_UPSTREAM_FILES_HASHED_AND_CLASSIFIED"},
+        "files_reviewed": {"const": 8},
+        "scripts_reviewed": {"const": 3},
+        "main_required_commands": {"$ref": "#/$defs/stringSet"},
+        "main_optional_commands": {"$ref": "#/$defs/stringSet"},
+        "packager_commands": {"$ref": "#/$defs/stringSet"},
+        "cloud_environment_default": {"const": "true"},
+        "collection_cloud_environment": {"const": "false"},
+        "cloud_disable_guards_verified": {"const": true},
+        "cloud_upload_functions_present": {"const": true},
+        "cloud_endpoint_declared": {"const": "riskpunish.aliyuncs.com"},
+        "cloud_enabled_data_classes": {"$ref": "#/$defs/stringSet"},
+        "host_override_supported": {"const": true},
+        "presigned_upload_url_host_allowlist_enforced": {"const": false},
+        "residual_openclaw_config_audit_when_cloud_disabled": {"const": true},
+        "main_script_minimum_bash_major": {"const": 4},
+        "local_bash_major_observed": {"const": 3},
+        "official_main_execution_status": {"const": "NOT_EXECUTED_SAFETY_BOUNDARY"},
+        "official_main_non_execution_reasons": {"$ref": "#/$defs/stringSet"},
+        "official_static_target_policy": {"$ref": "#/$defs/stringSet"},
+        "official_static_pattern_invocations": {"const": 118}
+      }
+    },
+    "execution_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runner",
+        "working_copy",
+        "python_version",
+        "interpreter",
+        "environment_cleared_before_process_start",
+        "environment_names",
+        "os_injected_environment_names",
+        "sensitive_environment_names_present",
+        "cloud_environment_value",
+        "home_directory_class",
+        "temporary_directory_class",
+        "network",
+        "command_contract",
+        "credential_read_status",
+        "openclaw_config_read_status",
+        "real_openclaw_invoked",
+        "live_agentteams_manager_accessed",
+        "live_agentteams_worker_accessed",
+        "llm_started"
+      ],
+      "properties": {
+        "runner": {"const": "PROOFFLOW_INDEPENDENT_OFFLINE_REPLAY_V1"},
+        "working_copy": {"const": "EPHEMERAL_COPY_OF_PINNED_SOURCE_AND_8_PUBLIC_SKILLS"},
+        "python_version": {"const": "3.9.6"},
+        "interpreter": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "invoked",
+            "resolved",
+            "python_version",
+            "isolated_flag",
+            "no_site_flag",
+            "site_module_loaded"
+          ],
+          "properties": {
+            "invoked": {
+              "allOf": [
+                {"$ref": "#/$defs/systemFileRecord"},
+                {
+                  "properties": {
+                    "path": {"const": "/usr/bin/python3"},
+                    "sha256": {
+                      "const": "sha256:179301dcb41ea78accc3fa0048a7e6f6710d891945a751a34addd622020c1818"
+                    },
+                    "bytes": {"const": 118928}
+                  }
+                }
+              ]
+            },
+            "resolved": {
+              "allOf": [
+                {"$ref": "#/$defs/systemFileRecord"},
+                {
+                  "properties": {
+                    "path": {
+                      "const": "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/bin/python3.9"
+                    },
+                    "sha256": {
+                      "const": "sha256:bdea59019a38eb6600cc9e71e984a97fedadc406448431281e7657030f54987e"
+                    },
+                    "bytes": {"const": 102352}
+                  }
+                }
+              ]
+            },
+            "python_version": {"const": "3.9.6"},
+            "isolated_flag": {"const": true},
+            "no_site_flag": {"const": true},
+            "site_module_loaded": {"const": false}
+          }
+        },
+        "environment_cleared_before_process_start": {"const": true},
+        "environment_names": {"$ref": "#/$defs/stringSet"},
+        "os_injected_environment_names": {"$ref": "#/$defs/stringSet"},
+        "sensitive_environment_names_present": {"type": "array", "maxItems": 0},
+        "cloud_environment_value": {"const": "false"},
+        "home_directory_class": {"const": "EMPTY_SENTINEL_DIRECTORY"},
+        "temporary_directory_class": {"const": "BOUNDED_EPHEMERAL_DIRECTORY"},
+        "network": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mechanism",
+            "scope",
+            "enforced",
+            "enforcement_test_scope",
+            "sandbox_profile",
+            "sandbox_profile_sha256",
+            "positive_control",
+            "negative_control",
+            "external_network_observed",
+            "observation_semantics"
+          ],
+          "properties": {
+            "mechanism": {"const": "MACOS_SANDBOX_EXEC_DENY_NETWORK_ALL"},
+            "scope": {"const": "LOCAL_DARWIN_SEATBELT_COLLECTION_INVOCATION_ONLY"},
+            "enforced": {"const": true},
+            "enforcement_test_scope": {"const": "IPV4_TCP_LOOPBACK_ONLY"},
+            "sandbox_profile": {"const": "(version 1) (allow default) (deny network*)"},
+            "sandbox_profile_sha256": {"$ref": "#/$defs/sha256"},
+            "positive_control": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["phase", "transport", "status"],
+              "properties": {
+                "phase": {"const": "PRE_SANDBOX_SAME_HOST"},
+                "transport": {"const": "IPV4_TCP_LOOPBACK"},
+                "status": {"const": "LOOPBACK_IPV4_TCP_CONNECT_SUCCEEDED"}
+              }
+            },
+            "negative_control": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["phase", "target_class", "status", "errno"],
+              "properties": {
+                "phase": {"const": "IN_SANDBOX_COLLECTOR"},
+                "target_class": {"const": "LOOPBACK_TCP_DISCARD_PORT"},
+                "status": {"const": "BLOCKED_EPERM"},
+                "errno": {"const": 1}
+              }
+            },
+            "external_network_observed": {"const": false},
+            "observation_semantics": {"type": "string", "minLength": 40, "maxLength": 300}
+          }
+        },
+        "command_contract": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "canonicalization",
+            "canonical_argv",
+            "canonical_argv_sha256",
+            "binding_components",
+            "binding_sha256",
+            "sandbox_exec_exit_status",
+            "exit_status_reason_code"
+          ],
+          "properties": {
+            "canonicalization": {
+              "const": "COMPACT_JSON_UTF8_ARGV_WITH_ONLY_TMP_ROOT_REDACTED"
+            },
+            "canonical_argv": {
+              "type": "array",
+              "minItems": 26,
+              "maxItems": 26,
+              "items": {"type": "string", "minLength": 1, "maxLength": 220}
+            },
+            "canonical_argv_sha256": {"$ref": "#/$defs/sha256"},
+            "binding_components": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "canonical_argv_sha256",
+                "sandbox_profile_sha256",
+                "interpreter_invoked_sha256",
+                "interpreter_resolved_sha256",
+                "source_subtree_tree"
+              ],
+              "properties": {
+                "canonical_argv_sha256": {"$ref": "#/$defs/sha256"},
+                "sandbox_profile_sha256": {"$ref": "#/$defs/sha256"},
+                "interpreter_invoked_sha256": {"$ref": "#/$defs/sha256"},
+                "interpreter_resolved_sha256": {"$ref": "#/$defs/sha256"},
+                "source_subtree_tree": {"const": "3f097e3281d89bb59ce9a638e846070d47bcbcdc"}
+              }
+            },
+            "binding_sha256": {"$ref": "#/$defs/sha256"},
+            "sandbox_exec_exit_status": {"const": "NOT_VERIFIED_IN_COLLECTOR_ARTIFACT"},
+            "exit_status_reason_code": {
+              "const": "COLLECTOR_CANNOT_OBSERVE_PARENT_SANDBOX_EXEC_PROCESS_EXIT"
+            }
+          }
+        },
+        "credential_read_status": {"const": "NOT_OBSERVED_NOT_OS_ENFORCED"},
+        "openclaw_config_read_status": {"const": "NOT_OBSERVED_NOT_OS_ENFORCED"},
+        "real_openclaw_invoked": {"const": false},
+        "live_agentteams_manager_accessed": {"const": false},
+        "live_agentteams_worker_accessed": {"const": false},
+        "llm_started": {"const": false}
+      }
+    },
+    "skill_inputs": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "items": {"$ref": "#/$defs/skillInput"}
+    },
+    "scan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "official_rule_source",
+        "official_compatible_scan_status",
+        "official_compatible_target_file_count",
+        "official_inconclusive_reason_code",
+        "supplemental_check_ids",
+        "supplemental_scope",
+        "supplemental_status",
+        "results",
+        "summary"
+      ],
+      "properties": {
+        "official_rule_source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256", "scenario_count", "pattern_invocation_count"],
+          "properties": {
+            "path": {"const": "scripts/main.sh"},
+            "sha256": {"$ref": "#/$defs/sha256"},
+            "scenario_count": {"const": 12},
+            "pattern_invocation_count": {"const": 118}
+          }
+        },
+        "official_compatible_scan_status": {"const": "INCONCLUSIVE_NO_ANALYZABLE_TARGETS"},
+        "official_compatible_target_file_count": {"const": 0},
+        "official_inconclusive_reason_code": {
+          "const": "OFFICIAL_TARGET_POLICY_EXCLUDES_SKILL_MD_ONLY_INPUTS"
+        },
+        "supplemental_check_ids": {"$ref": "#/$defs/stringSet"},
+        "supplemental_scope": {"const": "EIGHT_PUBLIC_SKILL_MD_FILES_ONLY"},
+        "supplemental_status": {"const": "NO_INDICATOR_MATCHES_NOT_A_SAFETY_CERTIFICATION"},
+        "results": {
+          "type": "array",
+          "minItems": 8,
+          "maxItems": 8,
+          "items": {"$ref": "#/$defs/skillResult"}
+        },
+        "summary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "skills_received",
+            "skills_hashed",
+            "skills_with_official_analyzable_targets",
+            "skills_with_supplemental_indicator_matches",
+            "official_scenarios_accounted_for_per_skill"
+          ],
+          "properties": {
+            "skills_received": {"const": 8},
+            "skills_hashed": {"const": 8},
+            "skills_with_official_analyzable_targets": {"const": 0},
+            "skills_with_supplemental_indicator_matches": {"const": 0},
+            "official_scenarios_accounted_for_per_skill": {"const": 12}
+          }
+        }
+      }
+    },
+    "integration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recommended_agent_identity",
+        "recommended_stage",
+        "official_skill_assigned_to_worker",
+        "runtime_consumption",
+        "live_worker_execution",
+        "llm_inference",
+        "agentteams_resources_mutated",
+        "cloud_service_used"
+      ],
+      "properties": {
+        "recommended_agent_identity": {"const": "audit-agent"},
+        "recommended_stage": {"const": "DEPLOYMENT_PREFLIGHT"},
+        "official_skill_assigned_to_worker": {"const": false},
+        "runtime_consumption": {"const": false},
+        "live_worker_execution": {"const": false},
+        "llm_inference": {"const": false},
+        "agentteams_resources_mutated": {"const": false},
+        "cloud_service_used": {"const": false}
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 12,
+      "maxItems": 12,
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[A-Z0-9_]+$"}
+    }
+  },
+  "$defs": {
+    "gitCommit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "gitOid": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "systemFileRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "owner_uid", "owner_gid", "mode", "bytes"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^/(?:usr|Library)/[A-Za-z0-9_./-]+$"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "owner_uid": {"const": 0},
+        "owner_gid": {"const": 0},
+        "mode": {"const": "0755"},
+        "bytes": {"type": "integer", "minimum": 1}
+      }
+    },
+    "skillName": {
+      "enum": [
+        "conflict_detect",
+        "decision_audit",
+        "deterministic_calculate",
+        "document_package",
+        "evidence_ingest",
+        "human_approval",
+        "rule_retrieve",
+        "timeline_build"
+      ]
+    },
+    "stringSet": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1, "maxLength": 200}
+    },
+    "fileRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "bytes",
+        "git_mode",
+        "git_object_type",
+        "git_blob_oid"
+      ],
+      "properties": {
+        "path": {"type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9_./-]+$"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "bytes": {"type": "integer", "minimum": 1},
+        "git_mode": {"const": "100644"},
+        "git_object_type": {"const": "blob"},
+        "git_blob_oid": {"$ref": "#/$defs/gitOid"}
+      }
+    },
+    "skillInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "skill_name",
+        "relative_path",
+        "sha256",
+        "bytes",
+        "regular_file",
+        "directory_file_count",
+        "symlink_count"
+      ],
+      "properties": {
+        "skill_name": {"$ref": "#/$defs/skillName"},
+        "relative_path": {"type": "string", "pattern": "^deploy/agentteams/skills/[a-z_]+/SKILL\\.md$"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "bytes": {"type": "integer", "minimum": 1},
+        "regular_file": {"const": true},
+        "directory_file_count": {"const": 1},
+        "symlink_count": {"const": 0}
+      }
+    },
+    "scenarioResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scenario_id", "name", "severity", "status", "match_count"],
+      "properties": {
+        "scenario_id": {"type": "integer", "minimum": 1, "maximum": 12},
+        "name": {"type": "string", "pattern": "^[A-Z0-9_]+$"},
+        "severity": {"enum": ["CRITICAL", "HIGH", "MEDIUM"]},
+        "status": {"const": "INCONCLUSIVE_EMPTY_TARGET_SET"},
+        "match_count": {"type": "null"}
+      }
+    },
+    "skillResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "skill_name",
+        "official_compatible_target_file_count",
+        "official_rule_replay_status",
+        "official_rule_replay_reason_code",
+        "scenario_results",
+        "supplemental_contract_scan"
+      ],
+      "properties": {
+        "skill_name": {"$ref": "#/$defs/skillName"},
+        "official_compatible_target_file_count": {"const": 0},
+        "official_rule_replay_status": {"const": "INCONCLUSIVE_EMPTY_TARGET_SET"},
+        "official_rule_replay_reason_code": {
+          "const": "OFFICIAL_TARGET_POLICY_EXCLUDES_SKILL_MD_ONLY_INPUTS"
+        },
+        "scenario_results": {
+          "type": "array",
+          "minItems": 12,
+          "maxItems": 12,
+          "items": {"$ref": "#/$defs/scenarioResult"}
+        },
+        "supplemental_contract_scan": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["scope", "check_count", "matched_check_ids", "status"],
+          "properties": {
+            "scope": {"const": "SKILL_MD_TEXT_ONLY"},
+            "check_count": {"const": 9},
+            "matched_check_ids": {"type": "array", "maxItems": 0},
+            "status": {"const": "NO_INDICATOR_MATCHES"}
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,1224 @@
+{
+  "$schema": "./aliyun-official-skill-offline-preflight.schema.json",
+  "schema_version": "1.2",
+  "evidence_id": "aliyun-official-skill-offline-preflight-2026-08-21",
+  "collected_at": "2026-08-21T16:30:00+08:00",
+  "claim_level": "OFFLINE_PINNED_SOURCE_AND_STATIC_CONTRACT_REPLAY_ONLY",
+  "subject": {
+    "proof_flow_base_commit": "b63eeb60d1072c73d2d0d1d6061b3c8f800487a4",
+    "public_skill_root": "deploy/agentteams/skills",
+    "expected_skill_count": 8,
+    "expected_skill_names": [
+      "conflict_detect",
+      "decision_audit",
+      "deterministic_calculate",
+      "document_package",
+      "evidence_ingest",
+      "human_approval",
+      "rule_retrieve",
+      "timeline_build"
+    ],
+    "input_data_class": "PUBLIC_SKILL_CONTRACTS_ONLY"
+  },
+  "official_source": {
+    "repository_url": "https://github.com/aliyun/alibabacloud-aiops-skills",
+    "tag": "alibabacloud-openclaw-skill-security-scan-0.0.1",
+    "tag_object_type": "commit",
+    "commit": "3cdce6a5ead21b4aec740d97ae30eb0b71c1c786",
+    "repository_path": "skills/security/riskmanagement/alibabacloud-openclaw-skill-security-scan",
+    "vendored_path": "third_party/aliyun/alibabacloud-openclaw-skill-security-scan/upstream",
+    "tag_resolution_claim": "UNSIGNED_POINT_IN_TIME_GIT_OBSERVATION",
+    "modification_status": "UNMODIFIED_HASH_MATCHED_VENDOR_SNAPSHOT",
+    "acquisition": {
+      "mode": "PUBLIC_GIT_HTTPS_WITH_CLEAN_ENVIRONMENT",
+      "network_used": true,
+      "credentials_used": false,
+      "occurred_before_offline_collection": true,
+      "content_reverified_by_hash_inside_sandbox": true
+    },
+    "source_files": [
+      {
+        "path": "SKILL.md",
+        "sha256": "sha256:d5df78b1d78361596b626fb129567e2fb69eb65002de7545e451b1f648311e80",
+        "bytes": 23026,
+        "git_mode": "100644",
+        "git_object_type": "blob",
+        "git_blob_oid": "2a30f79d7ec60fd6e54b3a6ecf6d72a1e54ce435"
+      },
+      {
+        "path": "assets/LICENSE.txt",
+        "sha256": "sha256:c4db38611836ea364d14273ebfe902b106e220f07b8f723b8230125be7f2795b",
+        "bytes": 1068,
+        "git_mode": "100644",
+        "git_object_type": "blob",
+        "git_blob_oid": "80e4229339bf299202b1246d82d1d83174617b93"
+      },
+      {
+        "path": "references/baseline.md",
+        "sha256": "sha256:b2bee705755d001079dadf4da9e1462d275c44a44fd08f7ba233835389be21b4",
+        "bytes": 4058,
+        "git_mode": "100644",
+        "git_object_type": "blob",
+        "git_blob_oid": "075624512c0cc00ffe89527c5e39d94fc299370f"
+      },
+      {
+        "path": "references/report_template.md",
+        "sha256": "sha256:9f52e97e0075dc609be666c259155b253280bb96c109f9c6f7a8d09d23b3ddbf",
+        "bytes": 7089,
+        "git_mode": "100644",
+        "git_object_type": "blob",
+        "git_blob_oid": "1d4c3f14ee400b589cc0c961614ad3e492ad417e"
+      },
+      {
+        "path": "references/skillaudit.md",
+        "sha256": "sha256:41de28a8680332ccfca1dcf247dd261fdd3e12de3dd660869dbd2d4f16764be4",
+        "bytes": 12212,
+        "git_mode": "100644",
+        "git_object_type": "blob",
+        "git_blob_oid": "3f254b6e1ac435d74b3faaf3a4ebfb18531af188"
+      },
+      {
+        "path": "scripts/basic_udf.sh",
+        "sha256": "sha256:9fdf8763b6bfc5c5b681d781c7ab49caa36aa94125799d295441fbe952997466",
+        "bytes": 25521,
+        "git_mode": "100644",
+        "git_object_type": "blob",
+        "git_blob_oid": "9b4c85153c448c9b858aba4e410059fba1db7afa"
+      },
+      {
+        "path": "scripts/main.sh",
+        "sha256": "sha256:a0a4cf6a04bd8e367cf984cc385fcf9f2e11a00a9f96d3ab3eb88c424d508f94",
+        "bytes": 85887,
+        "git_mode": "100644",
+        "git_object_type": "blob",
+        "git_blob_oid": "ee8070ae54d9039a930f489b8f85f2de3c22ce9c"
+      },
+      {
+        "path": "scripts/skill_zip_packager.sh",
+        "sha256": "sha256:f61362ef8c2a3ba6ecf7e4f34740757dfb35b017def5e5bd5378818583824a47",
+        "bytes": 16728,
+        "git_mode": "100644",
+        "git_object_type": "blob",
+        "git_blob_oid": "f4cd0fdc47dfd8fe0d0c43e9e524a3a4cf59781d"
+      }
+    ],
+    "git_object_manifest": {
+      "object_format": "sha1",
+      "tag_ref": "refs/tags/alibabacloud-openclaw-skill-security-scan-0.0.1",
+      "tag_object_type": "commit",
+      "tag_ref_target": "3cdce6a5ead21b4aec740d97ae30eb0b71c1c786",
+      "commit": "3cdce6a5ead21b4aec740d97ae30eb0b71c1c786",
+      "root_tree": "c0d8dde900cce28dd7b07321a873cca1efa40d94",
+      "subtree_path": "skills/security/riskmanagement/alibabacloud-openclaw-skill-security-scan",
+      "subtree_tree": "3f097e3281d89bb59ce9a638e846070d47bcbcdc",
+      "entry_source": "official_source.source_files",
+      "entry_count": 8,
+      "vendored_blob_oids_recomputed": true,
+      "subtree_tree_recomputed": true,
+      "tag_to_commit_offline_verified": false,
+      "commit_to_root_tree_offline_verified": false,
+      "provenance_semantics": "Vendored blob and subtree OIDs are recomputed offline. The lightweight tag target, commit, and root tree remain an unsigned point-in-time public Git observation."
+    },
+    "license": {
+      "spdx_expression": "MIT",
+      "path": "assets/LICENSE.txt",
+      "sha256": "sha256:c4db38611836ea364d14273ebfe902b106e220f07b8f723b8230125be7f2795b",
+      "copyright": "Copyright (c) 2026 AliyunSecAI",
+      "license_text_vendored": true
+    }
+  },
+  "implementation_audit": {
+    "inventory_status": "ALL_8_UPSTREAM_FILES_HASHED_AND_CLASSIFIED",
+    "files_reviewed": 8,
+    "scripts_reviewed": 3,
+    "main_required_commands": [
+      "openclaw",
+      "curl",
+      "grep",
+      "date",
+      "mkdir"
+    ],
+    "main_optional_commands": [
+      "jq",
+      "realpath",
+      "zip",
+      "tar"
+    ],
+    "packager_commands": [
+      "zip",
+      "du",
+      "cp",
+      "find",
+      "touch",
+      "stat",
+      "xargs"
+    ],
+    "cloud_environment_default": "true",
+    "collection_cloud_environment": "false",
+    "cloud_disable_guards_verified": true,
+    "cloud_upload_functions_present": true,
+    "cloud_endpoint_declared": "riskpunish.aliyuncs.com",
+    "cloud_enabled_data_classes": [
+      "ZIP_MD5",
+      "SKILL_NAME",
+      "SKILL_ZIP_BYTES"
+    ],
+    "host_override_supported": true,
+    "presigned_upload_url_host_allowlist_enforced": false,
+    "residual_openclaw_config_audit_when_cloud_disabled": true,
+    "main_script_minimum_bash_major": 4,
+    "local_bash_major_observed": 3,
+    "official_main_execution_status": "NOT_EXECUTED_SAFETY_BOUNDARY",
+    "official_main_non_execution_reasons": [
+      "UNCONDITIONAL_OPENCLAW_DEEP_AUDIT_WOULD_READ_OUT_OF_SCOPE_CONFIGURATION",
+      "LOCAL_BASH_BELOW_UPSTREAM_MINIMUM"
+    ],
+    "official_static_target_policy": [
+      "package.json",
+      "src/**",
+      "scripts/** excluding scripts/main.sh and scripts/basic_udf.sh"
+    ],
+    "official_static_pattern_invocations": 118
+  },
+  "execution_boundary": {
+    "runner": "PROOFFLOW_INDEPENDENT_OFFLINE_REPLAY_V1",
+    "working_copy": "EPHEMERAL_COPY_OF_PINNED_SOURCE_AND_8_PUBLIC_SKILLS",
+    "python_version": "3.9.6",
+    "interpreter": {
+      "invoked": {
+        "path": "/usr/bin/python3",
+        "sha256": "sha256:179301dcb41ea78accc3fa0048a7e6f6710d891945a751a34addd622020c1818",
+        "owner_uid": 0,
+        "owner_gid": 0,
+        "mode": "0755",
+        "bytes": 118928
+      },
+      "resolved": {
+        "path": "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/bin/python3.9",
+        "sha256": "sha256:bdea59019a38eb6600cc9e71e984a97fedadc406448431281e7657030f54987e",
+        "owner_uid": 0,
+        "owner_gid": 0,
+        "mode": "0755",
+        "bytes": 102352
+      },
+      "python_version": "3.9.6",
+      "isolated_flag": true,
+      "no_site_flag": true,
+      "site_module_loaded": false
+    },
+    "environment_cleared_before_process_start": true,
+    "environment_names": [
+      "ALIYUN_SKILL_SEC_CLOUD",
+      "CPATH",
+      "HOME",
+      "LANG",
+      "LC_ALL",
+      "LIBRARY_PATH",
+      "MANPATH",
+      "PATH",
+      "PROOFFLOW_NETWORK_POSITIVE_CONTROL",
+      "PROOFFLOW_NETWORK_SANDBOX",
+      "PYTHONDONTWRITEBYTECODE",
+      "PYTHONHASHSEED",
+      "REPORT_LANG",
+      "SDKROOT",
+      "TMPDIR",
+      "__CF_USER_TEXT_ENCODING"
+    ],
+    "os_injected_environment_names": [
+      "CPATH",
+      "LIBRARY_PATH",
+      "MANPATH",
+      "SDKROOT",
+      "__CF_USER_TEXT_ENCODING"
+    ],
+    "sensitive_environment_names_present": [],
+    "cloud_environment_value": "false",
+    "home_directory_class": "EMPTY_SENTINEL_DIRECTORY",
+    "temporary_directory_class": "BOUNDED_EPHEMERAL_DIRECTORY",
+    "network": {
+      "mechanism": "MACOS_SANDBOX_EXEC_DENY_NETWORK_ALL",
+      "scope": "LOCAL_DARWIN_SEATBELT_COLLECTION_INVOCATION_ONLY",
+      "enforced": true,
+      "enforcement_test_scope": "IPV4_TCP_LOOPBACK_ONLY",
+      "sandbox_profile": "(version 1) (allow default) (deny network*)",
+      "sandbox_profile_sha256": "sha256:0a5222386587bf836d30a070bd759c0194f999bf5503ba76c6c0f8cb84b19db2",
+      "positive_control": {
+        "phase": "PRE_SANDBOX_SAME_HOST",
+        "transport": "IPV4_TCP_LOOPBACK",
+        "status": "LOOPBACK_IPV4_TCP_CONNECT_SUCCEEDED"
+      },
+      "negative_control": {
+        "phase": "IN_SANDBOX_COLLECTOR",
+        "target_class": "LOOPBACK_TCP_DISCARD_PORT",
+        "status": "BLOCKED_EPERM",
+        "errno": 1
+      },
+      "external_network_observed": false,
+      "observation_semantics": "A same-host IPv4/TCP positive control succeeded before Seatbelt, then the sandboxed IPv4/TCP probe was denied with EPERM. This does not verify other hosts, transports, invocations, or filesystem read confinement."
+    },
+    "command_contract": {
+      "canonicalization": "COMPACT_JSON_UTF8_ARGV_WITH_ONLY_TMP_ROOT_REDACTED",
+      "canonical_argv": [
+        "/usr/bin/env",
+        "-i",
+        "PATH=/usr/bin:/bin:/usr/sbin:/sbin",
+        "HOME=/var/empty",
+        "TMPDIR=<bounded-ephemeral>",
+        "LANG=C",
+        "LC_ALL=C",
+        "ALIYUN_SKILL_SEC_CLOUD=false",
+        "REPORT_LANG=zh",
+        "PYTHONDONTWRITEBYTECODE=1",
+        "PYTHONHASHSEED=0",
+        "PROOFFLOW_NETWORK_POSITIVE_CONTROL=LOOPBACK_IPV4_TCP_CONNECT_SUCCEEDED",
+        "PROOFFLOW_NETWORK_SANDBOX=macos-sandbox-exec-deny-network-v1",
+        "/usr/bin/sandbox-exec",
+        "-p",
+        "(version 1) (allow default) (deny network*)",
+        "/usr/bin/python3",
+        "-I",
+        "-S",
+        "<bounded-ephemeral>/collector.py",
+        "--source-root",
+        "<bounded-ephemeral>/source",
+        "--skills-root",
+        "<bounded-ephemeral>/skills",
+        "--collected-at",
+        "2026-08-21T16:30:00+08:00"
+      ],
+      "canonical_argv_sha256": "sha256:902f18a80a9bb3c0580e80490097950e7fff830722e120a1ce75fde4f916f72c",
+      "binding_components": {
+        "canonical_argv_sha256": "sha256:902f18a80a9bb3c0580e80490097950e7fff830722e120a1ce75fde4f916f72c",
+        "sandbox_profile_sha256": "sha256:0a5222386587bf836d30a070bd759c0194f999bf5503ba76c6c0f8cb84b19db2",
+        "interpreter_invoked_sha256": "sha256:179301dcb41ea78accc3fa0048a7e6f6710d891945a751a34addd622020c1818",
+        "interpreter_resolved_sha256": "sha256:bdea59019a38eb6600cc9e71e984a97fedadc406448431281e7657030f54987e",
+        "source_subtree_tree": "3f097e3281d89bb59ce9a638e846070d47bcbcdc"
+      },
+      "binding_sha256": "sha256:8a1a77dcd13152bbc948e1ced949619bab2bc28ba09abbe9519c6e82ba469681",
+      "sandbox_exec_exit_status": "NOT_VERIFIED_IN_COLLECTOR_ARTIFACT",
+      "exit_status_reason_code": "COLLECTOR_CANNOT_OBSERVE_PARENT_SANDBOX_EXEC_PROCESS_EXIT"
+    },
+    "credential_read_status": "NOT_OBSERVED_NOT_OS_ENFORCED",
+    "openclaw_config_read_status": "NOT_OBSERVED_NOT_OS_ENFORCED",
+    "real_openclaw_invoked": false,
+    "live_agentteams_manager_accessed": false,
+    "live_agentteams_worker_accessed": false,
+    "llm_started": false
+  },
+  "skill_inputs": [
+    {
+      "skill_name": "conflict_detect",
+      "relative_path": "deploy/agentteams/skills/conflict_detect/SKILL.md",
+      "sha256": "sha256:08f48c6be75e92cf599dea2c9e0eee367840e601142b4e5412f9da925b7e87fb",
+      "bytes": 798,
+      "regular_file": true,
+      "directory_file_count": 1,
+      "symlink_count": 0
+    },
+    {
+      "skill_name": "decision_audit",
+      "relative_path": "deploy/agentteams/skills/decision_audit/SKILL.md",
+      "sha256": "sha256:91919701450921e403bc7b56e48ce07828be49b2fd2c92a53db63e46c0c87fb8",
+      "bytes": 810,
+      "regular_file": true,
+      "directory_file_count": 1,
+      "symlink_count": 0
+    },
+    {
+      "skill_name": "deterministic_calculate",
+      "relative_path": "deploy/agentteams/skills/deterministic_calculate/SKILL.md",
+      "sha256": "sha256:d7835064bb7f4b3a37e2edb0ef339e6a89d6d988821c4485d6826bc326b2d57d",
+      "bytes": 945,
+      "regular_file": true,
+      "directory_file_count": 1,
+      "symlink_count": 0
+    },
+    {
+      "skill_name": "document_package",
+      "relative_path": "deploy/agentteams/skills/document_package/SKILL.md",
+      "sha256": "sha256:7637686145dd68e0159f5a765237c1aad4a93b2cc316816f093894302096a9fc",
+      "bytes": 997,
+      "regular_file": true,
+      "directory_file_count": 1,
+      "symlink_count": 0
+    },
+    {
+      "skill_name": "evidence_ingest",
+      "relative_path": "deploy/agentteams/skills/evidence_ingest/SKILL.md",
+      "sha256": "sha256:88b837a0f8dd2e0226a7f3f38835f9cf395f1dccad9e02410876d4e677b2f149",
+      "bytes": 1161,
+      "regular_file": true,
+      "directory_file_count": 1,
+      "symlink_count": 0
+    },
+    {
+      "skill_name": "human_approval",
+      "relative_path": "deploy/agentteams/skills/human_approval/SKILL.md",
+      "sha256": "sha256:a6a9416f7cffe3a7f74fecb18992af8a56cb692b99fe1e806ad353cbdb7f70c3",
+      "bytes": 917,
+      "regular_file": true,
+      "directory_file_count": 1,
+      "symlink_count": 0
+    },
+    {
+      "skill_name": "rule_retrieve",
+      "relative_path": "deploy/agentteams/skills/rule_retrieve/SKILL.md",
+      "sha256": "sha256:49cfde77e213c3b9db18c8f2d5eef45fde5ae3faa5321f15acf25d6a63cdb3ca",
+      "bytes": 1085,
+      "regular_file": true,
+      "directory_file_count": 1,
+      "symlink_count": 0
+    },
+    {
+      "skill_name": "timeline_build",
+      "relative_path": "deploy/agentteams/skills/timeline_build/SKILL.md",
+      "sha256": "sha256:3af6905881c21332d5cad595b9d44cf0ac3d6552ada65ca7a4baf7bf2d52e02f",
+      "bytes": 845,
+      "regular_file": true,
+      "directory_file_count": 1,
+      "symlink_count": 0
+    }
+  ],
+  "scan": {
+    "official_rule_source": {
+      "path": "scripts/main.sh",
+      "sha256": "sha256:a0a4cf6a04bd8e367cf984cc385fcf9f2e11a00a9f96d3ab3eb88c424d508f94",
+      "scenario_count": 12,
+      "pattern_invocation_count": 118
+    },
+    "official_compatible_scan_status": "INCONCLUSIVE_NO_ANALYZABLE_TARGETS",
+    "official_compatible_target_file_count": 0,
+    "official_inconclusive_reason_code": "OFFICIAL_TARGET_POLICY_EXCLUDES_SKILL_MD_ONLY_INPUTS",
+    "supplemental_check_ids": [
+      "ABSOLUTE_USER_PATH",
+      "CLOUD_OR_SERVICE_TOKEN_LITERAL",
+      "CREDENTIAL_FILE_PATH",
+      "DYNAMIC_EVAL",
+      "EXPLICIT_PROMPT_OVERRIDE",
+      "EXTERNAL_URL_LITERAL",
+      "HARDCODED_SECRET_ASSIGNMENT",
+      "PRIVATE_KEY_BLOCK",
+      "SHELL_OR_DOWNLOADER_COMMAND"
+    ],
+    "supplemental_scope": "EIGHT_PUBLIC_SKILL_MD_FILES_ONLY",
+    "supplemental_status": "NO_INDICATOR_MATCHES_NOT_A_SAFETY_CERTIFICATION",
+    "results": [
+      {
+        "skill_name": "conflict_detect",
+        "official_compatible_target_file_count": 0,
+        "official_rule_replay_status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+        "official_rule_replay_reason_code": "OFFICIAL_TARGET_POLICY_EXCLUDES_SKILL_MD_ONLY_INPUTS",
+        "scenario_results": [
+          {
+            "scenario_id": 1,
+            "name": "REVERSE_SHELL_OR_BACKDOOR",
+            "severity": "CRITICAL",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 2,
+            "name": "CREDENTIAL_HARVESTING",
+            "severity": "CRITICAL",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 3,
+            "name": "DATA_EXFILTRATION",
+            "severity": "HIGH",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 4,
+            "name": "CRYPTOMINER",
+            "severity": "CRITICAL",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 5,
+            "name": "PERMISSION_ABUSE",
+            "severity": "HIGH",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 6,
+            "name": "PROMPT_INJECTION",
+            "severity": "HIGH",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 7,
+            "name": "CODE_OBFUSCATION",
+            "severity": "MEDIUM",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 8,
+            "name": "RANSOMWARE",
+            "severity": "CRITICAL",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 9,
+            "name": "PERSISTENCE",
+            "severity": "MEDIUM",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 10,
+            "name": "SUPPLY_CHAIN_ATTACK",
+            "severity": "MEDIUM",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 11,
+            "name": "MALICIOUS_DOWNLOADER",
+            "severity": "CRITICAL",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 12,
+            "name": "PRIVACY_DATA_EXPOSURE",
+            "severity": "MEDIUM",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          }
+        ],
+        "supplemental_contract_scan": {
+          "scope": "SKILL_MD_TEXT_ONLY",
+          "check_count": 9,
+          "matched_check_ids": [],
+          "status": "NO_INDICATOR_MATCHES"
+        }
+      },
+      {
+        "skill_name": "decision_audit",
+        "official_compatible_target_file_count": 0,
+        "official_rule_replay_status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+        "official_rule_replay_reason_code": "OFFICIAL_TARGET_POLICY_EXCLUDES_SKILL_MD_ONLY_INPUTS",
+        "scenario_results": [
+          {
+            "scenario_id": 1,
+            "name": "REVERSE_SHELL_OR_BACKDOOR",
+            "severity": "CRITICAL",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 2,
+            "name": "CREDENTIAL_HARVESTING",
+            "severity": "CRITICAL",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 3,
+            "name": "DATA_EXFILTRATION",
+            "severity": "HIGH",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 4,
+            "name": "CRYPTOMINER",
+            "severity": "CRITICAL",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 5,
+            "name": "PERMISSION_ABUSE",
+            "severity": "HIGH",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 6,
+            "name": "PROMPT_INJECTION",
+            "severity": "HIGH",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 7,
+            "name": "CODE_OBFUSCATION",
+            "severity": "MEDIUM",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 8,
+            "name": "RANSOMWARE",
+            "severity": "CRITICAL",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 9,
+            "name": "PERSISTENCE",
+            "severity": "MEDIUM",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 10,
+            "name": "SUPPLY_CHAIN_ATTACK",
+            "severity": "MEDIUM",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 11,
+            "name": "MALICIOUS_DOWNLOADER",
+            "severity": "CRITICAL",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 12,
+            "name": "PRIVACY_DATA_EXPOSURE",
+            "severity": "MEDIUM",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          }
+        ],
+        "supplemental_contract_scan": {
+          "scope": "SKILL_MD_TEXT_ONLY",
+          "check_count": 9,
+          "matched_check_ids": [],
+          "status": "NO_INDICATOR_MATCHES"
+        }
+      },
+      {
+        "skill_name": "deterministic_calculate",
+        "official_compatible_target_file_count": 0,
+        "official_rule_replay_status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+        "official_rule_replay_reason_code": "OFFICIAL_TARGET_POLICY_EXCLUDES_SKILL_MD_ONLY_INPUTS",
+        "scenario_results": [
+          {
+            "scenario_id": 1,
+            "name": "REVERSE_SHELL_OR_BACKDOOR",
+            "severity": "CRITICAL",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 2,
+            "name": "CREDENTIAL_HARVESTING",
+            "severity": "CRITICAL",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 3,
+            "name": "DATA_EXFILTRATION",
+            "severity": "HIGH",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 4,
+            "name": "CRYPTOMINER",
+            "severity": "CRITICAL",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 5,
+            "name": "PERMISSION_ABUSE",
+            "severity": "HIGH",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 6,
+            "name": "PROMPT_INJECTION",
+            "severity": "HIGH",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 7,
+            "name": "CODE_OBFUSCATION",
+            "severity": "MEDIUM",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 8,
+            "name": "RANSOMWARE",
+            "severity": "CRITICAL",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 9,
+            "name": "PERSISTENCE",
+            "severity": "MEDIUM",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 10,
+            "name": "SUPPLY_CHAIN_ATTACK",
+            "severity": "MEDIUM",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 11,
+            "name": "MALICIOUS_DOWNLOADER",
+            "severity": "CRITICAL",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 12,
+            "name": "PRIVACY_DATA_EXPOSURE",
+            "severity": "MEDIUM",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          }
+        ],
+        "supplemental_contract_scan": {
+          "scope": "SKILL_MD_TEXT_ONLY",
+          "check_count": 9,
+          "matched_check_ids": [],
+          "status": "NO_INDICATOR_MATCHES"
+        }
+      },
+      {
+        "skill_name": "document_package",
+        "official_compatible_target_file_count": 0,
+        "official_rule_replay_status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+        "official_rule_replay_reason_code": "OFFICIAL_TARGET_POLICY_EXCLUDES_SKILL_MD_ONLY_INPUTS",
+        "scenario_results": [
+          {
+            "scenario_id": 1,
+            "name": "REVERSE_SHELL_OR_BACKDOOR",
+            "severity": "CRITICAL",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 2,
+            "name": "CREDENTIAL_HARVESTING",
+            "severity": "CRITICAL",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 3,
+            "name": "DATA_EXFILTRATION",
+            "severity": "HIGH",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 4,
+            "name": "CRYPTOMINER",
+            "severity": "CRITICAL",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 5,
+            "name": "PERMISSION_ABUSE",
+            "severity": "HIGH",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 6,
+            "name": "PROMPT_INJECTION",
+            "severity": "HIGH",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 7,
+            "name": "CODE_OBFUSCATION",
+            "severity": "MEDIUM",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 8,
+            "name": "RANSOMWARE",
+            "severity": "CRITICAL",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 9,
+            "name": "PERSISTENCE",
+            "severity": "MEDIUM",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 10,
+            "name": "SUPPLY_CHAIN_ATTACK",
+            "severity": "MEDIUM",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 11,
+            "name": "MALICIOUS_DOWNLOADER",
+            "severity": "CRITICAL",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 12,
+            "name": "PRIVACY_DATA_EXPOSURE",
+            "severity": "MEDIUM",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          }
+        ],
+        "supplemental_contract_scan": {
+          "scope": "SKILL_MD_TEXT_ONLY",
+          "check_count": 9,
+          "matched_check_ids": [],
+          "status": "NO_INDICATOR_MATCHES"
+        }
+      },
+      {
+        "skill_name": "evidence_ingest",
+        "official_compatible_target_file_count": 0,
+        "official_rule_replay_status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+        "official_rule_replay_reason_code": "OFFICIAL_TARGET_POLICY_EXCLUDES_SKILL_MD_ONLY_INPUTS",
+        "scenario_results": [
+          {
+            "scenario_id": 1,
+            "name": "REVERSE_SHELL_OR_BACKDOOR",
+            "severity": "CRITICAL",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 2,
+            "name": "CREDENTIAL_HARVESTING",
+            "severity": "CRITICAL",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 3,
+            "name": "DATA_EXFILTRATION",
+            "severity": "HIGH",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 4,
+            "name": "CRYPTOMINER",
+            "severity": "CRITICAL",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 5,
+            "name": "PERMISSION_ABUSE",
+            "severity": "HIGH",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 6,
+            "name": "PROMPT_INJECTION",
+            "severity": "HIGH",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 7,
+            "name": "CODE_OBFUSCATION",
+            "severity": "MEDIUM",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 8,
+            "name": "RANSOMWARE",
+            "severity": "CRITICAL",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 9,
+            "name": "PERSISTENCE",
+            "severity": "MEDIUM",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 10,
+            "name": "SUPPLY_CHAIN_ATTACK",
+            "severity": "MEDIUM",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 11,
+            "name": "MALICIOUS_DOWNLOADER",
+            "severity": "CRITICAL",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 12,
+            "name": "PRIVACY_DATA_EXPOSURE",
+            "severity": "MEDIUM",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          }
+        ],
+        "supplemental_contract_scan": {
+          "scope": "SKILL_MD_TEXT_ONLY",
+          "check_count": 9,
+          "matched_check_ids": [],
+          "status": "NO_INDICATOR_MATCHES"
+        }
+      },
+      {
+        "skill_name": "human_approval",
+        "official_compatible_target_file_count": 0,
+        "official_rule_replay_status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+        "official_rule_replay_reason_code": "OFFICIAL_TARGET_POLICY_EXCLUDES_SKILL_MD_ONLY_INPUTS",
+        "scenario_results": [
+          {
+            "scenario_id": 1,
+            "name": "REVERSE_SHELL_OR_BACKDOOR",
+            "severity": "CRITICAL",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 2,
+            "name": "CREDENTIAL_HARVESTING",
+            "severity": "CRITICAL",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 3,
+            "name": "DATA_EXFILTRATION",
+            "severity": "HIGH",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 4,
+            "name": "CRYPTOMINER",
+            "severity": "CRITICAL",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 5,
+            "name": "PERMISSION_ABUSE",
+            "severity": "HIGH",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 6,
+            "name": "PROMPT_INJECTION",
+            "severity": "HIGH",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 7,
+            "name": "CODE_OBFUSCATION",
+            "severity": "MEDIUM",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 8,
+            "name": "RANSOMWARE",
+            "severity": "CRITICAL",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 9,
+            "name": "PERSISTENCE",
+            "severity": "MEDIUM",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 10,
+            "name": "SUPPLY_CHAIN_ATTACK",
+            "severity": "MEDIUM",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 11,
+            "name": "MALICIOUS_DOWNLOADER",
+            "severity": "CRITICAL",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 12,
+            "name": "PRIVACY_DATA_EXPOSURE",
+            "severity": "MEDIUM",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          }
+        ],
+        "supplemental_contract_scan": {
+          "scope": "SKILL_MD_TEXT_ONLY",
+          "check_count": 9,
+          "matched_check_ids": [],
+          "status": "NO_INDICATOR_MATCHES"
+        }
+      },
+      {
+        "skill_name": "rule_retrieve",
+        "official_compatible_target_file_count": 0,
+        "official_rule_replay_status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+        "official_rule_replay_reason_code": "OFFICIAL_TARGET_POLICY_EXCLUDES_SKILL_MD_ONLY_INPUTS",
+        "scenario_results": [
+          {
+            "scenario_id": 1,
+            "name": "REVERSE_SHELL_OR_BACKDOOR",
+            "severity": "CRITICAL",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 2,
+            "name": "CREDENTIAL_HARVESTING",
+            "severity": "CRITICAL",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 3,
+            "name": "DATA_EXFILTRATION",
+            "severity": "HIGH",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 4,
+            "name": "CRYPTOMINER",
+            "severity": "CRITICAL",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 5,
+            "name": "PERMISSION_ABUSE",
+            "severity": "HIGH",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 6,
+            "name": "PROMPT_INJECTION",
+            "severity": "HIGH",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 7,
+            "name": "CODE_OBFUSCATION",
+            "severity": "MEDIUM",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 8,
+            "name": "RANSOMWARE",
+            "severity": "CRITICAL",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 9,
+            "name": "PERSISTENCE",
+            "severity": "MEDIUM",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 10,
+            "name": "SUPPLY_CHAIN_ATTACK",
+            "severity": "MEDIUM",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 11,
+            "name": "MALICIOUS_DOWNLOADER",
+            "severity": "CRITICAL",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 12,
+            "name": "PRIVACY_DATA_EXPOSURE",
+            "severity": "MEDIUM",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          }
+        ],
+        "supplemental_contract_scan": {
+          "scope": "SKILL_MD_TEXT_ONLY",
+          "check_count": 9,
+          "matched_check_ids": [],
+          "status": "NO_INDICATOR_MATCHES"
+        }
+      },
+      {
+        "skill_name": "timeline_build",
+        "official_compatible_target_file_count": 0,
+        "official_rule_replay_status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+        "official_rule_replay_reason_code": "OFFICIAL_TARGET_POLICY_EXCLUDES_SKILL_MD_ONLY_INPUTS",
+        "scenario_results": [
+          {
+            "scenario_id": 1,
+            "name": "REVERSE_SHELL_OR_BACKDOOR",
+            "severity": "CRITICAL",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 2,
+            "name": "CREDENTIAL_HARVESTING",
+            "severity": "CRITICAL",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 3,
+            "name": "DATA_EXFILTRATION",
+            "severity": "HIGH",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 4,
+            "name": "CRYPTOMINER",
+            "severity": "CRITICAL",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 5,
+            "name": "PERMISSION_ABUSE",
+            "severity": "HIGH",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 6,
+            "name": "PROMPT_INJECTION",
+            "severity": "HIGH",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 7,
+            "name": "CODE_OBFUSCATION",
+            "severity": "MEDIUM",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 8,
+            "name": "RANSOMWARE",
+            "severity": "CRITICAL",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 9,
+            "name": "PERSISTENCE",
+            "severity": "MEDIUM",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 10,
+            "name": "SUPPLY_CHAIN_ATTACK",
+            "severity": "MEDIUM",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 11,
+            "name": "MALICIOUS_DOWNLOADER",
+            "severity": "CRITICAL",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          },
+          {
+            "scenario_id": 12,
+            "name": "PRIVACY_DATA_EXPOSURE",
+            "severity": "MEDIUM",
+            "status": "INCONCLUSIVE_EMPTY_TARGET_SET",
+            "match_count": null
+          }
+        ],
+        "supplemental_contract_scan": {
+          "scope": "SKILL_MD_TEXT_ONLY",
+          "check_count": 9,
+          "matched_check_ids": [],
+          "status": "NO_INDICATOR_MATCHES"
+        }
+      }
+    ],
+    "summary": {
+      "skills_received": 8,
+      "skills_hashed": 8,
+      "skills_with_official_analyzable_targets": 0,
+      "skills_with_supplemental_indicator_matches": 0,
+      "official_scenarios_accounted_for_per_skill": 12
+    }
+  },
+  "integration": {
+    "recommended_agent_identity": "audit-agent",
+    "recommended_stage": "DEPLOYMENT_PREFLIGHT",
+    "official_skill_assigned_to_worker": false,
+    "runtime_consumption": false,
+    "live_worker_execution": false,
+    "llm_inference": false,
+    "agentteams_resources_mutated": false,
+    "cloud_service_used": false
+  },
+  "limitations": [
+    "OFFICIAL_MAIN_SCRIPT_NOT_EXECUTED",
+    "OPENCLAW_DEEP_AUDIT_NOT_EXECUTED",
+    "OFFICIAL_STATIC_POLICY_EXCLUDES_SKILL_MD",
+    "OFFICIAL_COMPATIBLE_TARGET_SET_WAS_EMPTY",
+    "SUPPLEMENTAL_PATTERN_SCAN_CANNOT_PROVE_SKILL_SAFETY",
+    "NO_CLOUD_INTELLIGENCE_OR_DEEP_ANALYSIS",
+    "NO_WORKER_SKILL_CONSUMPTION_RECEIPT",
+    "UNSIGNED_POINT_IN_TIME_EVIDENCE",
+    "FILESYSTEM_READ_ALLOWLIST_NOT_ENFORCED",
+    "CREDENTIAL_AND_CONFIG_READS_NOT_VERIFIED",
+    "SANDBOX_EXEC_EXIT_NOT_BOUND_TO_ARTIFACT",
+    "NETWORK_ENFORCEMENT_TEST_LIMITED_TO_LOCAL_IPV4_TCP"
+  ]
+}

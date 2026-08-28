@@ -1,4 +1,5 @@
 diff --git a/agentteams-controller/cmd/agt/llm_preflight.go b/agentteams-controller/cmd/agt/llm_preflight.go
+index 8728a0a..a506e31 100644
 --- a/agentteams-controller/cmd/agt/llm_preflight.go
 +++ b/agentteams-controller/cmd/agt/llm_preflight.go
 @@ -78,12 +78,18 @@ func (e *llmPreflightTransportError) Unwrap() error {
@@ -29,7 +30,8 @@ diff --git a/agentteams-controller/cmd/agt/llm_preflight.go b/agentteams-control
  	cmd.Flags().StringVar(&opts.BaseURL, "base-url", opts.BaseURL, "OpenAI-compatible base URL")
  	cmd.Flags().StringVar(&opts.Model, "model", opts.Model, "Model name to probe")
  	cmd.Flags().IntVar(&timeoutSeconds, "timeout", timeoutSeconds, "HTTP timeout in seconds")
-@@ -110,6 +116,5 @@ func llmPreflightOptionsFromEnv() llmPreflightOptions {
+@@ -110,7 +116,6 @@ func llmPreflightCmd() *cobra.Command {
+ func llmPreflightOptionsFromEnv() llmPreflightOptions {
  	return llmPreflightOptions{
  		Provider: envOrDefaultLocal("AGENTTEAMS_LLM_PROVIDER", "openai-compat"),
 -		APIKey:   os.Getenv("AGENTTEAMS_LLM_API_KEY"),
@@ -37,6 +39,7 @@ diff --git a/agentteams-controller/cmd/agt/llm_preflight.go b/agentteams-control
  		Model:    os.Getenv("AGENTTEAMS_DEFAULT_MODEL"),
  		Timeout: time.Duration(envIntDefaultLocal(
 diff --git a/agentteams-controller/cmd/agt/llm_preflight_test.go b/agentteams-controller/cmd/agt/llm_preflight_test.go
+index 44ee036..73ac8aa 100644
 --- a/agentteams-controller/cmd/agt/llm_preflight_test.go
 +++ b/agentteams-controller/cmd/agt/llm_preflight_test.go
 @@ -1,6 +1,7 @@
@@ -47,15 +50,44 @@ diff --git a/agentteams-controller/cmd/agt/llm_preflight_test.go b/agentteams-co
  	"context"
  	"encoding/json"
  	"errors"
-@@ -12,6 +13,69 @@ import (
+@@ -10,8 +11,163 @@ import (
+ 	"sync/atomic"
+ 	"testing"
  	"time"
++
++	"github.com/spf13/cobra"
++	"github.com/spf13/pflag"
  )
  
++func assertCommandTreeDoesNotContain(t *testing.T, root *cobra.Command, sentinel string) {
++	t.Helper()
++	var visit func(*cobra.Command)
++	visit = func(cmd *cobra.Command) {
++		for _, text := range []string{cmd.Use, cmd.Short, cmd.Long, cmd.Example} {
++			if strings.Contains(text, sentinel) {
++				t.Fatalf("command metadata leaked sentinel: %q", text)
++			}
++		}
++		cmd.Flags().VisitAll(func(flag *pflag.Flag) {
++			for _, text := range []string{flag.DefValue, flag.Usage, flag.Value.String()} {
++				if strings.Contains(text, sentinel) {
++					t.Fatalf("flag %s leaked sentinel: %q", flag.Name, text)
++				}
++			}
++		})
++		for _, child := range cmd.Commands() {
++			visit(child)
++		}
++	}
++	visit(root)
++}
++
 +func TestLLMPreflightHelpDoesNotExposeAPIKeyFromEnv(t *testing.T) {
 +	const sentinel = "sentinel-help-secret"
 +	t.Setenv("AGENTTEAMS_LLM_API_KEY", sentinel)
 +
 +	cmd := llmPreflightCmd()
++	assertCommandTreeDoesNotContain(t, cmd, sentinel)
 +	var output bytes.Buffer
 +	cmd.SetOut(&output)
 +	cmd.SetErr(&output)
@@ -66,8 +98,73 @@ diff --git a/agentteams-controller/cmd/agt/llm_preflight_test.go b/agentteams-co
 +	if strings.Contains(output.String(), sentinel) {
 +		t.Fatal("help output leaked the environment API key")
 +	}
-+	if flag := cmd.Flags().Lookup("api-key"); flag == nil || strings.Contains(flag.DefValue, sentinel) {
-+		t.Fatal("api-key flag default contains the environment API key")
++	flag := cmd.Flags().Lookup("api-key")
++	if flag == nil {
++		t.Fatal("api-key flag is missing")
++	}
++	if flag.DefValue != "" || flag.Value.String() != "" {
++		t.Fatalf("api-key flag default=%q value=%q, want both empty", flag.DefValue, flag.Value.String())
++	}
++}
++
++func TestLLMPreflightRootHelpAndSubcommandHelpDoNotExposeAPIKey(t *testing.T) {
++	const sentinel = "sentinel-root-help-secret"
++	t.Setenv("AGENTTEAMS_LLM_API_KEY", sentinel)
++
++	root := newRootCommand("agt")
++	assertCommandTreeDoesNotContain(t, root, sentinel)
++	var output bytes.Buffer
++	root.SetOut(&output)
++	root.SetErr(&output)
++	root.SetArgs([]string{"help", "llm-preflight"})
++	if err := root.Execute(); err != nil {
++		t.Fatalf("execute subcommand help: %v", err)
++	}
++	if strings.Contains(output.String(), sentinel) {
++		t.Fatalf("subcommand help leaked the environment API key: %q", output.String())
++	}
++}
++
++func TestLLMPreflightCompletionAndErrorDoNotExposeAPIKey(t *testing.T) {
++	const sentinel = "sentinel-completion-error-secret"
++	t.Setenv("AGENTTEAMS_LLM_API_KEY", sentinel)
++
++	root := newRootCommand("agt")
++	assertCommandTreeDoesNotContain(t, root, sentinel)
++	var bash bytes.Buffer
++	if err := root.GenBashCompletion(&bash); err != nil {
++		t.Fatalf("generate bash completion: %v", err)
++	}
++	if strings.Contains(bash.String(), sentinel) {
++		t.Fatalf("bash completion leaked the environment API key")
++	}
++	var zsh bytes.Buffer
++	if err := root.GenZshCompletion(&zsh); err != nil {
++		t.Fatalf("generate zsh completion: %v", err)
++	}
++	if strings.Contains(zsh.String(), sentinel) {
++		t.Fatalf("zsh completion leaked the environment API key")
++	}
++
++	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		w.WriteHeader(http.StatusUnauthorized)
++		_, _ = w.Write([]byte(`{"error":"bad key ` + sentinel + `"}`))
++	}))
++	defer srv.Close()
++	t.Setenv("AGENTTEAMS_LLM_PROVIDER", "custom")
++	t.Setenv("AGENTTEAMS_OPENAI_BASE_URL", srv.URL+"/v1")
++	t.Setenv("AGENTTEAMS_DEFAULT_MODEL", "test-model")
++	t.Setenv("AGENTTEAMS_LLM_PREFLIGHT_STRICT", "true")
++	t.Setenv("AGENTTEAMS_LLM_PREFLIGHT_RETRIES", "0")
++	cmd := llmPreflightCmd()
++	var output bytes.Buffer
++	cmd.SetOut(&output)
++	cmd.SetErr(&output)
++	cmd.SetArgs(nil)
++	if err := cmd.Execute(); err == nil {
++		t.Fatal("execute preflight returned nil, want unauthorized error")
++	} else if strings.Contains(err.Error()+output.String(), sentinel) {
++		t.Fatalf("preflight error leaked the environment API key: %q", err.Error()+output.String())
 +	}
 +}
 +
@@ -117,3 +214,4 @@ diff --git a/agentteams-controller/cmd/agt/llm_preflight_test.go b/agentteams-co
  func TestResolveLLMPreflightConfigDefaultsOpenAICompatible(t *testing.T) {
  	cfg, err := resolveLLMPreflightConfig(llmPreflightOptions{
  		Provider: "openai-compat",
+

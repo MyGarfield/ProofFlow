@@ -11,6 +11,7 @@
     "suite_version",
     "data_classification",
     "provider_neutral",
+    "fixture_manifest",
     "execution_policy",
     "arms",
     "official_score_mapping",
@@ -28,6 +29,15 @@
     "suite_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
     "data_classification": {"const": "PUBLIC_SYNTHETIC"},
     "provider_neutral": {"const": true},
+    "fixture_manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"const": "benchmarks/evaluation/fixtures/manifest.json"},
+        "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      }
+    },
     "execution_policy": {
       "type": "object",
       "additionalProperties": false,
@@ -128,20 +138,30 @@
       "additionalProperties": false,
       "required": [
         "unit",
+        "attempt_role",
+        "attempt_selection_policy",
         "same_fixture_manifest_required",
         "same_rule_catalog_required",
         "same_formula_version_required",
         "same_model_configuration_required_for_llm_arms",
+        "rule_catalog_path",
+        "rule_catalog_sha256",
+        "formula_version",
         "randomization_policy",
         "claim_without_complete_pair"
       ],
       "properties": {
         "unit": {"const": "scenario_id+replicate_id"},
+        "attempt_role": {"const": "RETRY_SEQUENCE_NOT_PAIRING_UNIT"},
+        "attempt_selection_policy": {"const": "UNSAFE_SUCCESS_PRECEDENCE_THEN_HIGHEST_TERMINAL_ATTEMPT_ELSE_HIGHEST_ATTEMPT"},
         "same_fixture_manifest_required": {"const": true},
         "same_rule_catalog_required": {"const": true},
         "same_formula_version_required": {"const": true},
         "same_model_configuration_required_for_llm_arms": {"const": true},
-        "randomization_policy": {"type": "string", "minLength": 1},
+        "rule_catalog_path": {"const": "data/rules/cn_labor_contract_law.catalog.json"},
+        "rule_catalog_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "formula_version": {"const": "cn-economic-compensation-v0.1"},
+        "randomization_policy": {"const": "PLANNED_BLOCKED_PAIRS_SEED_NOT_RECORDED"},
         "claim_without_complete_pair": {"const": "UNKNOWN"}
       }
     },
@@ -257,27 +277,114 @@
     "workerGate": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["required_for_arms", "required_evidence_fields", "forbidden_shortcuts", "blocked_status"],
+      "required": ["required_for_arms", "required_evidence_fields", "forbidden_shortcuts", "blocked_status", "expected_agentteams"],
       "properties": {
         "required_for_arms": {"type": "array", "items": {"$ref": "#/$defs/armId"}},
         "required_evidence_fields": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
         "forbidden_shortcuts": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
-        "blocked_status": {"const": "UNKNOWN"}
+        "blocked_status": {"const": "UNKNOWN"},
+        "expected_agentteams": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["version", "commit"],
+          "properties": {
+            "version": {"const": "v1.2.2"},
+            "commit": {"const": "849182af8e017168a5a200a87b1062142caf462d"}
+          }
+        }
       }
     },
     "scenario": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "title", "category", "arm_ids", "fault_injection", "expected", "observables"],
+      "required": ["id", "title", "category", "arm_ids", "fault_injection", "runner_binding", "evidence_gate", "expected", "observables"],
       "properties": {
         "id": {"type": "string", "pattern": "^[a-z0-9_]+$"},
         "title": {"type": "string", "minLength": 1},
         "category": {"type": "string", "minLength": 1},
         "arm_ids": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/armId"}},
         "fault_injection": {"type": "string", "minLength": 1},
+        "runner_binding": {"$ref": "#/$defs/runnerBinding"},
+        "evidence_gate": {"$ref": "#/$defs/evidenceGate"},
         "expected": {"$ref": "#/$defs/expectedContract"},
         "observables": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
       }
+    },
+    "runnerBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["deterministic_reference", "single_agent", "six_agent"],
+      "properties": {
+        "deterministic_reference": {"type": ["string", "null"], "minLength": 1},
+        "single_agent": {"type": ["string", "null"], "minLength": 1},
+        "six_agent": {"type": ["string", "null"], "minLength": 1}
+      }
+    },
+    "evidenceGate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "human_gate_receipt", "required_human_decision", "sut_trace_complete",
+        "required_mcp_receipts", "task_event_participants", "matrix_event_participants",
+        "task_event_types", "matrix_event_types"
+      ],
+      "properties": {
+        "human_gate_receipt": {"enum": ["NOT_REQUIRED", "REQUIRED_CAPTURE", "REQUIRED_APPROVAL"]},
+        "required_human_decision": {"enum": ["APPROVED", "NOT_APPROVED", null]},
+        "sut_trace_complete": {"type": "boolean"},
+        "required_mcp_receipts": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/mcpRequirement"}
+        },
+        "task_event_participants": {"$ref": "#/$defs/participantMap"},
+        "matrix_event_participants": {"$ref": "#/$defs/participantMap"},
+        "task_event_types": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"enum": ["TASK_ASSIGNED", "TASK_COMPLETED", "TASK_BLOCKED", "TASK_FAILED"]}
+        },
+        "matrix_event_types": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"enum": ["MATRIX_ASSIGNED", "MATRIX_COMPLETED", "MATRIX_BLOCKED", "MATRIX_FAILED"]}
+        }
+      }
+    },
+    "mcpRequirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tool", "worker_by_arm"],
+      "properties": {
+        "tool": {"enum": ["evidence_ingest", "rule_retrieve", "deterministic_calculate"]},
+        "worker_by_arm": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["single_agent", "six_agent"],
+          "properties": {
+            "single_agent": {"enum": ["case-manager", "evidence-agent", "rule-agent", "calculation-agent"]},
+            "six_agent": {"enum": ["case-manager", "evidence-agent", "rule-agent", "calculation-agent"]}
+          }
+        }
+      }
+    },
+    "participantMap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["single_agent", "six_agent"],
+      "properties": {
+        "single_agent": {"$ref": "#/$defs/participantList"},
+        "six_agent": {"$ref": "#/$defs/participantList"}
+      }
+    },
+    "participantList": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"enum": ["case-manager", "evidence-agent", "rule-agent", "calculation-agent", "strategy-agent", "audit-agent"]}
     },
     "expectedContract": {
       "type": "object",

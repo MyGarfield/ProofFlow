@@ -1,8 +1,10 @@
 # 复赛验证计划
 
-文档状态：`ACTIVE_PLAN`
+文档状态：`HISTORICAL_GOAI_PLAN / NOT_ACTIVE`
 
-本文件不代表已经入围。参赛资格与阶段状态以组委会书面通知为准。
+GOAI 于 2026 年 8 月 25 日确认初赛作品有效但未晋级复赛，本计划未进入正式复赛执行阶段。
+文件仅保留为历史验证清单；长期产品计划以
+[全球产品路线图](12_GLOBAL_PRODUCT_ROADMAP.md)为准。
 
 ## 已完成的本地参考基线
 
@@ -104,7 +106,7 @@ MCP、Worker/LLM 与端到端任务层，并记录成本和故障分布。
 `subject.image_id`、MCP 快照根级 `tool_service_image_id` 与运行观察
 `tool_service_runtime.image_id` 三方相等。摘要、交叉绑定和点时零 finding 都不是签名、build
 attestation、构建关系证明、clean 结论、持续运行证明或生产安全认证。当前稳定全仓测试为
-`366 passed`。性能方法
+`516 passed`。性能方法
 与边界见
 [`08_PERFORMANCE_BENCHMARK.md`](08_PERFORMANCE_BENCHMARK.md)；机器可读扫描证据见
 [`supply-chain-evidence.json`](../deploy/tool-service/evidence/supply-chain-evidence.json)。

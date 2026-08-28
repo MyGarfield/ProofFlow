@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "publication_status": "NOT_PUBLISHED",
+  "playback_mode": "STORYBOARD_FALLBACK",
+  "source_evidence_commit": "b63eeb60d1072c73d2d0d1d6061b3c8f800487a4",
+  "video": {
+    "path": "media/proofflow-reference-demo.mp4",
+    "present": false,
+    "sha256": null,
+    "duration_seconds": null,
+    "width": null,
+    "height": null,
+    "codec": null
+  },
+  "subtitles": {
+    "path": "media/proofflow-reference-demo.zh-CN.vtt",
+    "present": true,
+    "language": "zh-CN",
+    "cue_count": 6,
+    "sha256": "f539afa38f93e1604b66db7a4e46b276e69650f432d82de8471acdcd98ef295b"
+  },
+  "publication_gate": [
+    "Replace STORYBOARD_FALLBACK only after the MP4 exists at the declared relative path.",
+    "Record the exact MP4 SHA-256 and trusted ffprobe observations.",
+    "Verify rendered claims against the source evidence commit and reject prohibited live-runtime claims.",
+    "Extract representative frames from the MP4 and compare them with approved snapshots.",
+    "Run a current privacy and secret scan over the MP4, subtitles, script, snapshots, and manifest.",
+    "Keep subtitles enabled and preserve PUBLIC_SYNTHETIC claim boundaries in every scene."
+  ],
+  "claim_boundaries": {
+    "classification": "PUBLIC_SYNTHETIC",
+    "workers": "Stopped",
+    "readyWorkers": 0,
+    "llm_enabled": false,
+    "external_side_effects_enabled": false,
+    "legal_accuracy_measured": false,
+    "live_runtime_demonstrated": false
+  }
+}

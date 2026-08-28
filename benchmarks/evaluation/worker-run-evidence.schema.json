@@ -5,101 +5,174 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "schema_version",
-    "evidence_kind",
-    "arm_id",
-    "run_id",
-    "trace_id",
-    "fixture_manifest_sha256",
-    "scenario_manifest_sha256",
-    "worker_execution_observed",
-    "llm_inference_observed",
-    "team_operational_ready",
-    "leader_phase",
-    "specialist_ready_workers",
-    "total_worker_containers",
-    "specialist_phases",
-    "task_event_ids",
-    "matrix_event_ids",
-    "worker_mcp_call_receipts",
-    "skill_consumption_receipts",
-    "human_gate_receipt",
-    "trace_complete",
-    "external_side_effects_enabled",
-    "data_classification",
-    "secrets_or_personal_data_emitted",
-    "model",
-    "provenance"
+    "schema_version", "evidence_kind", "arm_id", "scenario_id", "run_id", "trace_id",
+    "fixture_manifest_sha256", "scenario_manifest_sha256", "rule_catalog_sha256",
+    "formula_version", "worker_execution_observed",
+    "llm_inference_observed", "team_operational_ready", "leader_phase",
+    "specialist_ready_workers", "total_worker_containers", "worker_roster",
+    "specialist_phases", "task_event_ids", "matrix_event_ids", "task_event_receipts",
+    "matrix_event_receipts", "worker_session_receipts", "llm_inference_receipts",
+    "worker_mcp_call_receipts", "skill_consumption_receipts", "skill_coverage",
+    "capture_completeness", "sut_trace_events",
+    "external_side_effects_enabled", "data_classification", "secrets_or_personal_data_emitted",
+    "model", "provenance"
   ],
   "properties": {
-    "schema_version": {"const": "proofflow.worker-run-evidence/v1"},
+    "schema_version": {"const": "proofflow.worker-run-evidence/v2"},
     "evidence_kind": {"const": "worker-orchestration-run"},
     "arm_id": {"enum": ["single_agent", "six_agent"]},
-    "run_id": {"type": "string", "minLength": 1},
-    "trace_id": {"type": "string", "minLength": 1},
+    "scenario_id": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+    "run_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"},
+    "trace_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"},
     "fixture_manifest_sha256": {"$ref": "#/$defs/digest"},
     "scenario_manifest_sha256": {"$ref": "#/$defs/digest"},
+    "rule_catalog_sha256": {"$ref": "#/$defs/digest"},
+    "formula_version": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"},
     "worker_execution_observed": {"const": true},
     "llm_inference_observed": {"const": true},
     "team_operational_ready": {"const": true},
-    "leader_phase": {"const": "Running"},
+    "leader_phase": {"enum": ["Running", "Stopped"]},
     "specialist_ready_workers": {"type": "integer", "minimum": 0},
     "total_worker_containers": {"type": "integer", "minimum": 1},
-    "specialist_phases": {
-      "type": "object",
-      "minProperties": 0,
-      "additionalProperties": {"const": "Running"}
+    "worker_roster": {
+      "type": "object", "additionalProperties": false,
+      "required": ["leader_worker_name", "specialist_worker_names"],
+      "properties": {
+        "leader_worker_name": {"const": "case-manager"},
+        "specialist_worker_names": {
+          "type": "array", "uniqueItems": true,
+          "items": {"$ref": "#/$defs/specialistName"}
+        }
+      }
     },
-    "task_event_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
-    "matrix_event_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "specialist_phases": {
+      "type": "object", "additionalProperties": {"enum": ["Running", "Stopped"]},
+      "propertyNames": {"$ref": "#/$defs/specialistName"}
+    },
+    "task_event_ids": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": {"$ref": "#/$defs/eventId"}
+    },
+    "matrix_event_ids": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": {"$ref": "#/$defs/eventId"}
+    },
+    "task_event_receipts": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": {"$ref": "#/$defs/eventReceipt"}
+    },
+    "matrix_event_receipts": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": {"$ref": "#/$defs/eventReceipt"}
+    },
+    "worker_session_receipts": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": {"$ref": "#/$defs/workerSessionReceipt"}
+    },
+    "llm_inference_receipts": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": {"$ref": "#/$defs/llmInferenceReceipt"}
+    },
     "worker_mcp_call_receipts": {
-      "type": "array",
-      "minItems": 1,
+      "type": "array", "minItems": 1, "uniqueItems": true,
       "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["worker_name", "tool", "trace_event_id", "http_status", "business_status"],
+        "type": "object", "additionalProperties": false,
+        "required": [
+          "receipt_id", "worker_name", "worker_role", "tool", "run_id", "scenario_id",
+          "trace_id", "trace_event_id", "task_event_id", "matrix_event_id", "http_status", "business_status"
+        ],
         "properties": {
-          "worker_name": {"type": "string", "minLength": 1},
-          "tool": {"type": "string", "minLength": 1},
-          "trace_event_id": {"type": "string", "minLength": 1},
+          "receipt_id": {"$ref": "#/$defs/eventId"},
+          "worker_name": {"$ref": "#/$defs/workerName"},
+          "worker_role": {"enum": ["LEADER", "SPECIALIST"]},
+          "tool": {"enum": ["evidence_ingest", "rule_retrieve", "deterministic_calculate"]},
+          "run_id": {"$ref": "#/$defs/runId"},
+          "scenario_id": {"$ref": "#/$defs/scenarioId"},
+          "trace_id": {"$ref": "#/$defs/traceId"},
+          "trace_event_id": {"$ref": "#/$defs/eventId"},
+          "task_event_id": {"$ref": "#/$defs/eventId"},
+          "matrix_event_id": {"$ref": "#/$defs/eventId"},
           "http_status": {"type": "integer", "minimum": 100, "maximum": 599},
           "business_status": {"type": "string", "minLength": 1}
         }
       }
     },
     "skill_consumption_receipts": {
-      "type": "array",
-      "minItems": 1,
+      "type": "array", "minItems": 1, "uniqueItems": true,
       "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["worker_name", "skill_name", "skill_sha256", "trace_event_id"],
+        "type": "object", "additionalProperties": false,
+        "required": [
+          "receipt_id", "worker_name", "worker_role", "skill_name", "skill_sha256",
+          "run_id", "scenario_id", "trace_id", "trace_event_id", "task_event_id", "matrix_event_id"
+        ],
         "properties": {
-          "worker_name": {"type": "string", "minLength": 1},
-          "skill_name": {"type": "string", "minLength": 1},
+          "receipt_id": {"$ref": "#/$defs/eventId"},
+          "worker_name": {"$ref": "#/$defs/workerName"},
+          "worker_role": {"enum": ["LEADER", "SPECIALIST"]},
+          "skill_name": {"$ref": "#/$defs/skillName"},
           "skill_sha256": {"$ref": "#/$defs/digest"},
-          "trace_event_id": {"type": "string", "minLength": 1}
+          "run_id": {"$ref": "#/$defs/runId"},
+          "scenario_id": {"$ref": "#/$defs/scenarioId"},
+          "trace_id": {"$ref": "#/$defs/traceId"},
+          "trace_event_id": {"$ref": "#/$defs/eventId"},
+          "task_event_id": {"$ref": "#/$defs/eventId"},
+          "matrix_event_id": {"$ref": "#/$defs/eventId"}
         }
       }
     },
-    "human_gate_receipt": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["receipt_present", "decision_subject_hash", "trace_event_id"],
-      "properties": {
-        "receipt_present": {"const": true},
-        "decision_subject_hash": {"$ref": "#/$defs/digest"},
-        "trace_event_id": {"type": "string", "minLength": 1}
+    "skill_coverage": {
+      "type": "object", "minProperties": 1,
+      "propertyNames": {"$ref": "#/$defs/workerName"},
+      "additionalProperties": {
+        "type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/skillName"}
       }
     },
-    "trace_complete": {"const": true},
+    "capture_completeness": {
+      "type": "object", "additionalProperties": false,
+      "required": ["harness_capture_complete", "sut_trace_complete", "captured_trace_event_ids"],
+      "properties": {
+        "harness_capture_complete": {"const": true},
+        "sut_trace_complete": {"type": "boolean"},
+        "captured_trace_event_ids": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": {"$ref": "#/$defs/eventId"}
+        }
+      }
+    },
+    "sut_trace_events": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[A-Z0-9_]+$"}
+    },
+    "human_gate_receipt": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "receipt_id", "receipt_present", "actor_kind", "actor_id", "actor_role", "decided_at",
+        "method", "run_id", "scenario_id", "trace_id", "decision", "decision_subject_hash",
+        "trace_event_id", "task_event_id", "matrix_event_id"
+      ],
+      "properties": {
+        "receipt_id": {"$ref": "#/$defs/eventId"},
+        "receipt_present": {"const": true},
+        "actor_kind": {"const": "HUMAN"},
+        "actor_id": {"type": "string", "pattern": "^actor-[A-Za-z0-9_.:-]{1,127}$"},
+        "actor_role": {"enum": ["APPROVER", "REVIEWER", "AUDITOR"]},
+        "decided_at": {"type": "string", "format": "date-time"},
+        "method": {"enum": ["UI", "API", "SIGNED_FORM", "MANUAL_REVIEW"]},
+        "run_id": {"$ref": "#/$defs/runId"},
+        "scenario_id": {"$ref": "#/$defs/scenarioId"},
+        "trace_id": {"$ref": "#/$defs/traceId"},
+        "decision": {"enum": ["APPROVED", "REJECTED", "NOT_APPROVED"]},
+        "decision_subject_hash": {"$ref": "#/$defs/digest"},
+        "trace_event_id": {"$ref": "#/$defs/eventId"},
+        "task_event_id": {"$ref": "#/$defs/eventId"},
+        "matrix_event_id": {"$ref": "#/$defs/eventId"}
+      }
+    },
     "external_side_effects_enabled": {"const": false},
     "data_classification": {"const": "PUBLIC_SYNTHETIC"},
     "secrets_or_personal_data_emitted": {"const": false},
     "model": {
-      "type": "object",
-      "additionalProperties": false,
+      "type": "object", "additionalProperties": false,
       "required": ["provider_id", "model_id", "configuration_digest"],
       "properties": {
         "provider_id": {"type": "string", "minLength": 1},
@@ -108,8 +181,7 @@
       }
     },
     "provenance": {
-      "type": "object",
-      "additionalProperties": false,
+      "type": "object", "additionalProperties": false,
       "required": ["repository_commit", "agentteams_version", "agentteams_commit", "collector_version"],
       "properties": {
         "repository_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
@@ -120,6 +192,105 @@
     }
   },
   "$defs": {
-    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "eventId": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"},
+    "runId": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"},
+    "traceId": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"},
+    "scenarioId": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+    "workerName": {
+      "enum": [
+        "case-manager", "evidence-agent", "rule-agent", "calculation-agent",
+        "strategy-agent", "audit-agent"
+      ]
+    },
+    "specialistName": {
+      "enum": [
+        "evidence-agent", "rule-agent", "calculation-agent", "strategy-agent", "audit-agent"
+      ]
+    },
+    "skillName": {
+      "enum": [
+        "conflict_detect", "decision_audit", "deterministic_calculate", "document_package",
+        "evidence_ingest", "human_approval", "rule_retrieve", "timeline_build"
+      ]
+    },
+    "eventReceipt": {
+      "type": "object", "additionalProperties": false,
+      "required": ["event_id", "event_type", "run_id", "scenario_id", "trace_id", "worker_name", "trace_event_id"],
+      "properties": {
+        "event_id": {"$ref": "#/$defs/eventId"},
+        "event_type": {
+          "enum": [
+            "TASK_ASSIGNED", "TASK_COMPLETED", "TASK_BLOCKED", "TASK_FAILED",
+            "MATRIX_ASSIGNED", "MATRIX_COMPLETED", "MATRIX_BLOCKED", "MATRIX_FAILED"
+          ]
+        },
+        "run_id": {"$ref": "#/$defs/runId"},
+        "scenario_id": {"$ref": "#/$defs/scenarioId"},
+        "trace_id": {"$ref": "#/$defs/traceId"},
+        "worker_name": {"$ref": "#/$defs/workerName"},
+        "trace_event_id": {"$ref": "#/$defs/eventId"}
+      }
+    }
+    ,"workerSessionReceipt": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "receipt_id", "worker_name", "session_id", "container_id", "task_id", "run_id",
+        "scenario_id", "trace_id", "trace_event_id", "task_event_id", "matrix_event_id", "started_at",
+        "finished_at", "phase", "outcome"
+      ],
+      "properties": {
+        "receipt_id": {"$ref": "#/$defs/eventId"},
+        "worker_name": {"$ref": "#/$defs/workerName"},
+        "session_id": {"$ref": "#/$defs/eventId"},
+        "container_id": {"$ref": "#/$defs/eventId"},
+        "task_id": {"$ref": "#/$defs/eventId"},
+        "run_id": {"$ref": "#/$defs/runId"},
+        "scenario_id": {"$ref": "#/$defs/scenarioId"},
+        "trace_id": {"$ref": "#/$defs/traceId"},
+        "trace_event_id": {"$ref": "#/$defs/eventId"},
+        "task_event_id": {"$ref": "#/$defs/eventId"},
+        "matrix_event_id": {"$ref": "#/$defs/eventId"},
+        "started_at": {"type": "string", "format": "date-time"},
+        "finished_at": {"type": "string", "format": "date-time"},
+        "phase": {"enum": ["Running", "Completed", "Failed", "Stopped"]},
+        "outcome": {"enum": ["COMPLETED", "BLOCKED", "FAILED", "CRASHED", "RESUMED"]}
+      }
+    },
+    "llmInferenceReceipt": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "receipt_id", "worker_name", "worker_role", "run_id", "scenario_id", "trace_id",
+        "trace_event_id", "task_event_id", "matrix_event_id", "model_configuration_digest", "request_sha256",
+        "response_sha256", "started_at", "finished_at", "input_tokens", "output_tokens",
+        "total_tokens", "token_usage_complete", "cost_complete", "total_cost", "currency",
+        "rate_card_id", "unknown_reason"
+      ],
+      "properties": {
+        "receipt_id": {"$ref": "#/$defs/eventId"},
+        "worker_name": {"$ref": "#/$defs/workerName"},
+        "worker_role": {"enum": ["LEADER", "SPECIALIST"]},
+        "run_id": {"$ref": "#/$defs/runId"},
+        "scenario_id": {"$ref": "#/$defs/scenarioId"},
+        "trace_id": {"$ref": "#/$defs/traceId"},
+        "trace_event_id": {"$ref": "#/$defs/eventId"},
+        "task_event_id": {"$ref": "#/$defs/eventId"},
+        "matrix_event_id": {"$ref": "#/$defs/eventId"},
+        "model_configuration_digest": {"$ref": "#/$defs/digest"},
+        "request_sha256": {"$ref": "#/$defs/digest"},
+        "response_sha256": {"$ref": "#/$defs/digest"},
+        "started_at": {"type": "string", "format": "date-time"},
+        "finished_at": {"type": "string", "format": "date-time"},
+        "input_tokens": {"type": ["integer", "null"], "minimum": 0},
+        "output_tokens": {"type": ["integer", "null"], "minimum": 0},
+        "total_tokens": {"type": ["integer", "null"], "minimum": 0},
+        "token_usage_complete": {"type": "boolean"},
+        "cost_complete": {"type": "boolean"},
+        "total_cost": {"type": ["number", "null"], "minimum": 0},
+        "currency": {"type": ["string", "null"], "pattern": "^[A-Z]{3}$"},
+        "rate_card_id": {"type": ["string", "null"], "minLength": 1},
+        "unknown_reason": {"type": ["string", "null"], "minLength": 1}
+      }
+    }
   }
 }
