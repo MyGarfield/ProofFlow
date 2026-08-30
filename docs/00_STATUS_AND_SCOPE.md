@@ -15,7 +15,7 @@
 - tool-service 镜像证据：`HISTORICAL_POINT_IN_TIME_SCAN / AGENTTEAMS_RUNTIME_IMAGE_ID_CROSS_BOUND`
 - 生产运行与真实法律准确率：`NOT_VALIDATED`
 
-截至 2026 年 8 月 20 日，仓库已从纯方案阶段进入合成数据参考实现阶段。Python 3.12 核心实现
+当前仓库已从纯方案阶段进入合成数据参考实现阶段。Python 3.12 核心实现
 不可变对象、状态机、八个 Skill、本地 Human Gate、Trace、受控交付包与验真；自动化测试覆盖正常
 链和多种失败合同。
 

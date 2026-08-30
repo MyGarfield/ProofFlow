@@ -22,7 +22,7 @@ GOAI 于 2026 年 8 月 25 日确认初赛作品有效，但项目未晋级复�
 
 状态：`REFERENCE_CORE_VERIFIED / AGENTTEAMS_MANAGER_OPERATOR_SMOKE / EVALUATION_PROTOCOL_VALIDATED_NOT_EXECUTED`
 
-截至 2026 年 8 月 20 日，仓库已经包含一个仅使用合成数据的确定性参考核心：
+当前仓库已经包含一个仅使用合成数据的确定性参考核心：
 
 - 12 类严格、不可变业务对象及规范化 SHA-256；
 - 带乐观并发版本和 Guard 的显式 Case 状态机；
