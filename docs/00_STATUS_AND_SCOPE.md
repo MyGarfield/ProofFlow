@@ -42,8 +42,9 @@ LLM，不能证明 Team/Matrix 协作、运行中 Skill 消费、模型质量或
 - **已验证事实**：本地参考核心合同；上述 Manager 操作员 MCP 正负向 smoke；六个停止态 Worker
   CR、八个 Skill、一个非 operational Team 和两个未参与的合成 Human 资源；本机同进程 HTTP
   基准 300/300 functional success；最近一次已发布 main CI
-  `650 passed + 1 skipped = 651 collected`，其中 Demo 定向测试 `19 passed`；ExecutionReceipt 候选
-  仍待 exact-head GitHub Actions 复核，文档不预写尚未产生的 CI 计数。
+  `728 passed + 1 skipped = 729 collected`（[run 33304628887](https://github.com/MyGarfield/ProofFlow/actions/runs/33304628887)），
+  其中 Demo 定向测试 `19 passed`；ExecutionReceipt v0.1 已随 main 合并并由该 exact-head run 复核，
+  但仍不等于 OutcomeClosure、持久化 exactly-once 证明或真实运行时执行证明。
 - **合理推断**：最小 ACL、后端身份边界和 trusted-artifact registry 能降低跨角色调用与重新封装
   Evidence 被接受的风险；单次 smoke 不能量化风险降低幅度。
 - **未验证事项**：LLM Worker 协作、Matrix/TeamHarness 任务链、真实 Human 身份映射、MCP 长稳与
