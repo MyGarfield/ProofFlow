@@ -33,7 +33,8 @@ It does not yet prove:
 - persistent or multi-instance state;
 - production workload identity, tenant isolation, or authorization;
 - exactly-once external effects or crash recovery;
-- signed run receipts or independent observation of real effects;
+- observer-signed receipts from a real deployed runtime, durable receipt storage,
+  or independent observation of real effects;
 - production legal accuracy, customer adoption, or a service-level objective.
 
 Contest decks, ZIP builders, and submission evidence are historical delivery

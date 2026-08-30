@@ -22,7 +22,7 @@ GOAI 于 2026 年 8 月 25 日确认初赛作品有效，但项目未晋级复�
 
 状态：`REFERENCE_CORE_VERIFIED / AGENTTEAMS_MANAGER_OPERATOR_SMOKE / EVALUATION_PROTOCOL_VALIDATED_NOT_EXECUTED`
 
-截至 2026 年 8 月 20 日，仓库已经包含一个仅使用合成数据的确定性参考核心：
+当前仓库已经包含一个仅使用合成数据的确定性参考核心：
 
 - 12 类严格、不可变业务对象及规范化 SHA-256；
 - 带乐观并发版本和 Guard 的显式 Case 状态机；
@@ -72,7 +72,7 @@ finding 都只是未签名的历史点时证据；其漏洞数据库已超过声
 新增密码学依赖并改变 `src/` 后，这套镜像/SBOM/扫描与构建输入证据已明确标记为 `STALE`；
 consistency mode 只能验证“历史快照完整且确实已过时”，release gate 会拒绝。它不证明构建关系、数字签名、attestation、远端 registry 状态、
 持续可用性或生产安全，也绝不等于镜像“clean”或无漏洞。当前 main CI 为
-`650 passed + 1 skipped = 651 collected`（[run 33219867413](https://github.com/MyGarfield/ProofFlow/actions/runs/33219867413)）。
+`728 passed + 1 skipped = 729 collected`（[run 33304628887](https://github.com/MyGarfield/ProofFlow/actions/runs/33304628887)）。
 
 脱敏点时证据见 [AgentTeams 本地证据](deploy/agentteams/LOCAL_INFRA_EVIDENCE.md)、
 [MCP Manager 操作员冒烟](deploy/agentteams/evidence/mcp-manager-operator-smoke-2026-08-20.json)、
@@ -244,8 +244,9 @@ uv run mypy
 uv run pytest
 ```
 
-最近一次已发布 main CI 为 `650 passed + 1 skipped = 651 collected`。ExecutionReceipt 候选仍需
-exact-head GitHub Actions 复核，README 不预写尚未产生的 CI 计数。测试覆盖正常链、文件哈希、
+最近一次已发布 main CI 为 `728 passed + 1 skipped = 729 collected`（[run 33304628887](https://github.com/MyGarfield/ProofFlow/actions/runs/33304628887)）。
+ExecutionReceipt v0.1 已随 main 合并并由该 exact-head run 复核；它仍只是 observer-signed 的参考切片，
+不是 OutcomeClosure、持久化 exactly-once 证明或真实运行时执行证明。测试覆盖正常链、文件哈希、
 提示注入字段、地区/时态规则过滤、缺参阻断、确定性重放、冲突检测、Trace 缺失、越权审批、批准后
 篡改、包文件篡改和未执行评测的 `UNKNOWN`/`null` 合同。
 
