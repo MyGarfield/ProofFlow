@@ -1,0 +1,935 @@
+{
+  "$defs": {
+    "A2aProtocolObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "agent_name": {
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "pattern": "://"
+                  },
+                  {
+                    "pattern": "^[Ff][Ii][Ll][Ee]:"
+                  },
+                  {
+                    "pattern": "^[Dd][Aa][Tt][Aa]:"
+                  },
+                  {
+                    "pattern": "^[Uu][Rr][Nn]:"
+                  }
+                ]
+              }
+            }
+          ],
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Agent Name",
+          "type": "string"
+        },
+        "kind": {
+          "const": "A2A",
+          "title": "Kind",
+          "type": "string"
+        },
+        "request_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Request Sha256",
+          "type": "string"
+        },
+        "response_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Response Sha256",
+          "type": "string"
+        },
+        "task_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Task Id",
+          "type": "string"
+        },
+        "version": {
+          "const": "1.0.1",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "version",
+        "agent_name",
+        "task_id",
+        "request_sha256",
+        "response_sha256"
+      ],
+      "title": "A2aProtocolObservation",
+      "type": "object"
+    },
+    "ActionCertificateReference": {
+      "additionalProperties": false,
+      "properties": {
+        "certificate_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Certificate Id",
+          "type": "string"
+        },
+        "envelope_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Envelope Sha256",
+          "type": "string"
+        },
+        "intent_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Intent Sha256",
+          "type": "string"
+        },
+        "payload_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Payload Sha256",
+          "type": "string"
+        },
+        "reserved_at": {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+          "title": "Reserved At",
+          "type": "string"
+        },
+        "verification_at": {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+          "title": "Verification At",
+          "type": "string"
+        },
+        "verification_result_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Verification Result Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "certificate_id",
+        "payload_sha256",
+        "envelope_sha256",
+        "verification_result_sha256",
+        "intent_sha256",
+        "verification_at",
+        "reserved_at"
+      ],
+      "title": "ActionCertificateReference",
+      "type": "object",
+      "x-proofflow-runtime-invariants": [
+        "reserved_at is greater than or equal to verification_at"
+      ]
+    },
+    "ArtifactObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "media_type": {
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "pattern": "://"
+                  },
+                  {
+                    "pattern": "^[Ff][Ii][Ll][Ee]:"
+                  },
+                  {
+                    "pattern": "^[Dd][Aa][Tt][Aa]:"
+                  },
+                  {
+                    "pattern": "^[Uu][Rr][Nn]:"
+                  }
+                ]
+              }
+            }
+          ],
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Media Type",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "sha256",
+        "media_type"
+      ],
+      "title": "ArtifactObservation",
+      "type": "object"
+    },
+    "LocalProtocolObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "handler_name": {
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "pattern": "://"
+                  },
+                  {
+                    "pattern": "^[Ff][Ii][Ll][Ee]:"
+                  },
+                  {
+                    "pattern": "^[Dd][Aa][Tt][Aa]:"
+                  },
+                  {
+                    "pattern": "^[Uu][Rr][Nn]:"
+                  }
+                ]
+              }
+            }
+          ],
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Handler Name",
+          "type": "string"
+        },
+        "kind": {
+          "const": "LOCAL",
+          "title": "Kind",
+          "type": "string"
+        },
+        "request_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Request Sha256",
+          "type": "string"
+        },
+        "response_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Response Sha256",
+          "type": "string"
+        },
+        "version": {
+          "const": "proofflow.local/v0.1",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "version",
+        "handler_name",
+        "request_sha256",
+        "response_sha256"
+      ],
+      "title": "LocalProtocolObservation",
+      "type": "object"
+    },
+    "McpProtocolObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "MCP",
+          "title": "Kind",
+          "type": "string"
+        },
+        "request_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Request Sha256",
+          "type": "string"
+        },
+        "response_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Response Sha256",
+          "type": "string"
+        },
+        "server_name": {
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "pattern": "://"
+                  },
+                  {
+                    "pattern": "^[Ff][Ii][Ll][Ee]:"
+                  },
+                  {
+                    "pattern": "^[Dd][Aa][Tt][Aa]:"
+                  },
+                  {
+                    "pattern": "^[Uu][Rr][Nn]:"
+                  }
+                ]
+              }
+            }
+          ],
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Server Name",
+          "type": "string"
+        },
+        "tool_name": {
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "pattern": "://"
+                  },
+                  {
+                    "pattern": "^[Ff][Ii][Ll][Ee]:"
+                  },
+                  {
+                    "pattern": "^[Dd][Aa][Tt][Aa]:"
+                  },
+                  {
+                    "pattern": "^[Uu][Rr][Nn]:"
+                  }
+                ]
+              }
+            }
+          ],
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Tool Name",
+          "type": "string"
+        },
+        "version": {
+          "const": "2026-07-28",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "version",
+        "server_name",
+        "tool_name",
+        "request_sha256",
+        "response_sha256"
+      ],
+      "title": "McpProtocolObservation",
+      "type": "object"
+    },
+    "PrincipalBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "identity_issuer": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Identity Issuer",
+          "type": "string"
+        },
+        "principal_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Principal Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "principal_id",
+        "identity_issuer"
+      ],
+      "title": "PrincipalBinding",
+      "type": "object"
+    },
+    "RuntimeObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "instance_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Instance Id",
+          "type": "string"
+        },
+        "runtime_build_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Runtime Build Sha256",
+          "type": "string"
+        },
+        "runtime_name": {
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "pattern": "://"
+                  },
+                  {
+                    "pattern": "^[Ff][Ii][Ll][Ee]:"
+                  },
+                  {
+                    "pattern": "^[Dd][Aa][Tt][Aa]:"
+                  },
+                  {
+                    "pattern": "^[Uu][Rr][Nn]:"
+                  }
+                ]
+              }
+            }
+          ],
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Runtime Name",
+          "type": "string"
+        },
+        "runtime_version": {
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "pattern": "://"
+                  },
+                  {
+                    "pattern": "^[Ff][Ii][Ll][Ee]:"
+                  },
+                  {
+                    "pattern": "^[Dd][Aa][Tt][Aa]:"
+                  },
+                  {
+                    "pattern": "^[Uu][Rr][Nn]:"
+                  }
+                ]
+              }
+            }
+          ],
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Runtime Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "runtime_name",
+        "runtime_version",
+        "runtime_build_sha256",
+        "instance_id"
+      ],
+      "title": "RuntimeObservation",
+      "type": "object"
+    },
+    "SkillOperationObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "input_schema_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Input Schema Sha256",
+          "type": "string"
+        },
+        "kind": {
+          "const": "SKILL",
+          "title": "Kind",
+          "type": "string"
+        },
+        "name": {
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "pattern": "://"
+                  },
+                  {
+                    "pattern": "^[Ff][Ii][Ll][Ee]:"
+                  },
+                  {
+                    "pattern": "^[Dd][Aa][Tt][Aa]:"
+                  },
+                  {
+                    "pattern": "^[Uu][Rr][Nn]:"
+                  }
+                ]
+              }
+            }
+          ],
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "operation_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "output_schema_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Output Schema Sha256",
+          "type": "string"
+        },
+        "request_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Request Sha256",
+          "type": "string"
+        },
+        "response_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Response Sha256",
+          "type": "string"
+        },
+        "version": {
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "pattern": "://"
+                  },
+                  {
+                    "pattern": "^[Ff][Ii][Ll][Ee]:"
+                  },
+                  {
+                    "pattern": "^[Dd][Aa][Tt][Aa]:"
+                  },
+                  {
+                    "pattern": "^[Uu][Rr][Nn]:"
+                  }
+                ]
+              }
+            }
+          ],
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "operation_id",
+        "name",
+        "version",
+        "input_schema_sha256",
+        "output_schema_sha256",
+        "request_sha256",
+        "response_sha256"
+      ],
+      "title": "SkillOperationObservation",
+      "type": "object"
+    },
+    "ToolOperationObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "input_schema_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Input Schema Sha256",
+          "type": "string"
+        },
+        "kind": {
+          "const": "TOOL",
+          "title": "Kind",
+          "type": "string"
+        },
+        "name": {
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "pattern": "://"
+                  },
+                  {
+                    "pattern": "^[Ff][Ii][Ll][Ee]:"
+                  },
+                  {
+                    "pattern": "^[Dd][Aa][Tt][Aa]:"
+                  },
+                  {
+                    "pattern": "^[Uu][Rr][Nn]:"
+                  }
+                ]
+              }
+            }
+          ],
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "operation_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "output_schema_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Output Schema Sha256",
+          "type": "string"
+        },
+        "request_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Request Sha256",
+          "type": "string"
+        },
+        "response_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Response Sha256",
+          "type": "string"
+        },
+        "version": {
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "pattern": "://"
+                  },
+                  {
+                    "pattern": "^[Ff][Ii][Ll][Ee]:"
+                  },
+                  {
+                    "pattern": "^[Dd][Aa][Tt][Aa]:"
+                  },
+                  {
+                    "pattern": "^[Uu][Rr][Nn]:"
+                  }
+                ]
+              }
+            }
+          ],
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "operation_id",
+        "name",
+        "version",
+        "input_schema_sha256",
+        "output_schema_sha256",
+        "request_sha256",
+        "response_sha256"
+      ],
+      "title": "ToolOperationObservation",
+      "type": "object"
+    },
+    "TraceObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "conventions_revision": {
+          "const": "proofflow.agent-proof/v0.1",
+          "title": "Conventions Revision",
+          "type": "string"
+        },
+        "linked_span_ids": {
+          "default": [],
+          "items": {
+            "allOf": [
+              {
+                "not": {
+                  "const": "0000000000000000"
+                }
+              }
+            ],
+            "type": "string"
+          },
+          "maxItems": 64,
+          "title": "Linked Span Ids",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "observer_evidence_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Observer Evidence Sha256",
+          "type": "string"
+        },
+        "otel_schema_uri": {
+          "const": "https://opentelemetry.io/schemas/1.39.0",
+          "title": "Otel Schema Uri",
+          "type": "string"
+        },
+        "parent_span_id": {
+          "allOf": [
+            {
+              "not": {
+                "const": "0000000000000000"
+              }
+            }
+          ],
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{16}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Span Id"
+        },
+        "span_id": {
+          "allOf": [
+            {
+              "not": {
+                "const": "0000000000000000"
+              }
+            }
+          ],
+          "pattern": "^[0-9a-f]{16}$",
+          "title": "Span Id",
+          "type": "string"
+        },
+        "trace_id": {
+          "allOf": [
+            {
+              "not": {
+                "const": "00000000000000000000000000000000"
+              }
+            }
+          ],
+          "pattern": "^[0-9a-f]{32}$",
+          "title": "Trace Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "trace_id",
+        "span_id",
+        "otel_schema_uri",
+        "conventions_revision",
+        "observer_evidence_sha256"
+      ],
+      "title": "TraceObservation",
+      "type": "object",
+      "x-proofflow-runtime-invariants": [
+        "parent_span_id and linked_span_ids never equal span_id"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "attempt_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+      "title": "Attempt Id",
+      "type": "string"
+    },
+    "attempt_number": {
+      "maximum": 1000000,
+      "minimum": 1,
+      "title": "Attempt Number",
+      "type": "integer"
+    },
+    "binding_version": {
+      "const": "proofflow.execution-receipt-expected/v0.1",
+      "title": "Binding Version",
+      "type": "string"
+    },
+    "case_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+      "title": "Case Id",
+      "type": "string"
+    },
+    "certificate_ref": {
+      "$ref": "#/$defs/ActionCertificateReference"
+    },
+    "effect_intent_sha256": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Effect Intent Sha256",
+      "type": "string"
+    },
+    "effect_target": {
+      "allOf": [
+        {
+          "not": {
+            "anyOf": [
+              {
+                "pattern": "://"
+              },
+              {
+                "pattern": "^[Ff][Ii][Ll][Ee]:"
+              },
+              {
+                "pattern": "^[Dd][Aa][Tt][Aa]:"
+              },
+              {
+                "pattern": "^[Uu][Rr][Nn]:"
+              }
+            ]
+          }
+        }
+      ],
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Effect Target",
+      "type": "string"
+    },
+    "effect_type": {
+      "allOf": [
+        {
+          "not": {
+            "anyOf": [
+              {
+                "pattern": "://"
+              },
+              {
+                "pattern": "^[Ff][Ii][Ll][Ee]:"
+              },
+              {
+                "pattern": "^[Dd][Aa][Tt][Aa]:"
+              },
+              {
+                "pattern": "^[Uu][Rr][Nn]:"
+              }
+            ]
+          }
+        }
+      ],
+      "maxLength": 128,
+      "minLength": 1,
+      "title": "Effect Type",
+      "type": "string"
+    },
+    "execution_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+      "title": "Execution Id",
+      "type": "string"
+    },
+    "executor_workload": {
+      "$ref": "#/$defs/PrincipalBinding"
+    },
+    "executor_workload_key_fingerprints": {
+      "items": {
+        "pattern": "^sha256:[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "maxItems": 16,
+      "minItems": 1,
+      "title": "Executor Workload Key Fingerprints",
+      "type": "array",
+      "uniqueItems": true
+    },
+    "human_principal": {
+      "$ref": "#/$defs/PrincipalBinding"
+    },
+    "human_principal_key_fingerprints": {
+      "items": {
+        "pattern": "^sha256:[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "maxItems": 16,
+      "minItems": 1,
+      "title": "Human Principal Key Fingerprints",
+      "type": "array",
+      "uniqueItems": true
+    },
+    "idempotency_key": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+      "title": "Idempotency Key",
+      "type": "string"
+    },
+    "inputs": {
+      "items": {
+        "$ref": "#/$defs/ArtifactObservation"
+      },
+      "maxItems": 128,
+      "minItems": 1,
+      "title": "Inputs",
+      "type": "array",
+      "uniqueItems": true
+    },
+    "operation": {
+      "discriminator": {
+        "mapping": {
+          "SKILL": "#/$defs/SkillOperationObservation",
+          "TOOL": "#/$defs/ToolOperationObservation"
+        },
+        "propertyName": "kind"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/ToolOperationObservation"
+        },
+        {
+          "$ref": "#/$defs/SkillOperationObservation"
+        }
+      ],
+      "title": "Operation"
+    },
+    "outputs": {
+      "items": {
+        "$ref": "#/$defs/ArtifactObservation"
+      },
+      "maxItems": 128,
+      "title": "Outputs",
+      "type": "array",
+      "uniqueItems": true
+    },
+    "protocol": {
+      "discriminator": {
+        "mapping": {
+          "A2A": "#/$defs/A2aProtocolObservation",
+          "LOCAL": "#/$defs/LocalProtocolObservation",
+          "MCP": "#/$defs/McpProtocolObservation"
+        },
+        "propertyName": "kind"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/LocalProtocolObservation"
+        },
+        {
+          "$ref": "#/$defs/McpProtocolObservation"
+        },
+        {
+          "$ref": "#/$defs/A2aProtocolObservation"
+        }
+      ],
+      "title": "Protocol"
+    },
+    "runtime": {
+      "$ref": "#/$defs/RuntimeObservation"
+    },
+    "task_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+      "title": "Task Id",
+      "type": "string"
+    },
+    "tenant_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+      "title": "Tenant Id",
+      "type": "string"
+    },
+    "trace": {
+      "$ref": "#/$defs/TraceObservation"
+    }
+  },
+  "required": [
+    "binding_version",
+    "certificate_ref",
+    "tenant_id",
+    "case_id",
+    "execution_id",
+    "task_id",
+    "attempt_id",
+    "attempt_number",
+    "human_principal",
+    "executor_workload",
+    "executor_workload_key_fingerprints",
+    "human_principal_key_fingerprints",
+    "runtime",
+    "protocol",
+    "trace",
+    "inputs",
+    "outputs",
+    "operation",
+    "effect_type",
+    "effect_target",
+    "effect_intent_sha256",
+    "idempotency_key"
+  ],
+  "title": "ExpectedExecutionBinding",
+  "type": "object",
+  "x-proofflow-runtime-invariants": [
+    "input and output artifact IDs are unique within each direction and disjoint"
+  ]
+}

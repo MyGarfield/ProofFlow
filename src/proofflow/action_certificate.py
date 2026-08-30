@@ -36,6 +36,7 @@ from proofflow.canonical import canonical_json
 DSSE_PAYLOAD_TYPE = "application/vnd.in-toto+json"
 IN_TOTO_STATEMENT_TYPE = "https://in-toto.io/Statement/v1"
 ACTION_CERTIFICATE_PREDICATE_TYPE = "https://proofflow.dev/attestations/action-certificate/v0.1"
+EXECUTION_RECEIPT_PREDICATE_TYPE = "https://proofflow.dev/attestations/execution-receipt/v0.1"
 ACTION_CERTIFICATE_VERSION = "0.1"
 
 MAX_ENVELOPE_BYTES = 256 * 1024
@@ -86,7 +87,7 @@ def _reject_remote_reference(value: str, label: str) -> str:
     return value
 
 
-def _decode_canonical_base64(
+def decode_canonical_base64(
     value: str,
     label: str,
     *,
@@ -121,7 +122,7 @@ class DsseSignature(CertificateWireModel):
     @field_validator("sig")
     @classmethod
     def signature_is_ed25519_sized_base64(cls, value: str) -> str:
-        _decode_canonical_base64(value, "signature", expected_bytes=64, allow_urlsafe=True)
+        decode_canonical_base64(value, "signature", expected_bytes=64, allow_urlsafe=True)
         return value
 
 
@@ -133,9 +134,9 @@ class DsseEnvelope(CertificateWireModel):
     @field_validator("payload")
     @classmethod
     def payload_is_bounded_canonical_base64(cls, value: str) -> str:
-        decoded = _decode_canonical_base64(value, "payload", allow_urlsafe=True)
+        decoded = decode_canonical_base64(value, "payload", allow_urlsafe=True)
         if len(decoded) > MAX_PAYLOAD_BYTES:
-            raise ValueError("decoded payload exceeds the ActionCertificate byte limit")
+            raise ValueError("decoded payload exceeds the attestation byte limit")
         return value
 
 
@@ -324,6 +325,17 @@ class ActionCertificateStatement(CertificateWireModel):
 class TrustPurpose(StrEnum):
     ACTION_ISSUER = "ACTION_ISSUER"
     HUMAN_APPROVAL = "HUMAN_APPROVAL"
+    EXECUTION_OBSERVER = "EXECUTION_OBSERVER"
+
+
+class ExecutionObserverScope(StrEnum):
+    RUNTIME_EXECUTION = "RUNTIME_EXECUTION"
+    ARTIFACT_IO = "ARTIFACT_IO"
+    PROTOCOL_EXCHANGE = "PROTOCOL_EXCHANGE"
+    TRACE_EXPORT = "TRACE_EXPORT"
+    INFERENCE_RESPONSE = "INFERENCE_RESPONSE"
+    EFFECT_ATTEMPT = "EFFECT_ATTEMPT"
+    METRICS = "METRICS"
 
 
 class TrustRoot(CertificateWireModel):
@@ -336,8 +348,13 @@ class TrustRoot(CertificateWireModel):
     principal_id: str = Field(pattern=IDENTIFIER_PATTERN)
     audiences: tuple[str, ...] = Field(min_length=1, max_length=16)
     predicate_types: tuple[
-        Literal["https://proofflow.dev/attestations/action-certificate/v0.1"], ...
+        Literal[
+            "https://proofflow.dev/attestations/action-certificate/v0.1",
+            "https://proofflow.dev/attestations/execution-receipt/v0.1",
+        ],
+        ...,
     ] = Field(min_length=1, max_length=4)
+    execution_observer_scopes: tuple[ExecutionObserverScope, ...] = Field(default=(), max_length=7)
     not_before: datetime
     not_after: datetime
     revoked_at: datetime | None = None
@@ -356,7 +373,7 @@ class TrustRoot(CertificateWireModel):
     @field_validator("public_key_b64")
     @classmethod
     def public_key_is_ed25519_sized_base64(cls, value: str) -> str:
-        _decode_canonical_base64(value, "Ed25519 public key", expected_bytes=32)
+        decode_canonical_base64(value, "Ed25519 public key", expected_bytes=32)
         return value
 
     @model_validator(mode="after")
@@ -371,6 +388,14 @@ class TrustRoot(CertificateWireModel):
             raise ValueError("root audiences must be unique")
         if len(set(self.predicate_types)) != len(self.predicate_types):
             raise ValueError("root predicate types must be unique")
+        if len(set(self.execution_observer_scopes)) != len(self.execution_observer_scopes):
+            raise ValueError("execution observer scopes must be unique")
+        if self.purpose == TrustPurpose.EXECUTION_OBSERVER and frozenset(
+            self.execution_observer_scopes
+        ) != frozenset(ExecutionObserverScope):
+            raise ValueError("EXECUTION_OBSERVER roots require every v0.1 observer scope")
+        if self.purpose != TrustPurpose.EXECUTION_OBSERVER and self.execution_observer_scopes:
+            raise ValueError("only EXECUTION_OBSERVER roots may declare observer scopes")
         return self
 
 
@@ -381,13 +406,19 @@ class TrustPolicy(CertificateWireModel):
     allowed_workload_principals: tuple[str, ...] = Field(min_length=1, max_length=128)
     allowed_action_issuer_principals: tuple[str, ...] = Field(min_length=1, max_length=64)
     allowed_approval_principals: tuple[str, ...] = Field(default=(), max_length=64)
+    allowed_execution_observer_principals: tuple[str, ...] = Field(default=(), max_length=64)
     allowed_audiences: tuple[str, ...] = Field(min_length=1, max_length=32)
     allowed_predicate_types: tuple[
-        Literal["https://proofflow.dev/attestations/action-certificate/v0.1"], ...
+        Literal[
+            "https://proofflow.dev/attestations/action-certificate/v0.1",
+            "https://proofflow.dev/attestations/execution-receipt/v0.1",
+        ],
+        ...,
     ] = Field(min_length=1, max_length=4)
     approval_required: bool
     action_issuer_threshold: StrictInt = Field(ge=1, le=16)
     human_approval_threshold: StrictInt = Field(ge=1, le=16)
+    execution_observer_threshold: StrictInt = Field(default=1, ge=1, le=16)
     max_certificate_lifetime_seconds: StrictInt = Field(ge=1, le=86400)
     max_clock_skew_seconds: StrictInt = Field(default=0, ge=0, le=300)
     roots: tuple[TrustRoot, ...] = Field(min_length=1, max_length=MAX_TRUST_ROOTS)
@@ -400,6 +431,7 @@ class TrustPolicy(CertificateWireModel):
             self.allowed_workload_principals,
             self.allowed_action_issuer_principals,
             self.allowed_approval_principals,
+            self.allowed_execution_observer_principals,
             self.allowed_audiences,
             self.allowed_predicate_types,
         )
@@ -678,7 +710,7 @@ def dsse_pae(payload_type: str, payload: bytes) -> bytes:
     )
 
 
-def _sha256_bytes(payload: bytes) -> str:
+def sha256_bytes(payload: bytes) -> str:
     return "sha256:" + hashlib.sha256(payload).hexdigest()
 
 
@@ -741,7 +773,7 @@ def approval_scope_sha256(
         "policy": predicate.policy.model_dump(mode="json"),
         "effect": predicate.effect.model_dump(mode="json"),
     }
-    return _sha256_bytes(canonical_json(value))
+    return sha256_bytes(canonical_json(value))
 
 
 def expected_binding_for(
@@ -794,11 +826,11 @@ def _verification_result(
     )
 
 
-def _root_fingerprint(root: TrustRoot) -> str:
-    return _sha256_bytes(_decode_canonical_base64(root.public_key_b64, "public key"))
+def trust_root_fingerprint(root: TrustRoot) -> str:
+    return sha256_bytes(decode_canonical_base64(root.public_key_b64, "public key"))
 
 
-def _cryptographically_verified_roots(
+def cryptographically_verified_roots(
     envelope: DsseEnvelope,
     payload: bytes,
     roots: tuple[TrustRoot, ...],
@@ -807,7 +839,7 @@ def _cryptographically_verified_roots(
     verified: dict[str, TrustRoot] = {}
     root_order: dict[str, int] = {root.root_id: index for index, root in enumerate(roots)}
     for signature in envelope.signatures:
-        signature_bytes = _decode_canonical_base64(
+        signature_bytes = decode_canonical_base64(
             signature.sig, "signature", expected_bytes=64, allow_urlsafe=True
         )
         candidates = sorted(
@@ -818,7 +850,7 @@ def _cryptographically_verified_roots(
             ),
         )
         for root in candidates:
-            public_bytes = _decode_canonical_base64(
+            public_bytes = decode_canonical_base64(
                 root.public_key_b64, "Ed25519 public key", expected_bytes=32
             )
             try:
@@ -829,7 +861,7 @@ def _cryptographically_verified_roots(
     return tuple(verified[root_id] for root_id in sorted(verified))
 
 
-def _root_is_current(root: TrustRoot, now: datetime, skew: timedelta) -> bool:
+def trust_root_is_current(root: TrustRoot, now: datetime, skew: timedelta) -> bool:
     if now + skew < root.not_before or now - skew >= root.not_after:
         return False
     return root.revoked_at is None or now + skew < root.revoked_at
@@ -859,11 +891,11 @@ def _qualifying_roots(
             or predicate.audience not in root.audiences
             or ACTION_CERTIFICATE_PREDICATE_TYPE not in root.predicate_types
             or root.principal_id not in allowed_principals
-            or not _root_is_current(root, now, skew)
+            or not trust_root_is_current(root, now, skew)
             or (approvers is not None and root.principal_id not in approvers)
         ):
             continue
-        fingerprint = _root_fingerprint(root)
+        fingerprint = trust_root_fingerprint(root)
         if fingerprint in distinct or root.principal_id in distinct_principals:
             continue
         distinct[fingerprint] = root
@@ -915,7 +947,7 @@ def verify_action_certificate(
         )
     try:
         envelope = parse_json_model(envelope_bytes, DsseEnvelope, "DSSE envelope")
-        payload = _decode_canonical_base64(envelope.payload, "payload", allow_urlsafe=True)
+        payload = decode_canonical_base64(envelope.payload, "payload", allow_urlsafe=True)
     except ValueError:
         return _verification_result(
             VerificationStatus.REJECT, (VerificationReason.ENVELOPE_INVALID,)
@@ -924,9 +956,9 @@ def verify_action_certificate(
         return _verification_result(
             VerificationStatus.REJECT, (VerificationReason.PAYLOAD_TOO_LARGE,)
         )
-    payload_sha256 = _sha256_bytes(payload)
+    payload_sha256 = sha256_bytes(payload)
 
-    verified_roots = _cryptographically_verified_roots(envelope, payload, trust_policy.roots)
+    verified_roots = cryptographically_verified_roots(envelope, payload, trust_policy.roots)
     if not verified_roots:
         return _verification_result(
             VerificationStatus.REJECT,
@@ -1016,8 +1048,8 @@ def verify_action_certificate(
             )
         issuer_principals = {root.principal_id for root in issuer_roots}
         approval_principals = {root.principal_id for root in approval_roots}
-        issuer_fingerprints = {_root_fingerprint(root) for root in issuer_roots}
-        approval_fingerprints = {_root_fingerprint(root) for root in approval_roots}
+        issuer_fingerprints = {trust_root_fingerprint(root) for root in issuer_roots}
+        approval_fingerprints = {trust_root_fingerprint(root) for root in approval_roots}
         if (
             predicate.human_principal.principal_id in approval_principals
             or predicate.workload_principal.principal_id in approval_principals
@@ -1139,6 +1171,7 @@ __all__ = [
     "ACTION_CERTIFICATE_PREDICATE_TYPE",
     "ACTION_CERTIFICATE_VERSION",
     "DSSE_PAYLOAD_TYPE",
+    "EXECUTION_RECEIPT_PREDICATE_TYPE",
     "IN_TOTO_STATEMENT_TYPE",
     "REJECT_VERIFICATION_REASONS",
     "UNKNOWN_VERIFICATION_REASONS",
@@ -1152,6 +1185,7 @@ __all__ = [
     "ApprovalRevocationStatus",
     "DsseEnvelope",
     "DsseSignature",
+    "ExecutionObserverScope",
     "ExpectedBinding",
     "InMemoryReplayLedger",
     "ReplayLedger",
@@ -1163,9 +1197,14 @@ __all__ = [
     "VerificationReason",
     "VerificationStatus",
     "approval_scope_sha256",
+    "cryptographically_verified_roots",
+    "decode_canonical_base64",
     "dsse_pae",
     "expected_binding_for",
     "parse_json_model",
     "parse_utc_rfc3339_z",
+    "sha256_bytes",
+    "trust_root_fingerprint",
+    "trust_root_is_current",
     "verify_action_certificate",
 ]

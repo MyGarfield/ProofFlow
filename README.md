@@ -34,6 +34,8 @@ GOAI 于 2026 年 8 月 25 日确认初赛作品有效，但项目未晋级复�
 - Trace、受控 Markdown/JSON 草案、Package Manifest 和篡改检测；
 - Ruff、mypy、pytest 和 GitHub Actions；
 - ActionCertificate v0.1 的 DSSE/in-toto/Ed25519 预执行验证与进程内重放参考门；
+- ExecutionReceipt v0.1 的 observer-signed 执行尝试回执、外部 ActionCertificate 接受结果绑定与
+  进程内 append-only 索引参考门；
 - AgentTeams v1.2.2 本地点时基础设施、六个 Worker CR 与八个 Skill 分发结果；
 - 三个最小权限 MCP（evidence/rules/calc），均为 `ok` 且各暴露一个工具；
 - Manager 操作员以公开合成数据完成三次 evidence ingest → 四条规则引用 → 确定性计算的工具链，
@@ -67,8 +69,8 @@ Unknown/Low/Medium/High/Critical 均为 0，CycloneDX 记录 937 个 components�
 AgentTeams MCP Schema v1.2 与严格语义 validator 已强制供应链 `subject.image_id`、MCP 快照根级
 `tool_service_image_id` 和脱敏运行观察 `tool_service_runtime.image_id` 三方相等。该交叉绑定与零
 finding 都只是未签名的历史点时证据；其漏洞数据库已超过声明的下一更新时间。ActionCertificate
-新增密码学依赖并改变 `src/` 后，这套镜像/SBOM/扫描与构建输入证据已明确标记为 `STALE`，普通模式
-与 release gate 都会失败，只有专用模式可验证“历史快照完整且确实已过时”。它不证明构建关系、数字签名、attestation、远端 registry 状态、
+新增密码学依赖并改变 `src/` 后，这套镜像/SBOM/扫描与构建输入证据已明确标记为 `STALE`；
+consistency mode 只能验证“历史快照完整且确实已过时”，release gate 会拒绝。它不证明构建关系、数字签名、attestation、远端 registry 状态、
 持续可用性或生产安全，也绝不等于镜像“clean”或无漏洞。当前 main CI 为
 `650 passed + 1 skipped = 651 collected`（[run 33219867413](https://github.com/MyGarfield/ProofFlow/actions/runs/33219867413)）。
 
@@ -178,6 +180,11 @@ ActionCertificate 的机器合同、信任边界、CLI 和限制见
 [`docs/13_ACTION_CERTIFICATE_V0P1.md`](docs/13_ACTION_CERTIFICATE_V0P1.md)。它只验证并在当前进程
 原子预留授权意图，不执行真实副作用，也不声称持久化 exactly-once。
 
+ExecutionReceipt 的机器合同、observer 独立性、`OBSERVED | UNKNOWN`、CLI 和限制见
+[`docs/14_EXECUTION_RECEIPT_V0P1.md`](docs/14_EXECUTION_RECEIPT_V0P1.md)。它只验证配置的 observer
+对一次执行尝试的 exact-byte 声明；ActionCertificate 接受结果仍是 operator-controlled 外部输入，
+进程内索引不证明持久 reservation、现实效果或 exactly-once。
+
 ## 为什么第一版不使用 LLM
 
 第一版先建立可验证基线：同一输入、规则和公式版本必须得到相同结果；缺参、过期/异地规则、
@@ -237,9 +244,8 @@ uv run mypy
 uv run pytest
 ```
 
-当前 main CI 为 `650 passed + 1 skipped = 651 collected`，其中 ActionCertificate 定向套件为
-`53 passed`、Demo 定向套件为
-`19 passed`。测试覆盖正常链、文件哈希、
+最近一次已发布 main CI 为 `650 passed + 1 skipped = 651 collected`。ExecutionReceipt 候选仍需
+exact-head GitHub Actions 复核，README 不预写尚未产生的 CI 计数。测试覆盖正常链、文件哈希、
 提示注入字段、地区/时态规则过滤、缺参阻断、确定性重放、冲突检测、Trace 缺失、越权审批、批准后
 篡改、包文件篡改和未执行评测的 `UNKNOWN`/`null` 合同。
 

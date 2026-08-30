@@ -1,0 +1,2190 @@
+{
+  "$defs": {
+    "A2aProtocolObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "agent_name": {
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "pattern": "://"
+                  },
+                  {
+                    "pattern": "^[Ff][Ii][Ll][Ee]:"
+                  },
+                  {
+                    "pattern": "^[Dd][Aa][Tt][Aa]:"
+                  },
+                  {
+                    "pattern": "^[Uu][Rr][Nn]:"
+                  }
+                ]
+              }
+            }
+          ],
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Agent Name",
+          "type": "string"
+        },
+        "kind": {
+          "const": "A2A",
+          "title": "Kind",
+          "type": "string"
+        },
+        "request_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Request Sha256",
+          "type": "string"
+        },
+        "response_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Response Sha256",
+          "type": "string"
+        },
+        "task_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Task Id",
+          "type": "string"
+        },
+        "version": {
+          "const": "1.0.1",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "version",
+        "agent_name",
+        "task_id",
+        "request_sha256",
+        "response_sha256"
+      ],
+      "title": "A2aProtocolObservation",
+      "type": "object"
+    },
+    "ActionCertificateReference": {
+      "additionalProperties": false,
+      "properties": {
+        "certificate_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Certificate Id",
+          "type": "string"
+        },
+        "envelope_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Envelope Sha256",
+          "type": "string"
+        },
+        "intent_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Intent Sha256",
+          "type": "string"
+        },
+        "payload_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Payload Sha256",
+          "type": "string"
+        },
+        "reserved_at": {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+          "title": "Reserved At",
+          "type": "string"
+        },
+        "verification_at": {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+          "title": "Verification At",
+          "type": "string"
+        },
+        "verification_result_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Verification Result Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "certificate_id",
+        "payload_sha256",
+        "envelope_sha256",
+        "verification_result_sha256",
+        "intent_sha256",
+        "verification_at",
+        "reserved_at"
+      ],
+      "title": "ActionCertificateReference",
+      "type": "object",
+      "x-proofflow-runtime-invariants": [
+        "reserved_at is greater than or equal to verification_at"
+      ]
+    },
+    "ArtifactObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "media_type": {
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "pattern": "://"
+                  },
+                  {
+                    "pattern": "^[Ff][Ii][Ll][Ee]:"
+                  },
+                  {
+                    "pattern": "^[Dd][Aa][Tt][Aa]:"
+                  },
+                  {
+                    "pattern": "^[Uu][Rr][Nn]:"
+                  }
+                ]
+              }
+            }
+          ],
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Media Type",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "sha256",
+        "media_type"
+      ],
+      "title": "ArtifactObservation",
+      "type": "object"
+    },
+    "AttemptObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "attempt_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Attempt Id",
+          "type": "string"
+        },
+        "attempt_number": {
+          "maximum": 1000000,
+          "minimum": 1,
+          "title": "Attempt Number",
+          "type": "integer"
+        },
+        "ended_at": {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+          "title": "Ended At",
+          "type": "string"
+        },
+        "started_at": {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+          "title": "Started At",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "COMPLETED",
+            "FAILED",
+            "CANCELLED",
+            "UNKNOWN"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "attempt_id",
+        "attempt_number",
+        "started_at",
+        "ended_at",
+        "status"
+      ],
+      "title": "AttemptObservation",
+      "type": "object",
+      "x-proofflow-runtime-invariants": [
+        "ended_at is greater than or equal to started_at"
+      ]
+    },
+    "CostObservation": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "UNKNOWN"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "amount_decimal": {
+                "type": "null"
+              },
+              "currency": {
+                "type": "null"
+              },
+              "observer_evidence_sha256": {
+                "type": "null"
+              },
+              "rate_card_sha256": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "currency",
+              "amount_decimal",
+              "rate_card_sha256",
+              "observer_evidence_sha256"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "OBSERVED"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "amount_decimal": {
+                "not": {
+                  "type": "null"
+                }
+              },
+              "currency": {
+                "not": {
+                  "type": "null"
+                }
+              },
+              "observer_evidence_sha256": {
+                "not": {
+                  "type": "null"
+                }
+              },
+              "rate_card_sha256": {
+                "not": {
+                  "type": "null"
+                }
+              }
+            },
+            "required": [
+              "currency",
+              "amount_decimal",
+              "rate_card_sha256",
+              "observer_evidence_sha256"
+            ]
+          }
+        }
+      ],
+      "properties": {
+        "amount_decimal": {
+          "anyOf": [
+            {
+              "pattern": "^(?:0|[1-9][0-9]{0,11})(?:\\.[0-9]{1,9})?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Amount Decimal"
+        },
+        "currency": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Z]{3}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Currency"
+        },
+        "observer_evidence_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Observer Evidence Sha256"
+        },
+        "rate_card_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Rate Card Sha256"
+        },
+        "status": {
+          "$ref": "#/$defs/ObservationState"
+        }
+      },
+      "required": [
+        "status",
+        "currency",
+        "amount_decimal",
+        "rate_card_sha256",
+        "observer_evidence_sha256"
+      ],
+      "title": "CostObservation",
+      "type": "object"
+    },
+    "DurationObservation": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "UNKNOWN"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "clock": {
+                "type": "null"
+              },
+              "milliseconds": {
+                "type": "null"
+              },
+              "observer_evidence_sha256": {
+                "type": "null"
+              },
+              "precision_milliseconds": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "milliseconds",
+              "clock",
+              "precision_milliseconds",
+              "observer_evidence_sha256"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "OBSERVED"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "clock": {
+                "not": {
+                  "type": "null"
+                }
+              },
+              "milliseconds": {
+                "not": {
+                  "type": "null"
+                }
+              },
+              "observer_evidence_sha256": {
+                "not": {
+                  "type": "null"
+                }
+              },
+              "precision_milliseconds": {
+                "not": {
+                  "type": "null"
+                }
+              }
+            },
+            "required": [
+              "milliseconds",
+              "clock",
+              "precision_milliseconds",
+              "observer_evidence_sha256"
+            ]
+          }
+        }
+      ],
+      "properties": {
+        "clock": {
+          "anyOf": [
+            {
+              "const": "MONOTONIC",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Clock"
+        },
+        "milliseconds": {
+          "anyOf": [
+            {
+              "maximum": 86400000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Milliseconds"
+        },
+        "observer_evidence_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Observer Evidence Sha256"
+        },
+        "precision_milliseconds": {
+          "anyOf": [
+            {
+              "maximum": 1000,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Precision Milliseconds"
+        },
+        "status": {
+          "$ref": "#/$defs/ObservationState"
+        }
+      },
+      "required": [
+        "status",
+        "milliseconds",
+        "clock",
+        "precision_milliseconds",
+        "observer_evidence_sha256"
+      ],
+      "title": "DurationObservation",
+      "type": "object"
+    },
+    "EffectObservation": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "UNKNOWN"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "after_state_sha256": {
+                "type": "null"
+              },
+              "before_state_sha256": {
+                "type": "null"
+              },
+              "inbox_entry_sha256": {
+                "type": "null"
+              },
+              "observer_evidence_sha256": {
+                "type": "null"
+              },
+              "outbox_entry_sha256": {
+                "type": "null"
+              },
+              "provider_event_sha256": {
+                "type": "null"
+              },
+              "provider_operation_id": {
+                "type": "null"
+              },
+              "provider_request_sha256": {
+                "type": "null"
+              },
+              "provider_response_sha256": {
+                "type": "null"
+              },
+              "provider_result": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "provider_result",
+              "provider_operation_id",
+              "outbox_entry_sha256",
+              "inbox_entry_sha256",
+              "provider_request_sha256",
+              "provider_response_sha256",
+              "before_state_sha256",
+              "after_state_sha256",
+              "provider_event_sha256",
+              "observer_evidence_sha256"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "OBSERVED"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "after_state_sha256": {
+                "not": {
+                  "type": "null"
+                }
+              },
+              "before_state_sha256": {
+                "not": {
+                  "type": "null"
+                }
+              },
+              "inbox_entry_sha256": {
+                "not": {
+                  "type": "null"
+                }
+              },
+              "observer_evidence_sha256": {
+                "not": {
+                  "type": "null"
+                }
+              },
+              "outbox_entry_sha256": {
+                "not": {
+                  "type": "null"
+                }
+              },
+              "provider_event_sha256": {
+                "not": {
+                  "type": "null"
+                }
+              },
+              "provider_operation_id": {
+                "not": {
+                  "type": "null"
+                }
+              },
+              "provider_request_sha256": {
+                "not": {
+                  "type": "null"
+                }
+              },
+              "provider_response_sha256": {
+                "not": {
+                  "type": "null"
+                }
+              },
+              "provider_result": {
+                "not": {
+                  "type": "null"
+                }
+              }
+            },
+            "required": [
+              "provider_result",
+              "provider_operation_id",
+              "outbox_entry_sha256",
+              "inbox_entry_sha256",
+              "provider_request_sha256",
+              "provider_response_sha256",
+              "before_state_sha256",
+              "after_state_sha256",
+              "provider_event_sha256",
+              "observer_evidence_sha256"
+            ]
+          }
+        }
+      ],
+      "properties": {
+        "after_state_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "After State Sha256"
+        },
+        "before_state_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Before State Sha256"
+        },
+        "effect_type": {
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "pattern": "://"
+                  },
+                  {
+                    "pattern": "^[Ff][Ii][Ll][Ee]:"
+                  },
+                  {
+                    "pattern": "^[Dd][Aa][Tt][Aa]:"
+                  },
+                  {
+                    "pattern": "^[Uu][Rr][Nn]:"
+                  }
+                ]
+              }
+            }
+          ],
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Effect Type",
+          "type": "string"
+        },
+        "idempotency_key": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Idempotency Key",
+          "type": "string"
+        },
+        "inbox_entry_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Inbox Entry Sha256"
+        },
+        "intent_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Intent Sha256",
+          "type": "string"
+        },
+        "observer_evidence_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Observer Evidence Sha256"
+        },
+        "outbox_entry_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Outbox Entry Sha256"
+        },
+        "provider_event_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Provider Event Sha256"
+        },
+        "provider_operation_id": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Provider Operation Id"
+        },
+        "provider_request_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Provider Request Sha256"
+        },
+        "provider_response_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Provider Response Sha256"
+        },
+        "provider_result": {
+          "anyOf": [
+            {
+              "enum": [
+                "TRANSPORT_ACK",
+                "PROVIDER_DECLARED_FAILURE",
+                "PENDING"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Provider Result"
+        },
+        "status": {
+          "$ref": "#/$defs/ObservationState"
+        },
+        "target": {
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "pattern": "://"
+                  },
+                  {
+                    "pattern": "^[Ff][Ii][Ll][Ee]:"
+                  },
+                  {
+                    "pattern": "^[Dd][Aa][Tt][Aa]:"
+                  },
+                  {
+                    "pattern": "^[Uu][Rr][Nn]:"
+                  }
+                ]
+              }
+            }
+          ],
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Target",
+          "type": "string"
+        }
+      },
+      "required": [
+        "effect_type",
+        "target",
+        "intent_sha256",
+        "idempotency_key",
+        "status",
+        "provider_result",
+        "provider_operation_id",
+        "outbox_entry_sha256",
+        "inbox_entry_sha256",
+        "provider_request_sha256",
+        "provider_response_sha256",
+        "before_state_sha256",
+        "after_state_sha256",
+        "provider_event_sha256",
+        "observer_evidence_sha256"
+      ],
+      "title": "EffectObservation",
+      "type": "object"
+    },
+    "ExecutionReceiptPredicate": {
+      "additionalProperties": false,
+      "properties": {
+        "attempt": {
+          "$ref": "#/$defs/AttemptObservation"
+        },
+        "case_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Case Id",
+          "type": "string"
+        },
+        "certificate_ref": {
+          "$ref": "#/$defs/ActionCertificateReference"
+        },
+        "cost": {
+          "$ref": "#/$defs/CostObservation"
+        },
+        "duration": {
+          "$ref": "#/$defs/DurationObservation"
+        },
+        "effect": {
+          "$ref": "#/$defs/EffectObservation"
+        },
+        "execution_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Execution Id",
+          "type": "string"
+        },
+        "executor_workload": {
+          "$ref": "#/$defs/PrincipalBinding"
+        },
+        "inputs": {
+          "items": {
+            "$ref": "#/$defs/ArtifactObservation"
+          },
+          "maxItems": 128,
+          "minItems": 1,
+          "title": "Inputs",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "issued_at": {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+          "title": "Issued At",
+          "type": "string"
+        },
+        "model_invocation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelInvocationObservation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "operation": {
+          "discriminator": {
+            "mapping": {
+              "SKILL": "#/$defs/SkillOperationObservation",
+              "TOOL": "#/$defs/ToolOperationObservation"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/ToolOperationObservation"
+            },
+            {
+              "$ref": "#/$defs/SkillOperationObservation"
+            }
+          ],
+          "title": "Operation"
+        },
+        "outputs": {
+          "items": {
+            "$ref": "#/$defs/ArtifactObservation"
+          },
+          "maxItems": 128,
+          "title": "Outputs",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "producer": {
+          "$ref": "#/$defs/ProducerDeclaration"
+        },
+        "protocol": {
+          "discriminator": {
+            "mapping": {
+              "A2A": "#/$defs/A2aProtocolObservation",
+              "LOCAL": "#/$defs/LocalProtocolObservation",
+              "MCP": "#/$defs/McpProtocolObservation"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/LocalProtocolObservation"
+            },
+            {
+              "$ref": "#/$defs/McpProtocolObservation"
+            },
+            {
+              "$ref": "#/$defs/A2aProtocolObservation"
+            }
+          ],
+          "title": "Protocol"
+        },
+        "provenance": {
+          "items": {
+            "$ref": "#/$defs/ProvenanceReference"
+          },
+          "maxItems": 128,
+          "minItems": 1,
+          "title": "Provenance",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "receipt_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Receipt Id",
+          "type": "string"
+        },
+        "runtime": {
+          "$ref": "#/$defs/RuntimeObservation"
+        },
+        "task_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Task Id",
+          "type": "string"
+        },
+        "tenant_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Tenant Id",
+          "type": "string"
+        },
+        "trace": {
+          "$ref": "#/$defs/TraceObservation"
+        },
+        "version": {
+          "const": "0.1",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "version",
+        "receipt_id",
+        "execution_id",
+        "task_id",
+        "issued_at",
+        "certificate_ref",
+        "tenant_id",
+        "case_id",
+        "producer",
+        "attempt",
+        "executor_workload",
+        "runtime",
+        "protocol",
+        "trace",
+        "inputs",
+        "outputs",
+        "operation",
+        "model_invocation",
+        "effect",
+        "cost",
+        "duration",
+        "provenance"
+      ],
+      "title": "ExecutionReceiptPredicate",
+      "type": "object",
+      "x-proofflow-runtime-invariants": [
+        "input artifact IDs and output artifact IDs are unique and disjoint",
+        "COMPLETED attempts have at least one output artifact",
+        "issued_at is greater than or equal to attempt.ended_at",
+        "certificate_ref.intent_sha256 equals effect.intent_sha256",
+        "protocol and operation request/response digests match",
+        "LOCAL handler_name and MCP tool_name match operation.name",
+        "A2A protocol task_id matches the receipt task_id",
+        "an OBSERVED provider request digest matches operation.request_sha256"
+      ]
+    },
+    "InTotoSubject": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "$ref": "#/$defs/Sha256DigestSet"
+        },
+        "name": {
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "pattern": "://"
+                  },
+                  {
+                    "pattern": "^[Ff][Ii][Ll][Ee]:"
+                  },
+                  {
+                    "pattern": "^[Dd][Aa][Tt][Aa]:"
+                  },
+                  {
+                    "pattern": "^[Uu][Rr][Nn]:"
+                  }
+                ]
+              }
+            }
+          ],
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "digest"
+      ],
+      "title": "InTotoSubject",
+      "type": "object"
+    },
+    "LocalProtocolObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "handler_name": {
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "pattern": "://"
+                  },
+                  {
+                    "pattern": "^[Ff][Ii][Ll][Ee]:"
+                  },
+                  {
+                    "pattern": "^[Dd][Aa][Tt][Aa]:"
+                  },
+                  {
+                    "pattern": "^[Uu][Rr][Nn]:"
+                  }
+                ]
+              }
+            }
+          ],
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Handler Name",
+          "type": "string"
+        },
+        "kind": {
+          "const": "LOCAL",
+          "title": "Kind",
+          "type": "string"
+        },
+        "request_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Request Sha256",
+          "type": "string"
+        },
+        "response_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Response Sha256",
+          "type": "string"
+        },
+        "version": {
+          "const": "proofflow.local/v0.1",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "version",
+        "handler_name",
+        "request_sha256",
+        "response_sha256"
+      ],
+      "title": "LocalProtocolObservation",
+      "type": "object"
+    },
+    "McpProtocolObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "MCP",
+          "title": "Kind",
+          "type": "string"
+        },
+        "request_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Request Sha256",
+          "type": "string"
+        },
+        "response_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Response Sha256",
+          "type": "string"
+        },
+        "server_name": {
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "pattern": "://"
+                  },
+                  {
+                    "pattern": "^[Ff][Ii][Ll][Ee]:"
+                  },
+                  {
+                    "pattern": "^[Dd][Aa][Tt][Aa]:"
+                  },
+                  {
+                    "pattern": "^[Uu][Rr][Nn]:"
+                  }
+                ]
+              }
+            }
+          ],
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Server Name",
+          "type": "string"
+        },
+        "tool_name": {
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "pattern": "://"
+                  },
+                  {
+                    "pattern": "^[Ff][Ii][Ll][Ee]:"
+                  },
+                  {
+                    "pattern": "^[Dd][Aa][Tt][Aa]:"
+                  },
+                  {
+                    "pattern": "^[Uu][Rr][Nn]:"
+                  }
+                ]
+              }
+            }
+          ],
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Tool Name",
+          "type": "string"
+        },
+        "version": {
+          "const": "2026-07-28",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "version",
+        "server_name",
+        "tool_name",
+        "request_sha256",
+        "response_sha256"
+      ],
+      "title": "McpProtocolObservation",
+      "type": "object"
+    },
+    "ModelInvocationObservation": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "inference_status": {
+                "const": "UNKNOWN"
+              }
+            },
+            "required": [
+              "inference_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "inference_observer_evidence_sha256": {
+                "type": "null"
+              },
+              "request_sha256": {
+                "type": "null"
+              },
+              "response_sha256": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "request_sha256",
+              "response_sha256",
+              "inference_observer_evidence_sha256"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "inference_status": {
+                "const": "OBSERVED"
+              }
+            },
+            "required": [
+              "inference_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "inference_observer_evidence_sha256": {
+                "not": {
+                  "type": "null"
+                }
+              },
+              "request_sha256": {
+                "not": {
+                  "type": "null"
+                }
+              },
+              "response_sha256": {
+                "not": {
+                  "type": "null"
+                }
+              }
+            },
+            "required": [
+              "request_sha256",
+              "response_sha256",
+              "inference_observer_evidence_sha256"
+            ]
+          }
+        }
+      ],
+      "properties": {
+        "inference_observer_evidence_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Inference Observer Evidence Sha256"
+        },
+        "inference_status": {
+          "$ref": "#/$defs/ObservationState"
+        },
+        "invocation_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Invocation Id",
+          "type": "string"
+        },
+        "model": {
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "pattern": "://"
+                  },
+                  {
+                    "pattern": "^[Ff][Ii][Ll][Ee]:"
+                  },
+                  {
+                    "pattern": "^[Dd][Aa][Tt][Aa]:"
+                  },
+                  {
+                    "pattern": "^[Uu][Rr][Nn]:"
+                  }
+                ]
+              }
+            }
+          ],
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Model",
+          "type": "string"
+        },
+        "model_revision": {
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "pattern": "://"
+                  },
+                  {
+                    "pattern": "^[Ff][Ii][Ll][Ee]:"
+                  },
+                  {
+                    "pattern": "^[Dd][Aa][Tt][Aa]:"
+                  },
+                  {
+                    "pattern": "^[Uu][Rr][Nn]:"
+                  }
+                ]
+              }
+            }
+          ],
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Model Revision",
+          "type": "string"
+        },
+        "provider": {
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "pattern": "://"
+                  },
+                  {
+                    "pattern": "^[Ff][Ii][Ll][Ee]:"
+                  },
+                  {
+                    "pattern": "^[Dd][Aa][Tt][Aa]:"
+                  },
+                  {
+                    "pattern": "^[Uu][Rr][Nn]:"
+                  }
+                ]
+              }
+            }
+          ],
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Provider",
+          "type": "string"
+        },
+        "request_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Request Sha256"
+        },
+        "response_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Response Sha256"
+        },
+        "usage": {
+          "$ref": "#/$defs/TokenUsageObservation"
+        }
+      },
+      "required": [
+        "invocation_id",
+        "provider",
+        "model",
+        "model_revision",
+        "inference_status",
+        "request_sha256",
+        "response_sha256",
+        "inference_observer_evidence_sha256",
+        "usage"
+      ],
+      "title": "ModelInvocationObservation",
+      "type": "object"
+    },
+    "ObservationState": {
+      "enum": [
+        "OBSERVED",
+        "UNKNOWN"
+      ],
+      "title": "ObservationState",
+      "type": "string"
+    },
+    "PrincipalBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "identity_issuer": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Identity Issuer",
+          "type": "string"
+        },
+        "principal_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Principal Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "principal_id",
+        "identity_issuer"
+      ],
+      "title": "PrincipalBinding",
+      "type": "object"
+    },
+    "ProducerDeclaration": {
+      "additionalProperties": false,
+      "properties": {
+        "observer_principals": {
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+            "type": "string"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Observer Principals",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "producer_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Producer Id",
+          "type": "string"
+        },
+        "software_name": {
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "pattern": "://"
+                  },
+                  {
+                    "pattern": "^[Ff][Ii][Ll][Ee]:"
+                  },
+                  {
+                    "pattern": "^[Dd][Aa][Tt][Aa]:"
+                  },
+                  {
+                    "pattern": "^[Uu][Rr][Nn]:"
+                  }
+                ]
+              }
+            }
+          ],
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Software Name",
+          "type": "string"
+        },
+        "software_version": {
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "pattern": "://"
+                  },
+                  {
+                    "pattern": "^[Ff][Ii][Ll][Ee]:"
+                  },
+                  {
+                    "pattern": "^[Dd][Aa][Tt][Aa]:"
+                  },
+                  {
+                    "pattern": "^[Uu][Rr][Nn]:"
+                  }
+                ]
+              }
+            }
+          ],
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Software Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "producer_id",
+        "software_name",
+        "software_version",
+        "observer_principals"
+      ],
+      "title": "ProducerDeclaration",
+      "type": "object"
+    },
+    "ProvenanceReference": {
+      "additionalProperties": false,
+      "properties": {
+        "media_type": {
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "pattern": "://"
+                  },
+                  {
+                    "pattern": "^[Ff][Ii][Ll][Ee]:"
+                  },
+                  {
+                    "pattern": "^[Dd][Aa][Tt][Aa]:"
+                  },
+                  {
+                    "pattern": "^[Uu][Rr][Nn]:"
+                  }
+                ]
+              }
+            }
+          ],
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Media Type",
+          "type": "string"
+        },
+        "name": {
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "pattern": "://"
+                  },
+                  {
+                    "pattern": "^[Ff][Ii][Ll][Ee]:"
+                  },
+                  {
+                    "pattern": "^[Dd][Aa][Tt][Aa]:"
+                  },
+                  {
+                    "pattern": "^[Uu][Rr][Nn]:"
+                  }
+                ]
+              }
+            }
+          ],
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "media_type",
+        "sha256"
+      ],
+      "title": "ProvenanceReference",
+      "type": "object"
+    },
+    "RuntimeObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "instance_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Instance Id",
+          "type": "string"
+        },
+        "runtime_build_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Runtime Build Sha256",
+          "type": "string"
+        },
+        "runtime_name": {
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "pattern": "://"
+                  },
+                  {
+                    "pattern": "^[Ff][Ii][Ll][Ee]:"
+                  },
+                  {
+                    "pattern": "^[Dd][Aa][Tt][Aa]:"
+                  },
+                  {
+                    "pattern": "^[Uu][Rr][Nn]:"
+                  }
+                ]
+              }
+            }
+          ],
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Runtime Name",
+          "type": "string"
+        },
+        "runtime_version": {
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "pattern": "://"
+                  },
+                  {
+                    "pattern": "^[Ff][Ii][Ll][Ee]:"
+                  },
+                  {
+                    "pattern": "^[Dd][Aa][Tt][Aa]:"
+                  },
+                  {
+                    "pattern": "^[Uu][Rr][Nn]:"
+                  }
+                ]
+              }
+            }
+          ],
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Runtime Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "runtime_name",
+        "runtime_version",
+        "runtime_build_sha256",
+        "instance_id"
+      ],
+      "title": "RuntimeObservation",
+      "type": "object"
+    },
+    "Sha256DigestSet": {
+      "additionalProperties": false,
+      "properties": {
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sha256"
+      ],
+      "title": "Sha256DigestSet",
+      "type": "object"
+    },
+    "SkillOperationObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "input_schema_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Input Schema Sha256",
+          "type": "string"
+        },
+        "kind": {
+          "const": "SKILL",
+          "title": "Kind",
+          "type": "string"
+        },
+        "name": {
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "pattern": "://"
+                  },
+                  {
+                    "pattern": "^[Ff][Ii][Ll][Ee]:"
+                  },
+                  {
+                    "pattern": "^[Dd][Aa][Tt][Aa]:"
+                  },
+                  {
+                    "pattern": "^[Uu][Rr][Nn]:"
+                  }
+                ]
+              }
+            }
+          ],
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "operation_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "output_schema_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Output Schema Sha256",
+          "type": "string"
+        },
+        "request_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Request Sha256",
+          "type": "string"
+        },
+        "response_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Response Sha256",
+          "type": "string"
+        },
+        "version": {
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "pattern": "://"
+                  },
+                  {
+                    "pattern": "^[Ff][Ii][Ll][Ee]:"
+                  },
+                  {
+                    "pattern": "^[Dd][Aa][Tt][Aa]:"
+                  },
+                  {
+                    "pattern": "^[Uu][Rr][Nn]:"
+                  }
+                ]
+              }
+            }
+          ],
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "operation_id",
+        "name",
+        "version",
+        "input_schema_sha256",
+        "output_schema_sha256",
+        "request_sha256",
+        "response_sha256"
+      ],
+      "title": "SkillOperationObservation",
+      "type": "object"
+    },
+    "TokenUsageObservation": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "UNKNOWN"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "input_tokens": {
+                "type": "null"
+              },
+              "observer_evidence_sha256": {
+                "type": "null"
+              },
+              "output_tokens": {
+                "type": "null"
+              },
+              "total_tokens": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "input_tokens",
+              "output_tokens",
+              "total_tokens",
+              "observer_evidence_sha256"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "OBSERVED"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "input_tokens": {
+                "not": {
+                  "type": "null"
+                }
+              },
+              "observer_evidence_sha256": {
+                "not": {
+                  "type": "null"
+                }
+              },
+              "output_tokens": {
+                "not": {
+                  "type": "null"
+                }
+              },
+              "total_tokens": {
+                "not": {
+                  "type": "null"
+                }
+              }
+            },
+            "required": [
+              "input_tokens",
+              "output_tokens",
+              "total_tokens",
+              "observer_evidence_sha256"
+            ]
+          }
+        }
+      ],
+      "properties": {
+        "input_tokens": {
+          "anyOf": [
+            {
+              "maximum": 10000000000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Input Tokens"
+        },
+        "observer_evidence_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Observer Evidence Sha256"
+        },
+        "output_tokens": {
+          "anyOf": [
+            {
+              "maximum": 10000000000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Output Tokens"
+        },
+        "status": {
+          "$ref": "#/$defs/ObservationState"
+        },
+        "total_tokens": {
+          "anyOf": [
+            {
+              "maximum": 20000000000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Total Tokens"
+        }
+      },
+      "required": [
+        "status",
+        "input_tokens",
+        "output_tokens",
+        "total_tokens",
+        "observer_evidence_sha256"
+      ],
+      "title": "TokenUsageObservation",
+      "type": "object",
+      "x-proofflow-runtime-invariants": [
+        "for OBSERVED usage, total_tokens equals input_tokens plus output_tokens"
+      ]
+    },
+    "ToolOperationObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "input_schema_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Input Schema Sha256",
+          "type": "string"
+        },
+        "kind": {
+          "const": "TOOL",
+          "title": "Kind",
+          "type": "string"
+        },
+        "name": {
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "pattern": "://"
+                  },
+                  {
+                    "pattern": "^[Ff][Ii][Ll][Ee]:"
+                  },
+                  {
+                    "pattern": "^[Dd][Aa][Tt][Aa]:"
+                  },
+                  {
+                    "pattern": "^[Uu][Rr][Nn]:"
+                  }
+                ]
+              }
+            }
+          ],
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "operation_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "output_schema_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Output Schema Sha256",
+          "type": "string"
+        },
+        "request_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Request Sha256",
+          "type": "string"
+        },
+        "response_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Response Sha256",
+          "type": "string"
+        },
+        "version": {
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "pattern": "://"
+                  },
+                  {
+                    "pattern": "^[Ff][Ii][Ll][Ee]:"
+                  },
+                  {
+                    "pattern": "^[Dd][Aa][Tt][Aa]:"
+                  },
+                  {
+                    "pattern": "^[Uu][Rr][Nn]:"
+                  }
+                ]
+              }
+            }
+          ],
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "operation_id",
+        "name",
+        "version",
+        "input_schema_sha256",
+        "output_schema_sha256",
+        "request_sha256",
+        "response_sha256"
+      ],
+      "title": "ToolOperationObservation",
+      "type": "object"
+    },
+    "TraceObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "conventions_revision": {
+          "const": "proofflow.agent-proof/v0.1",
+          "title": "Conventions Revision",
+          "type": "string"
+        },
+        "linked_span_ids": {
+          "default": [],
+          "items": {
+            "allOf": [
+              {
+                "not": {
+                  "const": "0000000000000000"
+                }
+              }
+            ],
+            "type": "string"
+          },
+          "maxItems": 64,
+          "title": "Linked Span Ids",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "observer_evidence_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Observer Evidence Sha256",
+          "type": "string"
+        },
+        "otel_schema_uri": {
+          "const": "https://opentelemetry.io/schemas/1.39.0",
+          "title": "Otel Schema Uri",
+          "type": "string"
+        },
+        "parent_span_id": {
+          "allOf": [
+            {
+              "not": {
+                "const": "0000000000000000"
+              }
+            }
+          ],
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{16}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Span Id"
+        },
+        "span_id": {
+          "allOf": [
+            {
+              "not": {
+                "const": "0000000000000000"
+              }
+            }
+          ],
+          "pattern": "^[0-9a-f]{16}$",
+          "title": "Span Id",
+          "type": "string"
+        },
+        "trace_id": {
+          "allOf": [
+            {
+              "not": {
+                "const": "00000000000000000000000000000000"
+              }
+            }
+          ],
+          "pattern": "^[0-9a-f]{32}$",
+          "title": "Trace Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "trace_id",
+        "span_id",
+        "otel_schema_uri",
+        "conventions_revision",
+        "observer_evidence_sha256"
+      ],
+      "title": "TraceObservation",
+      "type": "object",
+      "x-proofflow-runtime-invariants": [
+        "parent_span_id and linked_span_ids never equal span_id"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "_type": {
+      "const": "https://in-toto.io/Statement/v1",
+      "title": "Type",
+      "type": "string"
+    },
+    "predicate": {
+      "$ref": "#/$defs/ExecutionReceiptPredicate"
+    },
+    "predicateType": {
+      "const": "https://proofflow.dev/attestations/execution-receipt/v0.1",
+      "title": "Predicatetype",
+      "type": "string"
+    },
+    "subject": {
+      "items": {
+        "$ref": "#/$defs/InTotoSubject"
+      },
+      "maxItems": 64,
+      "title": "Subject",
+      "type": "array",
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "_type",
+    "subject",
+    "predicateType",
+    "predicate"
+  ],
+  "title": "ExecutionReceiptStatement",
+  "type": "object",
+  "x-proofflow-runtime-invariants": [
+    "in-toto subjects exactly match predicate output artifact IDs and SHA-256 digests"
+  ]
+}
