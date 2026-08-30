@@ -12,6 +12,7 @@ from typing import Any, NoReturn
 from proofflow import __version__
 from proofflow.action_certificate import (
     MAX_ENVELOPE_BYTES,
+    ActionCertificateVerificationResult,
     ApprovalRevocationSnapshot,
     ExpectedBinding,
     InMemoryReplayLedger,
@@ -23,6 +24,11 @@ from proofflow.action_certificate import (
     verify_action_certificate,
 )
 from proofflow.demo_init import DemoInitializationError, initialize_demo
+from proofflow.execution_receipt import (
+    ExpectedExecutionBinding,
+    InMemoryReceiptIndex,
+    verify_execution_receipt,
+)
 from proofflow.models import ApprovalDecision
 from proofflow.reference_runtime import (
     ReferenceRunBlocked,
@@ -106,6 +112,25 @@ def _parser() -> argparse.ArgumentParser:
         help="explicit timezone-aware RFC 3339 verification time",
     )
     certificate_verify.add_argument("--ledger-capacity", type=int, default=10_000)
+
+    receipt = commands.add_parser(
+        "receipt", help="verify an observer-signed ExecutionReceipt without executing an effect"
+    )
+    receipt_commands = receipt.add_subparsers(dest="receipt_command", required=True)
+    receipt_verify = receipt_commands.add_parser(
+        "verify", help="verify and process-locally index one ExecutionReceipt"
+    )
+    receipt_verify.add_argument("--envelope", type=Path, required=True)
+    receipt_verify.add_argument("--trust-policy", type=Path, required=True)
+    receipt_verify.add_argument("--expected-binding", type=Path, required=True)
+    receipt_verify.add_argument("--action-certificate-envelope", type=Path, required=True)
+    receipt_verify.add_argument("--action-certificate-verification", type=Path, required=True)
+    receipt_verify.add_argument(
+        "--at",
+        required=True,
+        help="explicit timezone-aware RFC 3339 verification time",
+    )
+    receipt_verify.add_argument("--index-capacity", type=int, default=10_000)
 
     prepare = commands.add_parser("prepare", help="prepare and stop at the Human Gate")
     prepare.add_argument("--manifest", type=Path, required=True)
@@ -222,6 +247,49 @@ def _verify_certificate_command(args: argparse.Namespace) -> int:
     return 3
 
 
+def _verify_receipt_command(args: argparse.Namespace) -> int:
+    envelope = _read_certificate_envelope(args.envelope)
+    action_certificate_envelope = _read_certificate_envelope(args.action_certificate_envelope)
+    trust_policy = parse_json_model(
+        _read_bounded_local_file(args.trust_policy, limit=256 * 1024, label="trust policy"),
+        TrustPolicy,
+        "trust policy",
+    )
+    expected_binding = parse_json_model(
+        _read_bounded_local_file(
+            args.expected_binding,
+            limit=256 * 1024,
+            label="expected execution binding",
+        ),
+        ExpectedExecutionBinding,
+        "expected execution binding",
+    )
+    action_verification = parse_json_model(
+        _read_bounded_local_file(
+            args.action_certificate_verification,
+            limit=128 * 1024,
+            label="ActionCertificate verification result",
+        ),
+        ActionCertificateVerificationResult,
+        "ActionCertificate verification result",
+    )
+    result = verify_execution_receipt(
+        envelope,
+        trust_policy=trust_policy,
+        expected_binding=expected_binding,
+        action_certificate_envelope_bytes=action_certificate_envelope,
+        action_certificate_verification=action_verification,
+        receipt_index=InMemoryReceiptIndex(capacity=args.index_capacity),
+        now=_parse_verification_time(args.at),
+    )
+    print(json.dumps(result.model_dump(mode="json"), ensure_ascii=False, indent=2))
+    if result.status == VerificationStatus.ACCEPT:
+        return 0
+    if result.status == VerificationStatus.REJECT:
+        return 1
+    return 3
+
+
 def main() -> int:
     args = _parser().parse_args()
     output: dict[str, Any]
@@ -236,6 +304,8 @@ def main() -> int:
             }
         elif args.command == "certificate":
             return _verify_certificate_command(args)
+        elif args.command == "receipt":
+            return _verify_receipt_command(args)
         elif args.command == "prepare":
             state = prepare_reference_run(
                 manifest_path=args.manifest,

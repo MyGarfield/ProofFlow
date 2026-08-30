@@ -1,15 +1,60 @@
 {
   "$defs": {
+    "ExecutionObserverScope": {
+      "enum": [
+        "RUNTIME_EXECUTION",
+        "ARTIFACT_IO",
+        "PROTOCOL_EXCHANGE",
+        "TRACE_EXPORT",
+        "INFERENCE_RESPONSE",
+        "EFFECT_ATTEMPT",
+        "METRICS"
+      ],
+      "title": "ExecutionObserverScope",
+      "type": "string"
+    },
     "TrustPurpose": {
       "enum": [
         "ACTION_ISSUER",
-        "HUMAN_APPROVAL"
+        "HUMAN_APPROVAL",
+        "EXECUTION_OBSERVER"
       ],
       "title": "TrustPurpose",
       "type": "string"
     },
     "TrustRoot": {
       "additionalProperties": false,
+      "allOf": [
+        {
+          "else": {
+            "properties": {
+              "execution_observer_scopes": {
+                "maxItems": 0
+              }
+            }
+          },
+          "if": {
+            "properties": {
+              "purpose": {
+                "const": "EXECUTION_OBSERVER"
+              }
+            },
+            "required": [
+              "purpose"
+            ]
+          },
+          "then": {
+            "properties": {
+              "execution_observer_scopes": {
+                "minItems": 7
+              }
+            },
+            "required": [
+              "execution_observer_scopes"
+            ]
+          }
+        }
+      ],
       "properties": {
         "algorithm": {
           "const": "Ed25519",
@@ -23,6 +68,16 @@
           "maxItems": 16,
           "minItems": 1,
           "title": "Audiences",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "execution_observer_scopes": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ExecutionObserverScope"
+          },
+          "maxItems": 7,
+          "title": "Execution Observer Scopes",
           "type": "array",
           "uniqueItems": true
         },
@@ -69,7 +124,10 @@
         },
         "predicate_types": {
           "items": {
-            "const": "https://proofflow.dev/attestations/action-certificate/v0.1",
+            "enum": [
+              "https://proofflow.dev/attestations/action-certificate/v0.1",
+              "https://proofflow.dev/attestations/execution-receipt/v0.1"
+            ],
             "type": "string"
           },
           "maxItems": 4,
@@ -133,7 +191,8 @@
       "type": "object",
       "x-proofflow-runtime-invariants": [
         "not_after is later than not_before",
-        "revoked_at, when present, is evaluated against the operator verification time"
+        "revoked_at, when present, is evaluated against the operator verification time",
+        "EXECUTION_OBSERVER roots contain all seven v0.1 observer scopes"
       ]
     }
   },
@@ -155,7 +214,10 @@
           "allowed_approval_principals": {
             "minItems": 1
           }
-        }
+        },
+        "required": [
+          "allowed_approval_principals"
+        ]
       }
     }
   ],
@@ -196,6 +258,16 @@
       "type": "array",
       "uniqueItems": true
     },
+    "allowed_execution_observer_principals": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 64,
+      "title": "Allowed Execution Observer Principals",
+      "type": "array",
+      "uniqueItems": true
+    },
     "allowed_human_principals": {
       "items": {
         "type": "string"
@@ -208,7 +280,10 @@
     },
     "allowed_predicate_types": {
       "items": {
-        "const": "https://proofflow.dev/attestations/action-certificate/v0.1",
+        "enum": [
+          "https://proofflow.dev/attestations/action-certificate/v0.1",
+          "https://proofflow.dev/attestations/execution-receipt/v0.1"
+        ],
         "type": "string"
       },
       "maxItems": 4,
@@ -240,6 +315,13 @@
     "approval_required": {
       "title": "Approval Required",
       "type": "boolean"
+    },
+    "execution_observer_threshold": {
+      "default": 1,
+      "maximum": 16,
+      "minimum": 1,
+      "title": "Execution Observer Threshold",
+      "type": "integer"
     },
     "human_approval_threshold": {
       "maximum": 16,

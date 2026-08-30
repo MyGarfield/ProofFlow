@@ -32,6 +32,14 @@ from proofflow.contracts import (
     RuleRetrieveOutput,
     RuleRetrieveToolCall,
 )
+from proofflow.execution_receipt import (
+    REJECT_RECEIPT_REASONS,
+    UNKNOWN_RECEIPT_REASONS,
+    ExecutionReceiptPredicate,
+    ExecutionReceiptStatement,
+    ExecutionReceiptVerificationResult,
+    ExpectedExecutionBinding,
+)
 from proofflow.models import (
     ApprovalRecord,
     ApprovalRequest,
@@ -60,6 +68,10 @@ MODELS: dict[str, type[BaseModel]] = {
     "action-certificate-statement-v0p1": ActionCertificateStatement,
     "action-certificate-trust-policy-v0p1": TrustPolicy,
     "action-certificate-verification-result-v0p1": ActionCertificateVerificationResult,
+    "execution-receipt-expected-binding-v0p1": ExpectedExecutionBinding,
+    "execution-receipt-predicate-v0p1": ExecutionReceiptPredicate,
+    "execution-receipt-statement-v0p1": ExecutionReceiptStatement,
+    "execution-receipt-verification-result-v0p1": ExecutionReceiptVerificationResult,
     "approval-record": ApprovalRecord,
     "approval-request": ApprovalRequest,
     "audit-report": AuditReport,
@@ -184,7 +196,7 @@ def _patch_verification_result(node: dict[str, Any]) -> None:
                     "properties": {
                         "reserved": reserved,
                         "reason_codes": reason_codes,
-                    }
+                    },
                 },
             }
         )
@@ -207,6 +219,7 @@ def _patch_action_certificate_schema(schema: dict[str, Any]) -> dict[str, Any]:
             "allowed_workload_principals",
             "allowed_action_issuer_principals",
             "allowed_approval_principals",
+            "allowed_execution_observer_principals",
             "allowed_audiences",
             "allowed_predicate_types",
             "roots",
@@ -218,7 +231,10 @@ def _patch_action_certificate_schema(schema: dict[str, Any]) -> dict[str, Any]:
                     "properties": {"approval_required": {"const": True}},
                     "required": ["approval_required"],
                 },
-                "then": {"properties": {"allowed_approval_principals": {"minItems": 1}}},
+                "then": {
+                    "required": ["allowed_approval_principals"],
+                    "properties": {"allowed_approval_principals": {"minItems": 1}},
+                },
             }
         )
         trust_policy["x-proofflow-runtime-invariants"] = [
@@ -227,7 +243,12 @@ def _patch_action_certificate_schema(schema: dict[str, Any]) -> dict[str, Any]:
 
     trust_root = _schema_node(schema, "TrustRoot")
     if trust_root is not None:
-        for property_name in ("keyid_hints", "audiences", "predicate_types"):
+        for property_name in (
+            "keyid_hints",
+            "audiences",
+            "predicate_types",
+            "execution_observer_scopes",
+        ):
             _require_unique_array(trust_root, property_name)
         root_properties = _properties(trust_root)
         root_properties["public_key_b64"]["pattern"] = r"^[A-Za-z0-9+/]{42}[AEIMQUYcgkosw048]=$"
@@ -236,9 +257,23 @@ def _patch_action_certificate_schema(schema: dict[str, Any]) -> dict[str, Any]:
             raise ValueError("TrustRoot.keyid_hints must have an item schema")
         _forbid_remote_reference(keyid_item)
         keyid_item["maxLength"] = 128
+        trust_root.setdefault("allOf", []).append(
+            {
+                "if": {
+                    "properties": {"purpose": {"const": "EXECUTION_OBSERVER"}},
+                    "required": ["purpose"],
+                },
+                "then": {
+                    "required": ["execution_observer_scopes"],
+                    "properties": {"execution_observer_scopes": {"minItems": 7}},
+                },
+                "else": {"properties": {"execution_observer_scopes": {"maxItems": 0}}},
+            }
+        )
         trust_root["x-proofflow-runtime-invariants"] = [
             "not_after is later than not_before",
             "revoked_at, when present, is evaluated against the operator verification time",
+            "EXECUTION_OBSERVER roots contain all seven v0.1 observer scopes",
         ]
 
     signature = _schema_node(schema, "DsseSignature")
@@ -318,8 +353,283 @@ def _patch_action_certificate_schema(schema: dict[str, Any]) -> dict[str, Any]:
     return schema
 
 
+def _require_null_when_unknown_and_values_when_observed(
+    node: dict[str, Any],
+    *,
+    status_property: str,
+    value_properties: tuple[str, ...],
+) -> None:
+    node.setdefault("allOf", []).extend(
+        (
+            {
+                "if": {
+                    "properties": {status_property: {"const": "UNKNOWN"}},
+                    "required": [status_property],
+                },
+                "then": {
+                    "required": list(value_properties),
+                    "properties": {
+                        property_name: {"type": "null"} for property_name in value_properties
+                    },
+                },
+            },
+            {
+                "if": {
+                    "properties": {status_property: {"const": "OBSERVED"}},
+                    "required": [status_property],
+                },
+                "then": {
+                    "required": list(value_properties),
+                    "properties": {
+                        property_name: {"not": {"type": "null"}}
+                        for property_name in value_properties
+                    },
+                },
+            },
+        )
+    )
+
+
+def _patch_execution_receipt_schema(schema: dict[str, Any]) -> dict[str, Any]:
+    producer = _schema_node(schema, "ProducerDeclaration")
+    if producer is not None:
+        _require_unique_array(producer, "observer_principals")
+        observer_items = _properties(producer)["observer_principals"].get("items")
+        if not isinstance(observer_items, dict):
+            raise ValueError("ProducerDeclaration.observer_principals must have an item schema")
+        observer_items.update({"pattern": r"^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$"})
+
+    trace = _schema_node(schema, "TraceObservation")
+    if trace is not None:
+        _require_unique_array(trace, "linked_span_ids")
+        trace_properties = _properties(trace)
+        trace_properties["trace_id"].setdefault("allOf", []).append({"not": {"const": "0" * 32}})
+        for property_name in ("span_id", "parent_span_id"):
+            trace_properties[property_name].setdefault("allOf", []).append(
+                {"not": {"const": "0" * 16}}
+            )
+        linked_items = trace_properties["linked_span_ids"].get("items")
+        if not isinstance(linked_items, dict):
+            raise ValueError("TraceObservation.linked_span_ids needs item schema")
+        linked_items.setdefault("allOf", []).append({"not": {"const": "0" * 16}})
+        trace["x-proofflow-runtime-invariants"] = [
+            "parent_span_id and linked_span_ids never equal span_id"
+        ]
+
+    for title, observation_fields in (
+        (
+            "TokenUsageObservation",
+            ("input_tokens", "output_tokens", "total_tokens", "observer_evidence_sha256"),
+        ),
+        (
+            "EffectObservation",
+            (
+                "provider_result",
+                "provider_operation_id",
+                "outbox_entry_sha256",
+                "inbox_entry_sha256",
+                "provider_request_sha256",
+                "provider_response_sha256",
+                "before_state_sha256",
+                "after_state_sha256",
+                "provider_event_sha256",
+                "observer_evidence_sha256",
+            ),
+        ),
+        (
+            "CostObservation",
+            (
+                "currency",
+                "amount_decimal",
+                "rate_card_sha256",
+                "observer_evidence_sha256",
+            ),
+        ),
+        (
+            "DurationObservation",
+            (
+                "milliseconds",
+                "clock",
+                "precision_milliseconds",
+                "observer_evidence_sha256",
+            ),
+        ),
+    ):
+        node = _schema_node(schema, title)
+        if node is not None:
+            _require_null_when_unknown_and_values_when_observed(
+                node,
+                status_property="status",
+                value_properties=observation_fields,
+            )
+
+    usage = _schema_node(schema, "TokenUsageObservation")
+    if usage is not None:
+        usage["x-proofflow-runtime-invariants"] = [
+            "for OBSERVED usage, total_tokens equals input_tokens plus output_tokens"
+        ]
+
+    invocation = _schema_node(schema, "ModelInvocationObservation")
+    if invocation is not None:
+        _require_null_when_unknown_and_values_when_observed(
+            invocation,
+            status_property="inference_status",
+            value_properties=(
+                "request_sha256",
+                "response_sha256",
+                "inference_observer_evidence_sha256",
+            ),
+        )
+
+    attempt = _schema_node(schema, "AttemptObservation")
+    if attempt is not None:
+        attempt_properties = _properties(attempt)
+        attempt_properties["started_at"]["pattern"] = UTC_RFC3339_Z_PATTERN
+        attempt_properties["ended_at"]["pattern"] = UTC_RFC3339_Z_PATTERN
+        attempt["x-proofflow-runtime-invariants"] = [
+            "ended_at is greater than or equal to started_at"
+        ]
+
+    certificate_reference = _schema_node(schema, "ActionCertificateReference")
+    if certificate_reference is not None:
+        reference_properties = _properties(certificate_reference)
+        reference_properties["verification_at"]["pattern"] = UTC_RFC3339_Z_PATTERN
+        reference_properties["reserved_at"]["pattern"] = UTC_RFC3339_Z_PATTERN
+        certificate_reference["x-proofflow-runtime-invariants"] = [
+            "reserved_at is greater than or equal to verification_at"
+        ]
+
+    predicate = _schema_node(schema, "ExecutionReceiptPredicate")
+    if predicate is not None:
+        for property_name in ("inputs", "outputs", "provenance"):
+            _require_unique_array(predicate, property_name)
+        _properties(predicate)["issued_at"]["pattern"] = UTC_RFC3339_Z_PATTERN
+        predicate["x-proofflow-runtime-invariants"] = [
+            "input artifact IDs and output artifact IDs are unique and disjoint",
+            "COMPLETED attempts have at least one output artifact",
+            "issued_at is greater than or equal to attempt.ended_at",
+            "certificate_ref.intent_sha256 equals effect.intent_sha256",
+            "protocol and operation request/response digests match",
+            "LOCAL handler_name and MCP tool_name match operation.name",
+            "A2A protocol task_id matches the receipt task_id",
+            "an OBSERVED provider request digest matches operation.request_sha256",
+        ]
+
+    statement = _schema_node(schema, "ExecutionReceiptStatement")
+    if statement is not None:
+        _require_unique_array(statement, "subject")
+        statement["x-proofflow-runtime-invariants"] = [
+            "in-toto subjects exactly match predicate output artifact IDs and SHA-256 digests"
+        ]
+
+    expected = _schema_node(schema, "ExpectedExecutionBinding")
+    if expected is not None:
+        for property_name in (
+            "inputs",
+            "outputs",
+            "executor_workload_key_fingerprints",
+            "human_principal_key_fingerprints",
+        ):
+            _require_unique_array(expected, property_name)
+        expected_properties = _properties(expected)
+        for property_name in (
+            "executor_workload_key_fingerprints",
+            "human_principal_key_fingerprints",
+        ):
+            fingerprint_items = expected_properties[property_name].get("items")
+            if not isinstance(fingerprint_items, dict):
+                raise ValueError(f"ExpectedExecutionBinding.{property_name} needs item schema")
+            fingerprint_items["pattern"] = r"^sha256:[0-9a-f]{64}$"
+        expected["x-proofflow-runtime-invariants"] = [
+            "input and output artifact IDs are unique within each direction and disjoint"
+        ]
+
+    result = _schema_node(schema, "ExecutionReceiptVerificationResult")
+    if result is not None:
+        _require_unique_array(result, "reason_codes")
+        _require_unique_array(result, "verified_execution_observer_roots")
+        accept_reasons = ["ALREADY_PRESENT", "APPENDED"]
+        reject_reasons = sorted(reason.value for reason in REJECT_RECEIPT_REASONS)
+        unknown_reasons = sorted(reason.value for reason in UNKNOWN_RECEIPT_REASONS)
+        unknown_observation_properties = {
+            property_name: {"const": "UNKNOWN"}
+            for property_name in (
+                "inference_status",
+                "usage_status",
+                "effect_status",
+                "cost_status",
+                "duration_status",
+            )
+        }
+        for status, recorded, reasons, extra_required, extra_properties in (
+            (
+                "ACCEPT",
+                {"const": True},
+                {"enum": [[value] for value in accept_reasons]},
+                ["receipt_id", "payload_sha256", "verified_execution_observer_roots"],
+                {
+                    "receipt_id": {"not": {"type": "null"}},
+                    "payload_sha256": {"not": {"type": "null"}},
+                    "verified_execution_observer_roots": {"minItems": 1},
+                },
+            ),
+            (
+                "REJECT",
+                {"const": False},
+                {"items": {"enum": reject_reasons}},
+                [],
+                unknown_observation_properties,
+            ),
+            (
+                "UNKNOWN",
+                {"const": False},
+                {"items": {"enum": unknown_reasons}},
+                [],
+                unknown_observation_properties,
+            ),
+        ):
+            result.setdefault("allOf", []).append(
+                {
+                    "if": {
+                        "properties": {"status": {"const": status}},
+                        "required": ["status"],
+                    },
+                    "then": {
+                        "required": extra_required,
+                        "properties": {
+                            "recorded": recorded,
+                            "reason_codes": reasons,
+                            **extra_properties,
+                        },
+                    },
+                }
+            )
+
+    for title, reference_fields in (
+        ("ProducerDeclaration", ("software_name", "software_version")),
+        ("RuntimeObservation", ("runtime_name", "runtime_version")),
+        ("LocalProtocolObservation", ("handler_name",)),
+        ("McpProtocolObservation", ("server_name", "tool_name")),
+        ("A2aProtocolObservation", ("agent_name",)),
+        ("ToolOperationObservation", ("name", "version")),
+        ("SkillOperationObservation", ("name", "version")),
+        ("ModelInvocationObservation", ("provider", "model", "model_revision")),
+        ("EffectObservation", ("effect_type", "target")),
+        ("ExpectedExecutionBinding", ("effect_type", "effect_target")),
+        ("ProvenanceReference", ("name", "media_type")),
+        ("ArtifactObservation", ("media_type",)),
+    ):
+        node = _schema_node(schema, title)
+        if node is not None:
+            properties = _properties(node)
+            for field_name in reference_fields:
+                _forbid_remote_reference(properties[field_name])
+    return schema
+
+
 def render(model: type[BaseModel]) -> str:
     schema = _patch_action_certificate_schema(model.model_json_schema())
+    schema = _patch_execution_receipt_schema(schema)
     return json.dumps(schema, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
 
 

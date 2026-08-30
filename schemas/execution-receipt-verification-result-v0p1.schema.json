@@ -1,0 +1,298 @@
+{
+  "$defs": {
+    "ExecutionReceiptVerificationReason": {
+      "enum": [
+        "APPENDED",
+        "ALREADY_PRESENT",
+        "ENVELOPE_INVALID",
+        "ENVELOPE_TOO_LARGE",
+        "PAYLOAD_INVALID",
+        "PAYLOAD_TOO_LARGE",
+        "SIGNATURE_INVALID",
+        "TRUST_POLICY_MISMATCH",
+        "EXPECTED_BINDING_MISMATCH",
+        "RECEIPT_TIME_INVALID",
+        "ACTION_CERTIFICATE_REFERENCE_MISMATCH",
+        "ACTION_CERTIFICATE_NOT_ACCEPTED",
+        "ACTION_CERTIFICATE_RESERVATION_ORDER_INVALID",
+        "CERTIFICATE_EXECUTION_WINDOW_MISMATCH",
+        "ACTION_CERTIFICATE_ACCEPTANCE_UNKNOWN",
+        "ACTION_CERTIFICATE_AUTHORITY_UNKNOWN",
+        "EXECUTION_OBSERVER_THRESHOLD_NOT_MET",
+        "ROOT_TIME_OR_REVOCATION_INVALID",
+        "PRODUCER_SIGNER_MISMATCH",
+        "SELF_OBSERVATION",
+        "RECEIPT_ID_CONFLICT",
+        "ATTEMPT_CONFLICT",
+        "IDEMPOTENCY_CONFLICT",
+        "RECEIPT_INDEX_UNAVAILABLE"
+      ],
+      "title": "ExecutionReceiptVerificationReason",
+      "type": "string"
+    },
+    "ObservationState": {
+      "enum": [
+        "OBSERVED",
+        "UNKNOWN"
+      ],
+      "title": "ObservationState",
+      "type": "string"
+    },
+    "VerificationStatus": {
+      "enum": [
+        "ACCEPT",
+        "REJECT",
+        "UNKNOWN"
+      ],
+      "title": "VerificationStatus",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "ACCEPT"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload_sha256": {
+            "not": {
+              "type": "null"
+            }
+          },
+          "reason_codes": {
+            "enum": [
+              [
+                "ALREADY_PRESENT"
+              ],
+              [
+                "APPENDED"
+              ]
+            ]
+          },
+          "receipt_id": {
+            "not": {
+              "type": "null"
+            }
+          },
+          "recorded": {
+            "const": true
+          },
+          "verified_execution_observer_roots": {
+            "minItems": 1
+          }
+        },
+        "required": [
+          "receipt_id",
+          "payload_sha256",
+          "verified_execution_observer_roots"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "REJECT"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "cost_status": {
+            "const": "UNKNOWN"
+          },
+          "duration_status": {
+            "const": "UNKNOWN"
+          },
+          "effect_status": {
+            "const": "UNKNOWN"
+          },
+          "inference_status": {
+            "const": "UNKNOWN"
+          },
+          "reason_codes": {
+            "items": {
+              "enum": [
+                "ACTION_CERTIFICATE_NOT_ACCEPTED",
+                "ACTION_CERTIFICATE_REFERENCE_MISMATCH",
+                "ACTION_CERTIFICATE_RESERVATION_ORDER_INVALID",
+                "ATTEMPT_CONFLICT",
+                "CERTIFICATE_EXECUTION_WINDOW_MISMATCH",
+                "ENVELOPE_INVALID",
+                "ENVELOPE_TOO_LARGE",
+                "EXPECTED_BINDING_MISMATCH",
+                "IDEMPOTENCY_CONFLICT",
+                "PAYLOAD_INVALID",
+                "PAYLOAD_TOO_LARGE",
+                "PRODUCER_SIGNER_MISMATCH",
+                "RECEIPT_ID_CONFLICT",
+                "RECEIPT_TIME_INVALID",
+                "ROOT_TIME_OR_REVOCATION_INVALID",
+                "SELF_OBSERVATION",
+                "SIGNATURE_INVALID",
+                "TRUST_POLICY_MISMATCH"
+              ]
+            }
+          },
+          "recorded": {
+            "const": false
+          },
+          "usage_status": {
+            "const": "UNKNOWN"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "UNKNOWN"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "cost_status": {
+            "const": "UNKNOWN"
+          },
+          "duration_status": {
+            "const": "UNKNOWN"
+          },
+          "effect_status": {
+            "const": "UNKNOWN"
+          },
+          "inference_status": {
+            "const": "UNKNOWN"
+          },
+          "reason_codes": {
+            "items": {
+              "enum": [
+                "ACTION_CERTIFICATE_ACCEPTANCE_UNKNOWN",
+                "ACTION_CERTIFICATE_AUTHORITY_UNKNOWN",
+                "EXECUTION_OBSERVER_THRESHOLD_NOT_MET",
+                "RECEIPT_INDEX_UNAVAILABLE"
+              ]
+            }
+          },
+          "recorded": {
+            "const": false
+          },
+          "usage_status": {
+            "const": "UNKNOWN"
+          }
+        },
+        "required": []
+      }
+    }
+  ],
+  "properties": {
+    "cost_status": {
+      "$ref": "#/$defs/ObservationState"
+    },
+    "duration_status": {
+      "$ref": "#/$defs/ObservationState"
+    },
+    "effect_status": {
+      "$ref": "#/$defs/ObservationState"
+    },
+    "envelope_sha256": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Envelope Sha256",
+      "type": "string"
+    },
+    "inference_status": {
+      "$ref": "#/$defs/ObservationState"
+    },
+    "payload_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Payload Sha256"
+    },
+    "reason_codes": {
+      "items": {
+        "$ref": "#/$defs/ExecutionReceiptVerificationReason"
+      },
+      "maxItems": 16,
+      "minItems": 1,
+      "title": "Reason Codes",
+      "type": "array",
+      "uniqueItems": true
+    },
+    "receipt_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Receipt Id"
+    },
+    "recorded": {
+      "title": "Recorded",
+      "type": "boolean"
+    },
+    "status": {
+      "$ref": "#/$defs/VerificationStatus"
+    },
+    "usage_status": {
+      "$ref": "#/$defs/ObservationState"
+    },
+    "verification_version": {
+      "const": "proofflow.execution-receipt-verification/v0.1",
+      "title": "Verification Version",
+      "type": "string"
+    },
+    "verified_execution_observer_roots": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 16,
+      "title": "Verified Execution Observer Roots",
+      "type": "array",
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "verification_version",
+    "status",
+    "reason_codes",
+    "envelope_sha256",
+    "recorded",
+    "inference_status",
+    "usage_status",
+    "effect_status",
+    "cost_status",
+    "duration_status"
+  ],
+  "title": "ExecutionReceiptVerificationResult",
+  "type": "object"
+}
