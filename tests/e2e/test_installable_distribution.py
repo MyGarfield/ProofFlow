@@ -146,6 +146,11 @@ def _attacked_wheel_payload(wheel: Path, attack: str) -> bytes:
             payload = source.read(info.filename)
             if attack == "record-tamper" and info.filename.endswith(".dist-info/RECORD"):
                 payload = payload.replace(b",sha256=", b",sha256=INVALID", 1)
+            elif attack == "metadata-extra-header" and info.filename.endswith(
+                ".dist-info/METADATA"
+            ):
+                headers, separator, body = payload.partition(b"\n\n")
+                payload = headers + b"\nLicense-Expression: MIT" + separator + body
             destination.writestr(info, payload)
         additions = {
             "extra-pth": ("proof_flow_unexpected.pth", b"import proof_flow_unexpected\n"),
@@ -159,8 +164,53 @@ def _attacked_wheel_payload(wheel: Path, attack: str) -> bytes:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", UserWarning)
                 destination.writestr("proofflow/__init__.py", b"DUPLICATE = True\n")
-        elif attack != "record-tamper":
+        elif attack not in {"record-tamper", "metadata-extra-header"}:
             raise AssertionError(f"unsupported wheel attack: {attack}")
+    return output.getvalue()
+
+
+def _attacked_sdist_payload(sdist: Path, attack: str) -> bytes:
+    replacements = {
+        "pkg-info-name": (
+            b"Name: veriagent-proofflow\n",
+            b"Name: forged-package\n",
+        ),
+        "pkg-info-version": (
+            b"Version: 0.1.0a0\n",
+            b"Version: 9.9.9\n",
+        ),
+        "pkg-info-dependency": (
+            b"Requires-Dist: cryptography<47,>=46\n",
+            b"Requires-Dist: attacker-package==1.0\n",
+        ),
+        "pkg-info-extra-header": (
+            b"License: Apache-2.0\n",
+            b"License: Apache-2.0\nLicense-Expression: MIT\n",
+        ),
+    }
+    if attack not in replacements:
+        raise AssertionError(f"unsupported sdist attack: {attack}")
+    old, new = replacements[attack]
+    output = io.BytesIO()
+    with (
+        tarfile.open(sdist, mode="r:gz") as source,
+        tarfile.open(
+            fileobj=output,
+            mode="w:gz",
+        ) as destination,
+    ):
+        for member in source.getmembers():
+            if member.name.endswith("/PKG-INFO"):
+                payload = source.extractfile(member).read()
+                if old not in payload:
+                    raise AssertionError(f"sdist attack anchor missing: {attack}")
+                payload = payload.replace(old, new, 1)
+                member.size = len(payload)
+                destination.addfile(member, io.BytesIO(payload))
+            elif member.isfile():
+                destination.addfile(member, source.extractfile(member))
+            else:
+                destination.addfile(member)
     return output.getvalue()
 
 
@@ -487,6 +537,45 @@ def test_builder_rejects_top_level_pth_injected_after_uv_build(
 
 @pytest.mark.parametrize(
     "attack",
+    ["pkg-info-name", "pkg-info-version", "pkg-info-dependency", "pkg-info-extra-header"],
+)
+def test_builder_rejects_pkg_info_tamper_after_uv_build(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    attack: str,
+) -> None:
+    builder = _load_builder()
+    repository = _create_clean_package_repo(tmp_path)
+    monkeypatch.setattr(builder, "ROOT", repository)
+    original_run = builder._run
+    injected = False
+
+    def tamper_pkg_info_after_uv(
+        command: list[str],
+        *,
+        environment: dict[str, str] | None = None,
+        cwd: Path | None = None,
+    ) -> str:
+        nonlocal injected
+        result = original_run(command, environment=environment, cwd=cwd)
+        if command[:2] == ["uv", "build"]:
+            artifact_staging = Path(command[command.index("--out-dir") + 1])
+            sdist = next(artifact_staging.glob("*.tar.gz"))
+            sdist.write_bytes(_attacked_sdist_payload(sdist, attack))
+            injected = True
+        return result
+
+    monkeypatch.setattr(builder, "_run", tamper_pkg_info_after_uv)
+    with pytest.raises(builder.DistributionBuildError) as rejected:
+        builder.build_distribution(tmp_path / "dist", release=False)
+
+    assert injected
+    assert rejected.value.code == "BUILD_SOURCE_BINDING_MISMATCH"
+    assert list((tmp_path / "dist").iterdir()) == []
+
+
+@pytest.mark.parametrize(
+    "attack",
     [
         "extra-pth",
         "top-level-package",
@@ -494,6 +583,7 @@ def test_builder_rejects_top_level_pth_injected_after_uv_build(
         "path-escape",
         "duplicate-member",
         "record-tamper",
+        "metadata-extra-header",
     ],
 )
 def test_wheel_closed_set_and_record_reject_injected_members(
@@ -539,9 +629,634 @@ def test_release_mode_is_rejected_while_supply_chain_evidence_is_stale(
             "--output",
             str(tmp_path / "release"),
             "--release",
+            "--supply-chain-evidence",
+            str(ROOT / "deploy/tool-service/evidence/supply-chain-evidence.json"),
+            "--release-policy",
+            str(tmp_path / "external-release-policy.json"),
+            "--release-policy-sha256",
+            "sha256:" + "0" * 64,
         ],
         cwd=tmp_path,
         expected_returncode=2,
     )
     assert json.loads(completed.stderr)["error"]["code"] == ("SUPPLY_CHAIN_RELEASE_GATE_REJECTED")
     assert not (tmp_path / "release").exists()
+    assert str(tmp_path) not in completed.stderr
+
+
+@pytest.mark.parametrize(
+    "omitted_option",
+    [
+        "--supply-chain-evidence",
+        "--release-policy",
+        "--release-policy-sha256",
+    ],
+)
+def test_release_requires_all_explicit_supply_chain_inputs(
+    tmp_path: Path,
+    omitted_option: str,
+) -> None:
+    values = {
+        "--supply-chain-evidence": str(
+            ROOT / "deploy/tool-service/evidence/supply-chain-evidence.json"
+        ),
+        "--release-policy": str(tmp_path / "external-release-policy.json"),
+        "--release-policy-sha256": "sha256:" + "0" * 64,
+    }
+    command = [
+        sys.executable,
+        str(BUILD_SCRIPT),
+        "--output",
+        str(tmp_path / "release"),
+        "--release",
+    ]
+    for option, value in values.items():
+        if option != omitted_option:
+            command.extend([option, value])
+
+    completed = _run(command, cwd=tmp_path, expected_returncode=2)
+    assert json.loads(completed.stderr)["error"]["code"] == ("SUPPLY_CHAIN_RELEASE_INPUT_MISSING")
+    assert not (tmp_path / "release").exists()
+
+
+def test_release_preflight_forwards_only_the_validator_contract(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    builder = _load_builder()
+    observed: dict[str, Any] = {}
+
+    def fake_run(
+        command: list[str],
+        *,
+        cwd: Path,
+        check: bool,
+        capture_output: bool,
+        text: bool,
+        timeout: int,
+    ) -> subprocess.CompletedProcess[str]:
+        observed["command"] = command
+        observed["cwd"] = cwd
+        observed["check"] = check
+        observed["capture_output"] = capture_output
+        observed["text"] = text
+        observed["timeout"] = timeout
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=json.dumps(
+                {
+                    "mode": "release",
+                    "schema_version": "1.2.0",
+                    "evidence_set_id": "sha256:" + "e" * 64,
+                    "release_eligible": True,
+                    "status": "RELEASE_ELIGIBLE",
+                    "valid": True,
+                }
+            ).encode("utf-8"),
+            stderr=b"",
+        )
+
+    monkeypatch.setattr(builder.subprocess, "run", fake_run)
+    evidence = tmp_path / "evidence v1.2.json"
+    policy = tmp_path / "external policy.json"
+    evidence.write_bytes(b"evidence")
+    policy.write_bytes(b"policy")
+    external_digest = _sha256(policy)
+    builder._release_supply_chain_preflight(
+        evidence_path=evidence,
+        release_policy=policy,
+        release_policy_sha256=external_digest,
+    )
+
+    assert observed == {
+        "command": [
+            sys.executable,
+            str(builder.SUPPLY_CHAIN_VALIDATOR),
+            str(evidence),
+            "--mode",
+            "release",
+            "--release-policy",
+            str(policy),
+            "--release-policy-sha256",
+            external_digest,
+        ],
+        "cwd": builder.ROOT,
+        "check": False,
+        "capture_output": True,
+        "text": False,
+        "timeout": 300,
+    }
+    assert "--release-gate" not in observed["command"]
+    assert builder._release_supply_chain_preflight(
+        evidence_path=evidence,
+        release_policy=policy,
+        release_policy_sha256=external_digest,
+    ) == builder.ReleaseGateReceipt(
+        evidence_file_sha256=_sha256(evidence),
+        evidence_set_id="sha256:" + "e" * 64,
+        release_policy_sha256=external_digest,
+    )
+
+
+@pytest.mark.parametrize(
+    "validator_stdout",
+    [
+        "not-json",
+        json.dumps(
+            {
+                "mode": "release",
+                "schema_version": "1.2.0",
+                "evidence_set_id": "sha256:" + "e" * 64,
+                "release_eligible": False,
+                "status": "RELEASE_ELIGIBLE",
+                "valid": True,
+            }
+        ),
+        (
+            '{"mode":"release","schema_version":"1.2.0",'
+            '"evidence_set_id":"sha256:'
+            + "e"
+            * 64
+            + '","release_eligible":true,"status":"RELEASE_ELIGIBLE",'
+            '"valid":true,"valid":false}'
+        ),
+    ],
+)
+def test_release_preflight_rejects_forged_validator_success(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    validator_stdout: str,
+) -> None:
+    builder = _load_builder()
+
+    def fake_run(
+        command: list[str],
+        *,
+        cwd: Path,
+        check: bool,
+        capture_output: bool,
+        text: bool,
+        timeout: int,
+    ) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=validator_stdout.encode("utf-8"),
+            stderr=b"",
+        )
+
+    monkeypatch.setattr(builder.subprocess, "run", fake_run)
+    evidence = tmp_path / "evidence.json"
+    policy = tmp_path / "policy.json"
+    evidence.write_bytes(b"evidence")
+    policy.write_bytes(b"policy")
+    with pytest.raises(builder.DistributionBuildError) as rejected:
+        builder._release_supply_chain_preflight(
+            evidence_path=evidence,
+            release_policy=policy,
+            release_policy_sha256=_sha256(policy),
+        )
+
+    assert rejected.value.code == "SUPPLY_CHAIN_RELEASE_GATE_REJECTED"
+
+
+@pytest.mark.parametrize(
+    "failure",
+    ["os-error", "subprocess-error", "timeout", "invalid-utf8", "huge-stdout"],
+)
+def test_release_preflight_rejects_untrusted_validator_output(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    failure: str,
+) -> None:
+    builder = _load_builder()
+    evidence = tmp_path / "evidence.json"
+    policy = tmp_path / "policy.json"
+    evidence.write_bytes(b"evidence")
+    policy.write_bytes(b"policy")
+
+    def fake_run(
+        command: list[str],
+        *,
+        cwd: Path,
+        check: bool,
+        capture_output: bool,
+        text: bool,
+        timeout: int,
+    ) -> subprocess.CompletedProcess[str]:
+        if failure == "os-error":
+            raise OSError("validator execution failed")
+        if failure == "subprocess-error":
+            raise subprocess.SubprocessError("validator subprocess failed")
+        if failure == "timeout":
+            raise subprocess.TimeoutExpired(command, timeout)
+        stdout = (
+            b"not utf-8"
+            if failure == "invalid-utf8"
+            else b"x" * (builder.RELEASE_VALIDATOR_MAX_STDOUT_BYTES + 1)
+        )
+        return subprocess.CompletedProcess(command, 0, stdout=stdout, stderr=b"")
+
+    monkeypatch.setattr(builder.subprocess, "run", fake_run)
+    with pytest.raises(builder.DistributionBuildError) as rejected:
+        builder._release_supply_chain_preflight(
+            evidence_path=evidence,
+            release_policy=policy,
+            release_policy_sha256=_sha256(policy),
+        )
+
+    assert rejected.value.code == "SUPPLY_CHAIN_RELEASE_GATE_REJECTED"
+    assert "validator execution failed" not in rejected.value.safe_message
+    assert str(tmp_path) not in rejected.value.safe_message
+
+
+def test_release_preflight_rejects_wrong_policy_digest_before_validator(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    builder = _load_builder()
+    evidence = tmp_path / "evidence.json"
+    policy = tmp_path / "policy.json"
+    evidence.write_bytes(b"evidence")
+    policy.write_bytes(b"policy")
+    monkeypatch.setattr(
+        builder.subprocess,
+        "run",
+        lambda *_args, **_kwargs: pytest.fail("wrong policy digest must not invoke validator"),
+    )
+
+    with pytest.raises(builder.DistributionBuildError) as rejected:
+        builder._release_supply_chain_preflight(
+            evidence_path=evidence,
+            release_policy=policy,
+            release_policy_sha256="sha256:" + "0" * 64,
+        )
+
+    assert rejected.value.code == "SUPPLY_CHAIN_RELEASE_GATE_REJECTED"
+    assert str(tmp_path) not in rejected.value.safe_message
+
+
+@pytest.mark.parametrize("changed_input", ["evidence", "policy"])
+def test_release_preflight_rejects_input_mutation_after_validator(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    changed_input: str,
+) -> None:
+    builder = _load_builder()
+    evidence = tmp_path / "evidence.json"
+    policy = tmp_path / "policy.json"
+    evidence.write_bytes(b"evidence")
+    policy.write_bytes(b"policy")
+    valid_result = json.dumps(
+        {
+            "mode": "release",
+            "schema_version": "1.2.0",
+            "evidence_set_id": "sha256:" + "e" * 64,
+            "release_eligible": True,
+            "status": "RELEASE_ELIGIBLE",
+            "valid": True,
+        }
+    ).encode("utf-8")
+
+    def mutate_during_validator(
+        command: list[str],
+        *,
+        cwd: Path,
+        check: bool,
+        capture_output: bool,
+        text: bool,
+        timeout: int,
+    ) -> subprocess.CompletedProcess[str]:
+        (evidence if changed_input == "evidence" else policy).write_bytes(b"changed")
+        return subprocess.CompletedProcess(command, 0, stdout=valid_result, stderr=b"")
+
+    monkeypatch.setattr(builder.subprocess, "run", mutate_during_validator)
+    with pytest.raises(builder.DistributionBuildError) as rejected:
+        builder._release_supply_chain_preflight(
+            evidence_path=evidence,
+            release_policy=policy,
+            release_policy_sha256=_sha256(policy),
+        )
+
+    assert rejected.value.code == "SUPPLY_CHAIN_RELEASE_INPUT_CHANGED"
+    assert str(tmp_path) not in rejected.value.safe_message
+
+
+def test_release_preflight_rejects_policy_path_replacement_after_validator(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    builder = _load_builder()
+    evidence = tmp_path / "evidence.json"
+    policy = tmp_path / "policy.json"
+    moved_policy = tmp_path / "moved-policy.json"
+    attack_target = tmp_path / "attack-policy.json"
+    evidence.write_bytes(b"evidence")
+    policy.write_bytes(b"policy")
+    attack_target.write_bytes(b"attacker")
+    valid_result = json.dumps(
+        {
+            "mode": "release",
+            "schema_version": "1.2.0",
+            "evidence_set_id": "sha256:" + "e" * 64,
+            "release_eligible": True,
+            "status": "RELEASE_ELIGIBLE",
+            "valid": True,
+        }
+    ).encode("utf-8")
+
+    def replace_policy_during_validator(
+        command: list[str],
+        *,
+        cwd: Path,
+        check: bool,
+        capture_output: bool,
+        text: bool,
+        timeout: int,
+    ) -> subprocess.CompletedProcess[str]:
+        policy.rename(moved_policy)
+        policy.symlink_to(attack_target)
+        return subprocess.CompletedProcess(command, 0, stdout=valid_result, stderr=b"")
+
+    monkeypatch.setattr(builder.subprocess, "run", replace_policy_during_validator)
+    with pytest.raises(builder.DistributionBuildError) as rejected:
+        builder._release_supply_chain_preflight(
+            evidence_path=evidence,
+            release_policy=policy,
+            release_policy_sha256=_sha256(policy),
+        )
+
+    assert rejected.value.code == "SUPPLY_CHAIN_RELEASE_INPUT_CHANGED"
+    assert attack_target.read_bytes() == b"attacker"
+
+
+def test_release_manifest_contains_only_non_path_gate_receipt(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    builder = _load_builder()
+    repository = _create_clean_package_repo(tmp_path)
+    monkeypatch.setattr(builder, "ROOT", repository)
+    evidence_set_id = "sha256:" + "e" * 64
+    policy_sha256 = "sha256:" + "f" * 64
+    monkeypatch.setattr(
+        builder,
+        "_release_supply_chain_preflight",
+        lambda **_kwargs: builder.ReleaseGateReceipt(
+            evidence_file_sha256="sha256:" + "a" * 64,
+            evidence_set_id=evidence_set_id,
+            release_policy_sha256=policy_sha256,
+        ),
+    )
+
+    manifest = builder.build_distribution(
+        tmp_path / "release",
+        release=True,
+        evidence_path=tmp_path / "evidence.json",
+        release_policy=tmp_path / "policy.json",
+        release_policy_sha256=policy_sha256,
+    )
+
+    assert manifest["supply_chain_release_gate"] == "PASSED"
+    assert manifest["supply_chain_release_gate_receipt"] == {
+        "mode": "release",
+        "evidence_schema_version": "1.2.0",
+        "evidence_file_sha256": "sha256:" + "a" * 64,
+        "evidence_set_id": evidence_set_id,
+        "release_policy_sha256": policy_sha256,
+    }
+    assert str(repository) not in json.dumps(manifest["supply_chain_release_gate_receipt"])
+
+
+def test_release_rejects_source_revision_change_during_preflight(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    builder = _load_builder()
+    original = builder.SourceBinding(
+        commit="a" * 40,
+        tree="b" * 40,
+        source_date_epoch=1,
+        worktree_clean_observed=True,
+    )
+    changed = builder.SourceBinding(
+        commit="c" * 40,
+        tree="d" * 40,
+        source_date_epoch=2,
+        worktree_clean_observed=True,
+    )
+    observations = iter((original, changed))
+    monkeypatch.setattr(builder, "_source_binding", lambda: next(observations))
+    monkeypatch.setattr(builder, "_release_supply_chain_preflight", lambda **_kwargs: None)
+
+    with pytest.raises(builder.DistributionBuildError) as rejected:
+        builder.build_distribution(
+            tmp_path / "release",
+            release=True,
+            evidence_path=tmp_path / "evidence.json",
+            release_policy=tmp_path / "policy.json",
+            release_policy_sha256="sha256:" + "f" * 64,
+        )
+
+    assert rejected.value.code == "SOURCE_BINDING_CHANGED_DURING_RELEASE_PREFLIGHT"
+    assert not (tmp_path / "release").exists()
+
+
+def test_release_rejects_unknown_legacy_cli_flag_without_output_directory(
+    tmp_path: Path,
+) -> None:
+    completed = _run(
+        [
+            sys.executable,
+            str(BUILD_SCRIPT),
+            "--output",
+            str(tmp_path / "release"),
+            "--release-gate",
+        ],
+        cwd=tmp_path,
+        expected_returncode=2,
+    )
+    assert "unrecognized arguments: --release-gate" in completed.stderr
+    assert not (tmp_path / "release").exists()
+
+
+def test_optimized_python_candidate_build_preserves_distribution_contract(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "optimized-candidate"
+    completed = _run(
+        [sys.executable, "-O", str(BUILD_SCRIPT), "--output", str(output)],
+        cwd=tmp_path,
+    )
+    manifest = json.loads(completed.stdout)
+    assert manifest["status"] == "LOCAL_CANDIDATE_NOT_RELEASE_READY"
+    assert manifest["supply_chain_release_gate"] == "NOT_RUN"
+    assert (output / "artifact-manifest.json").is_file()
+
+
+def test_optimized_python_release_requires_inputs_without_output_directory(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "release"
+    completed = _run(
+        [sys.executable, "-O", str(BUILD_SCRIPT), "--output", str(output), "--release"],
+        cwd=tmp_path,
+        expected_returncode=2,
+    )
+    assert json.loads(completed.stderr)["error"]["code"] == ("SUPPLY_CHAIN_RELEASE_INPUT_MISSING")
+    assert not output.exists()
+
+
+def test_optimized_python_release_rejects_validator_failure_without_path_leak(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "release"
+    completed = _run(
+        [
+            sys.executable,
+            "-O",
+            str(BUILD_SCRIPT),
+            "--output",
+            str(output),
+            "--release",
+            "--evidence",
+            str(ROOT / "deploy/tool-service/evidence/supply-chain-evidence.json"),
+            "--release-policy",
+            str(tmp_path / "missing-policy.json"),
+            "--release-policy-sha256",
+            "sha256:" + "0" * 64,
+        ],
+        cwd=tmp_path,
+        expected_returncode=2,
+    )
+    assert json.loads(completed.stderr)["error"]["code"] == ("SUPPLY_CHAIN_RELEASE_GATE_REJECTED")
+    assert not output.exists()
+    assert str(tmp_path) not in completed.stderr
+
+
+@pytest.mark.parametrize(
+    "option",
+    ["--evidence", "--release-policy", "--release-policy-sha256"],
+)
+def test_nonrelease_rejects_release_input_options_without_output_directory(
+    tmp_path: Path,
+    option: str,
+) -> None:
+    values = {
+        "--evidence": str(tmp_path / "evidence.json"),
+        "--release-policy": str(tmp_path / "policy.json"),
+        "--release-policy-sha256": "sha256:" + "f" * 64,
+    }
+    completed = _run(
+        [
+            sys.executable,
+            str(BUILD_SCRIPT),
+            "--output",
+            str(tmp_path / "candidate"),
+            option,
+            values[option],
+        ],
+        cwd=tmp_path,
+        expected_returncode=2,
+    )
+    assert json.loads(completed.stderr)["error"]["code"] == (
+        "SUPPLY_CHAIN_RELEASE_INPUT_UNEXPECTED"
+    )
+    assert not (tmp_path / "candidate").exists()
+
+
+def test_nonrelease_library_rejects_release_inputs_without_source_or_output_access(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    builder = _load_builder()
+    monkeypatch.setattr(
+        builder,
+        "_source_binding",
+        lambda: pytest.fail("non-release input validation must precede source access"),
+    )
+    with pytest.raises(builder.DistributionBuildError) as rejected:
+        builder.build_distribution(
+            tmp_path / "candidate",
+            release=False,
+            evidence_path=tmp_path / "evidence.json",
+        )
+    assert rejected.value.code == "SUPPLY_CHAIN_RELEASE_INPUT_UNEXPECTED"
+    assert not (tmp_path / "candidate").exists()
+
+
+def test_output_directory_rename_to_symlink_cannot_redirect_publishing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    builder = _load_builder()
+    repository = _create_clean_package_repo(tmp_path)
+    monkeypatch.setattr(builder, "ROOT", repository)
+    output = tmp_path / "dist"
+    retained = tmp_path / "retained-output"
+    attack_target = tmp_path / "attack-target"
+    attack_target.mkdir()
+    sentinel = attack_target / "sentinel.txt"
+    sentinel.write_bytes(b"must remain untouched")
+    original_run = builder._run
+    attacked = False
+
+    def rename_output_after_uv(
+        command: list[str],
+        *,
+        environment: dict[str, str] | None = None,
+        cwd: Path | None = None,
+    ) -> str:
+        nonlocal attacked
+        result = original_run(command, environment=environment, cwd=cwd)
+        if command[:2] == ["uv", "build"] and not attacked:
+            attacked = True
+            output.rename(retained)
+            output.symlink_to(attack_target, target_is_directory=True)
+        return result
+
+    monkeypatch.setattr(builder, "_run", rename_output_after_uv)
+    with pytest.raises(builder.DistributionBuildError) as rejected:
+        builder.build_distribution(output, release=False)
+
+    assert attacked
+    assert rejected.value.code == "BUILD_OUTPUT_RACE_DETECTED"
+    assert output.is_symlink()
+    assert list(retained.iterdir()) == []
+    assert sentinel.read_bytes() == b"must remain untouched"
+
+
+def test_output_directory_sentinel_injection_cannot_publish_or_overwrite(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    builder = _load_builder()
+    repository = _create_clean_package_repo(tmp_path)
+    monkeypatch.setattr(builder, "ROOT", repository)
+    output = tmp_path / "dist"
+    sentinel = output / "sentinel.txt"
+    original_run = builder._run
+    attacked = False
+
+    def inject_sentinel_after_uv(
+        command: list[str],
+        *,
+        environment: dict[str, str] | None = None,
+        cwd: Path | None = None,
+    ) -> str:
+        nonlocal attacked
+        result = original_run(command, environment=environment, cwd=cwd)
+        if command[:2] == ["uv", "build"] and not attacked:
+            attacked = True
+            sentinel.write_bytes(b"must remain untouched")
+        return result
+
+    monkeypatch.setattr(builder, "_run", inject_sentinel_after_uv)
+    with pytest.raises(builder.DistributionBuildError) as rejected:
+        builder.build_distribution(output, release=False)
+
+    assert attacked
+    assert rejected.value.code == "BUILD_OUTPUT_RACE_DETECTED"
+    assert sentinel.read_bytes() == b"must remain untouched"
+    assert list(output.iterdir()) == [sentinel]

@@ -109,7 +109,7 @@ uv run --frozen python scripts/build_installable_distribution.py \
 
 该命令从不可变 Git tree 或显式闭集工作树快照构建 wheel/sdist，并生成
 `artifact-manifest.json`。它验证源码快照、wheel 成员闭集、METADATA、WHEEL、entry point、许可证、
-RECORD 全闭包以及 sdist 清单，再记录产物 SHA-256。干净 Git tree 可得到
+RECORD 全闭包、sdist 成员闭集以及从快照 pyproject/README/LICENSE/NOTICE 重建的 PKG-INFO 合同，再记录产物 SHA-256。干净 Git tree 可得到
 `snapshot_kind=GIT_COMMIT_TREE` 与 `exact_commit_binding=true`；含未提交改动的构建只能得到
 `snapshot_kind=WORKTREE_COPY`、`exact_commit_binding=false` 和
 `LOCAL_CANDIDATE_NOT_RELEASE_READY`。
@@ -117,6 +117,31 @@ RECORD 全闭包以及 sdist 清单，再记录产物 SHA-256。干净 Git tree 
 直接运行 `uv build` 只会产生未经上述门禁和 receipt 绑定的原始包，不能作为 ProofFlow 候选或
 发布产物。正式 release 还必须显式使用 `--release`，并通过新鲜供应链 release policy；当前证据为
 `STALE`，所以 release 模式必须以 `SUPPLY_CHAIN_RELEASE_GATE_REJECTED` 拒绝且不创建输出目录。
+
+release 构建必须显式绑定一份 v1.2 供应链 evidence、一份外部 release policy 和由独立信任域提供的
+policy 文件 SHA-256；builder 会把这三个输入原样传给 release validator，不从 policy 内容自报或推导
+信任摘要：
+
+```bash
+uv run --frozen python scripts/build_installable_distribution.py \
+  --output /approved/new/proofflow-release \
+  --release \
+  --supply-chain-evidence /approved/evidence/supply-chain-evidence-v1.2.json \
+  --release-policy /approved/policy/release-policy-v1.2.json \
+  --release-policy-sha256 'sha256:<independently-approved-policy-digest>'
+```
+
+`--evidence` 是 `--supply-chain-evidence` 的兼容别名；省略任一 release 输入、使用 v1.1/stale
+evidence、错误的外部 policy pin、重新计算出的 HIGH/CRITICAL finding 或 validator 未知参数都会
+fail closed，并且不会创建 `--output` 目录。`0.1.0a0` 是当前包版本；版本/tag、发布批准和 registry
+发布是独立门禁，不会因 builder 的 release gate 通过而自动满足。output 目录会通过持有的
+no-follow directory FD 创建/打开，产物以 `O_CREAT|O_EXCL|O_NOFOLLOW` 发布并在完成前复核路径 inode
+与精确成员闭集；rename、symlink、sentinel 或覆盖竞态会以 `BUILD_OUTPUT_RACE_DETECTED` 拒绝。若 gate 成功，
+`artifact-manifest.json` 的 `supply_chain_release_gate_receipt` 只记录 validator 的
+`evidence_file_sha256`、`evidence_set_id`、`evidence_schema_version=1.2.0`、`mode=release` 和外部
+`release_policy_sha256`，不记录本机路径。evidence/policy 在 validator 前后均通过 no-follow
+regular-file FD 稳定读取；validator subprocess 有 300 秒 timeout 和 16 KiB stdout 上限；若验证完成
+后操作者替换路径，已捕获的 receipt 不会被重写，但原始文件必须留存，才能按 receipt 供后续复核。
 
 ### 已安装 wheel / sdist：CLI 发行合同
 
