@@ -71,8 +71,10 @@ AgentTeams MCP Schema v1.2 与严格语义 validator 已强制供应链 `subject
 finding 都只是未签名的历史点时证据；其漏洞数据库已超过声明的下一更新时间。ActionCertificate
 新增密码学依赖并改变 `src/` 后，这套镜像/SBOM/扫描与构建输入证据已明确标记为 `STALE`；
 consistency mode 只能验证“历史快照完整且确实已过时”，release gate 会拒绝。它不证明构建关系、数字签名、attestation、远端 registry 状态、
-持续可用性或生产安全，也绝不等于镜像“clean”或无漏洞。当前 main CI 为
-`771 passed + 1 skipped = 772 collected`（[run 33380863159](https://github.com/MyGarfield/ProofFlow/actions/runs/33380863159)）。
+持续可用性或生产安全，也绝不等于镜像“clean”或无漏洞。本状态页最后一次点时核验绑定
+`main@bdb85f2`：`817 passed + 1 skipped = 818 collected`（[run 33449398693](https://github.com/MyGarfield/ProofFlow/actions/runs/33449398693)）。
+主分支的动态权威状态以 [main CI workflow](https://github.com/MyGarfield/ProofFlow/actions/workflows/ci.yml?query=branch%3Amain)
+为准；数值型测试计数只是 exact run receipt，不是随测试增长仍保持不变的产品合同。
 
 脱敏点时证据见 [AgentTeams 本地证据](deploy/agentteams/LOCAL_INFRA_EVIDENCE.md)、
 [MCP Manager 操作员冒烟](deploy/agentteams/evidence/mcp-manager-operator-smoke-2026-08-20.json)、
@@ -269,7 +271,9 @@ uv run mypy
 uv run pytest
 ```
 
-最近一次已发布 main CI 为 `771 passed + 1 skipped = 772 collected`（[run 33380863159](https://github.com/MyGarfield/ProofFlow/actions/runs/33380863159)）。
+本节最后一次点时核验为 `main@bdb85f2` 的 `817 passed + 1 skipped = 818 collected`
+（[run 33449398693](https://github.com/MyGarfield/ProofFlow/actions/runs/33449398693)）；动态状态见
+[main CI workflow](https://github.com/MyGarfield/ProofFlow/actions/workflows/ci.yml?query=branch%3Amain)。
 ExecutionReceipt v0.1 与 OutcomeClosure v0.1 均已随 main 合并并由该 exact-head run 复核；它们仍只是
 observer-signed 的 public-synthetic 参考实现，不是持久化 exactly-once、真实运行时执行或独立业务
 事实证明。测试覆盖正常链、文件哈希、
