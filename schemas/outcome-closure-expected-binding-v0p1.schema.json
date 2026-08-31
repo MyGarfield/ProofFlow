@@ -1,0 +1,326 @@
+{
+  "$defs": {
+    "ActionCertificateReference": {
+      "additionalProperties": false,
+      "properties": {
+        "certificate_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Certificate Id",
+          "type": "string"
+        },
+        "envelope_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Envelope Sha256",
+          "type": "string"
+        },
+        "intent_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Intent Sha256",
+          "type": "string"
+        },
+        "payload_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Payload Sha256",
+          "type": "string"
+        },
+        "reserved_at": {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+          "title": "Reserved At",
+          "type": "string"
+        },
+        "verification_at": {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+          "title": "Verification At",
+          "type": "string"
+        },
+        "verification_result_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Verification Result Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "certificate_id",
+        "payload_sha256",
+        "envelope_sha256",
+        "verification_result_sha256",
+        "intent_sha256",
+        "verification_at",
+        "reserved_at"
+      ],
+      "title": "ActionCertificateReference",
+      "type": "object",
+      "x-proofflow-runtime-invariants": [
+        "reserved_at is greater than or equal to verification_at"
+      ]
+    },
+    "ExecutionReceiptReference": {
+      "additionalProperties": false,
+      "properties": {
+        "envelope_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Envelope Sha256",
+          "type": "string"
+        },
+        "payload_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Payload Sha256",
+          "type": "string"
+        },
+        "receipt_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Receipt Id",
+          "type": "string"
+        },
+        "verification_result_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Verification Result Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "receipt_id",
+        "payload_sha256",
+        "envelope_sha256",
+        "verification_result_sha256"
+      ],
+      "title": "ExecutionReceiptReference",
+      "type": "object"
+    },
+    "OutcomeEvidenceSource": {
+      "additionalProperties": false,
+      "description": "Operator-bound, local authoritative evidence source declaration.",
+      "properties": {
+        "observed_at": {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+          "title": "Observed At",
+          "type": "string"
+        },
+        "principal_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Principal Id",
+          "type": "string"
+        },
+        "source_event_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Source Event Sha256",
+          "type": "string"
+        },
+        "source_kind": {
+          "$ref": "#/$defs/OutcomeEvidenceSourceKind"
+        },
+        "source_version": {
+          "const": "proofflow.outcome-evidence/v0.1",
+          "title": "Source Version",
+          "type": "string"
+        },
+        "valid_until": {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+          "title": "Valid Until",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_kind",
+        "source_version",
+        "principal_id",
+        "observed_at",
+        "valid_until",
+        "source_event_sha256"
+      ],
+      "title": "OutcomeEvidenceSource",
+      "type": "object",
+      "x-proofflow-runtime-invariants": [
+        "observed_at is no later than valid_until",
+        "source_event_sha256 resolves to exact bytes from the operator-controlled resolver"
+      ]
+    },
+    "OutcomeEvidenceSourceKind": {
+      "description": "Bounded local source kinds accepted by OutcomeClosure v0.1.",
+      "enum": [
+        "LOCAL_BYTES"
+      ],
+      "title": "OutcomeEvidenceSourceKind",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "attempt_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+      "title": "Attempt Id",
+      "type": "string"
+    },
+    "binding_version": {
+      "const": "proofflow.outcome-closure-expected/v0.1",
+      "title": "Binding Version",
+      "type": "string"
+    },
+    "case_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+      "title": "Case Id",
+      "type": "string"
+    },
+    "certificate_ref": {
+      "$ref": "#/$defs/ActionCertificateReference"
+    },
+    "closure_sequence": {
+      "maximum": 1000000,
+      "minimum": 1,
+      "title": "Closure Sequence",
+      "type": "integer"
+    },
+    "effect_intent_sha256": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Effect Intent Sha256",
+      "type": "string"
+    },
+    "effect_target": {
+      "allOf": [
+        {
+          "not": {
+            "anyOf": [
+              {
+                "pattern": "://"
+              },
+              {
+                "pattern": "^[Ff][Ii][Ll][Ee]:"
+              },
+              {
+                "pattern": "^[Dd][Aa][Tt][Aa]:"
+              },
+              {
+                "pattern": "^[Uu][Rr][Nn]:"
+              }
+            ]
+          }
+        }
+      ],
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Effect Target",
+      "type": "string"
+    },
+    "effect_type": {
+      "allOf": [
+        {
+          "not": {
+            "anyOf": [
+              {
+                "pattern": "://"
+              },
+              {
+                "pattern": "^[Ff][Ii][Ll][Ee]:"
+              },
+              {
+                "pattern": "^[Dd][Aa][Tt][Aa]:"
+              },
+              {
+                "pattern": "^[Uu][Rr][Nn]:"
+              }
+            ]
+          }
+        }
+      ],
+      "maxLength": 128,
+      "minLength": 1,
+      "title": "Effect Type",
+      "type": "string"
+    },
+    "evidence_source": {
+      "$ref": "#/$defs/OutcomeEvidenceSource"
+    },
+    "execution_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+      "title": "Execution Id",
+      "type": "string"
+    },
+    "executor_workload_key_fingerprints": {
+      "items": {
+        "pattern": "^sha256:[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "maxItems": 16,
+      "minItems": 1,
+      "title": "Executor Workload Key Fingerprints",
+      "type": "array",
+      "uniqueItems": true
+    },
+    "expected_effect_count": {
+      "maximum": 16,
+      "minimum": 1,
+      "title": "Expected Effect Count",
+      "type": "integer"
+    },
+    "human_principal_key_fingerprints": {
+      "items": {
+        "pattern": "^sha256:[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "maxItems": 16,
+      "minItems": 1,
+      "title": "Human Principal Key Fingerprints",
+      "type": "array",
+      "uniqueItems": true
+    },
+    "idempotency_key": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+      "title": "Idempotency Key",
+      "type": "string"
+    },
+    "previous_payload_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Previous Payload Sha256"
+    },
+    "receipt_ref": {
+      "$ref": "#/$defs/ExecutionReceiptReference"
+    },
+    "task_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+      "title": "Task Id",
+      "type": "string"
+    },
+    "tenant_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+      "title": "Tenant Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "binding_version",
+    "tenant_id",
+    "case_id",
+    "execution_id",
+    "task_id",
+    "attempt_id",
+    "closure_sequence",
+    "certificate_ref",
+    "receipt_ref",
+    "evidence_source",
+    "human_principal_key_fingerprints",
+    "executor_workload_key_fingerprints",
+    "effect_type",
+    "effect_target",
+    "effect_intent_sha256",
+    "idempotency_key",
+    "expected_effect_count"
+  ],
+  "title": "ExpectedOutcomeBinding",
+  "type": "object",
+  "x-proofflow-runtime-invariants": [
+    "the binding is operator-controlled and must not be derived from the signed closure"
+  ]
+}

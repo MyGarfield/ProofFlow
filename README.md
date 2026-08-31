@@ -245,8 +245,9 @@ uv run pytest
 ```
 
 最近一次已发布 main CI 为 `728 passed + 1 skipped = 729 collected`（[run 33304628887](https://github.com/MyGarfield/ProofFlow/actions/runs/33304628887)）。
-ExecutionReceipt v0.1 已随 main 合并并由该 exact-head run 复核；它仍只是 observer-signed 的参考切片，
-不是 OutcomeClosure、持久化 exactly-once 证明或真实运行时执行证明。测试覆盖正常链、文件哈希、
+ExecutionReceipt v0.1 与 OutcomeClosure v0.1 当前切片均为 observer-signed 的 public-synthetic
+参考实现；它们不是持久化 exactly-once 证明或真实运行时执行证明。main 的 exact-head CI
+仍只复核已合并内容，当前切片需通过本分支 CI 后才能宣称合入。测试覆盖正常链、文件哈希、
 提示注入字段、地区/时态规则过滤、缺参阻断、确定性重放、冲突检测、Trace 缺失、越权审批、批准后
 篡改、包文件篡改和未执行评测的 `UNKNOWN`/`null` 合同。
 
@@ -263,6 +264,7 @@ ExecutionReceipt v0.1 已随 main 合并并由该 exact-head run 复核；它仍
 - [本地性能基准](docs/08_PERFORMANCE_BENCHMARK.md)
 - [本地证明链 Demo Runbook（历史文件名）](docs/09_SEMIFINAL_DEMO_RUNBOOK.md)
 - [三臂评测协议](docs/10_EVALUATION_PROTOCOL.md)
+- [OutcomeClosure v0.1](docs/15_OUTCOME_CLOSURE_V0P1.md)
 - [竞赛期海外前沿研究与证据策略](docs/11_FRONTIER_RESEARCH_AND_CHAMPION_STRATEGY.md)
 - [机器可读一手来源登记](research/frontier_sources.json)
 - [Agent Identity](specs/06_AGENT_IDENTITY.yaml)

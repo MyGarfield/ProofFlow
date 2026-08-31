@@ -13,11 +13,31 @@
       "title": "ExecutionObserverScope",
       "type": "string"
     },
+    "OutcomeEvidenceSourceKind": {
+      "description": "Bounded local source kinds accepted by OutcomeClosure v0.1.",
+      "enum": [
+        "LOCAL_BYTES"
+      ],
+      "title": "OutcomeEvidenceSourceKind",
+      "type": "string"
+    },
+    "OutcomeObserverScope": {
+      "description": "Evidence authority scopes required by the OutcomeClosure v0.1 observer.",
+      "enum": [
+        "AUTHORIZATION_BINDING",
+        "EXECUTION_RECEIPT_BINDING",
+        "EFFECT_RECONCILIATION",
+        "BUSINESS_STATE"
+      ],
+      "title": "OutcomeObserverScope",
+      "type": "string"
+    },
     "TrustPurpose": {
       "enum": [
         "ACTION_ISSUER",
         "HUMAN_APPROVAL",
-        "EXECUTION_OBSERVER"
+        "EXECUTION_OBSERVER",
+        "OUTCOME_OBSERVER"
       ],
       "title": "TrustPurpose",
       "type": "string"
@@ -51,6 +71,71 @@
             },
             "required": [
               "execution_observer_scopes"
+            ]
+          }
+        },
+        {
+          "else": {
+            "properties": {
+              "outcome_observer_scopes": {
+                "maxItems": 0
+              }
+            }
+          },
+          "if": {
+            "properties": {
+              "purpose": {
+                "const": "OUTCOME_OBSERVER"
+              }
+            },
+            "required": [
+              "purpose"
+            ]
+          },
+          "then": {
+            "properties": {
+              "outcome_observer_scopes": {
+                "minItems": 4
+              }
+            },
+            "required": [
+              "outcome_observer_scopes"
+            ]
+          }
+        },
+        {
+          "else": {
+            "properties": {
+              "outcome_evidence_source_kinds": {
+                "maxItems": 0
+              },
+              "outcome_evidence_source_principals": {
+                "maxItems": 0
+              }
+            }
+          },
+          "if": {
+            "properties": {
+              "purpose": {
+                "const": "OUTCOME_OBSERVER"
+              }
+            },
+            "required": [
+              "purpose"
+            ]
+          },
+          "then": {
+            "properties": {
+              "outcome_evidence_source_kinds": {
+                "minItems": 1
+              },
+              "outcome_evidence_source_principals": {
+                "minItems": 1
+              }
+            },
+            "required": [
+              "outcome_evidence_source_kinds",
+              "outcome_evidence_source_principals"
             ]
           }
         }
@@ -122,11 +207,43 @@
           "title": "Not Before",
           "type": "string"
         },
+        "outcome_evidence_source_kinds": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/OutcomeEvidenceSourceKind"
+          },
+          "maxItems": 1,
+          "title": "Outcome Evidence Source Kinds",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "outcome_evidence_source_principals": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+            "type": "string"
+          },
+          "maxItems": 16,
+          "title": "Outcome Evidence Source Principals",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "outcome_observer_scopes": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/OutcomeObserverScope"
+          },
+          "maxItems": 4,
+          "title": "Outcome Observer Scopes",
+          "type": "array",
+          "uniqueItems": true
+        },
         "predicate_types": {
           "items": {
             "enum": [
               "https://proofflow.dev/attestations/action-certificate/v0.1",
-              "https://proofflow.dev/attestations/execution-receipt/v0.1"
+              "https://proofflow.dev/attestations/execution-receipt/v0.1",
+              "https://proofflow.dev/attestations/outcome-closure/v0.1"
             ],
             "type": "string"
           },
@@ -192,7 +309,8 @@
       "x-proofflow-runtime-invariants": [
         "not_after is later than not_before",
         "revoked_at, when present, is evaluated against the operator verification time",
-        "EXECUTION_OBSERVER roots contain all seven v0.1 observer scopes"
+        "EXECUTION_OBSERVER roots contain all seven v0.1 observer scopes",
+        "OUTCOME_OBSERVER roots contain all four v0.1 outcome observer scopes"
       ]
     }
   },
@@ -278,11 +396,42 @@
       "type": "array",
       "uniqueItems": true
     },
+    "allowed_outcome_evidence_source_kinds": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/OutcomeEvidenceSourceKind"
+      },
+      "maxItems": 1,
+      "title": "Allowed Outcome Evidence Source Kinds",
+      "type": "array",
+      "uniqueItems": true
+    },
+    "allowed_outcome_evidence_source_principals": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 64,
+      "title": "Allowed Outcome Evidence Source Principals",
+      "type": "array",
+      "uniqueItems": true
+    },
+    "allowed_outcome_observer_principals": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 64,
+      "title": "Allowed Outcome Observer Principals",
+      "type": "array",
+      "uniqueItems": true
+    },
     "allowed_predicate_types": {
       "items": {
         "enum": [
           "https://proofflow.dev/attestations/action-certificate/v0.1",
-          "https://proofflow.dev/attestations/execution-receipt/v0.1"
+          "https://proofflow.dev/attestations/execution-receipt/v0.1",
+          "https://proofflow.dev/attestations/outcome-closure/v0.1"
         ],
         "type": "string"
       },
@@ -340,6 +489,13 @@
       "maximum": 300,
       "minimum": 0,
       "title": "Max Clock Skew Seconds",
+      "type": "integer"
+    },
+    "outcome_observer_threshold": {
+      "default": 1,
+      "maximum": 16,
+      "minimum": 1,
+      "title": "Outcome Observer Threshold",
       "type": "integer"
     },
     "policy_version": {

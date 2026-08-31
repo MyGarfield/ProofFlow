@@ -1,0 +1,463 @@
+{
+  "$defs": {
+    "OutcomeClosureVerificationReason": {
+      "enum": [
+        "PASS_VERIFIED",
+        "FAIL_VERIFIED",
+        "PASS_ALREADY_PRESENT",
+        "FAIL_ALREADY_PRESENT",
+        "ENVELOPE_INVALID",
+        "ENVELOPE_TOO_LARGE",
+        "PAYLOAD_INVALID",
+        "PAYLOAD_TOO_LARGE",
+        "SIGNATURE_INVALID",
+        "TRUST_POLICY_MISMATCH",
+        "EXPECTED_BINDING_MISMATCH",
+        "CLOSURE_TIME_INVALID",
+        "ACTION_CERTIFICATE_ACCEPTANCE_UNKNOWN",
+        "ACTION_CERTIFICATE_HANDOFF_UNTRUSTED",
+        "EXECUTION_RECEIPT_ACCEPTANCE_UNKNOWN",
+        "EXECUTION_RECEIPT_HANDOFF_UNTRUSTED",
+        "ACTION_CERTIFICATE_UNSAFE",
+        "EXECUTION_RECEIPT_UNSAFE",
+        "AUTHORIZATION_BINDING_MISMATCH",
+        "RECEIPT_BINDING_MISMATCH",
+        "EFFECT_BINDING_UNKNOWN",
+        "EFFECT_BINDING_MISMATCH",
+        "EFFECT_COUNT_MISMATCH",
+        "EFFECT_RECONCILIATION_UNRESOLVED",
+        "UNSAFE_UNRESOLVED_EFFECT",
+        "DUPLICATE_EFFECT_SUCCESS",
+        "DUPLICATE_PROVIDER_OPERATION_ID",
+        "OUTCOME_OBSERVER_THRESHOLD_NOT_MET",
+        "ROOT_TIME_OR_REVOCATION_INVALID",
+        "PRODUCER_SIGNER_MISMATCH",
+        "SELF_OBSERVATION",
+        "CLOSURE_ID_CONFLICT",
+        "ATTEMPT_SEQUENCE_CONFLICT",
+        "PREVIOUS_DIGEST_CONFLICT",
+        "IDEMPOTENCY_CONFLICT",
+        "OUTCOME_INDEX_UNAVAILABLE",
+        "EVIDENCE_SOURCE_INVALID",
+        "EVIDENCE_BYTES_UNAVAILABLE",
+        "EVIDENCE_DIGEST_MISMATCH",
+        "EFFECT_COVERAGE_INCOMPLETE",
+        "EFFECT_TERMINAL_INVALID",
+        "OUTCOME_WINDOW_UNSAFE",
+        "OUTCOME_OBSERVER_SOD"
+      ],
+      "title": "OutcomeClosureVerificationReason",
+      "type": "string"
+    },
+    "OutcomeVerdict": {
+      "enum": [
+        "PASS",
+        "FAIL",
+        "UNKNOWN",
+        "UNSAFE_SUCCESS"
+      ],
+      "title": "OutcomeVerdict",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "PASS"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "closure_id": {
+            "not": {
+              "type": "null"
+            }
+          },
+          "payload_sha256": {
+            "not": {
+              "type": "null"
+            }
+          },
+          "reason_codes": {
+            "enum": [
+              [
+                "PASS_ALREADY_PRESENT"
+              ],
+              [
+                "PASS_VERIFIED"
+              ]
+            ]
+          },
+          "recorded": {
+            "const": true
+          },
+          "verified_outcome_observer_roots": {
+            "minItems": 1
+          }
+        },
+        "required": [
+          "closure_id",
+          "payload_sha256",
+          "verified_outcome_observer_roots",
+          "expected_effect_count",
+          "observed_success_count",
+          "unresolved_effect_count",
+          "attempt_id",
+          "closure_sequence"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "FAIL"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "closure_id": {
+            "not": {
+              "type": "null"
+            }
+          },
+          "payload_sha256": {
+            "not": {
+              "type": "null"
+            }
+          },
+          "reason_codes": {
+            "enum": [
+              [
+                "FAIL_ALREADY_PRESENT"
+              ],
+              [
+                "FAIL_VERIFIED"
+              ]
+            ]
+          },
+          "recorded": {
+            "const": true
+          },
+          "verified_outcome_observer_roots": {
+            "minItems": 1
+          }
+        },
+        "required": [
+          "closure_id",
+          "payload_sha256",
+          "verified_outcome_observer_roots",
+          "expected_effect_count",
+          "observed_success_count",
+          "unresolved_effect_count",
+          "attempt_id",
+          "closure_sequence"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "UNKNOWN"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "reason_codes": {
+            "items": {
+              "enum": [
+                "ACTION_CERTIFICATE_ACCEPTANCE_UNKNOWN",
+                "ACTION_CERTIFICATE_HANDOFF_UNTRUSTED",
+                "ATTEMPT_SEQUENCE_CONFLICT",
+                "CLOSURE_ID_CONFLICT",
+                "CLOSURE_TIME_INVALID",
+                "EFFECT_BINDING_UNKNOWN",
+                "EFFECT_COVERAGE_INCOMPLETE",
+                "EFFECT_RECONCILIATION_UNRESOLVED",
+                "EFFECT_TERMINAL_INVALID",
+                "ENVELOPE_INVALID",
+                "ENVELOPE_TOO_LARGE",
+                "EVIDENCE_BYTES_UNAVAILABLE",
+                "EVIDENCE_DIGEST_MISMATCH",
+                "EVIDENCE_SOURCE_INVALID",
+                "EXECUTION_RECEIPT_ACCEPTANCE_UNKNOWN",
+                "EXECUTION_RECEIPT_HANDOFF_UNTRUSTED",
+                "EXPECTED_BINDING_MISMATCH",
+                "IDEMPOTENCY_CONFLICT",
+                "OUTCOME_INDEX_UNAVAILABLE",
+                "OUTCOME_OBSERVER_THRESHOLD_NOT_MET",
+                "PAYLOAD_INVALID",
+                "PAYLOAD_TOO_LARGE",
+                "PREVIOUS_DIGEST_CONFLICT",
+                "PRODUCER_SIGNER_MISMATCH",
+                "ROOT_TIME_OR_REVOCATION_INVALID",
+                "SELF_OBSERVATION",
+                "SIGNATURE_INVALID",
+                "TRUST_POLICY_MISMATCH"
+              ]
+            }
+          },
+          "recorded": {
+            "const": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "UNSAFE_SUCCESS"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "reason_codes": {
+            "items": {
+              "enum": [
+                "ACTION_CERTIFICATE_UNSAFE",
+                "AUTHORIZATION_BINDING_MISMATCH",
+                "DUPLICATE_EFFECT_SUCCESS",
+                "DUPLICATE_PROVIDER_OPERATION_ID",
+                "EFFECT_BINDING_MISMATCH",
+                "EFFECT_COUNT_MISMATCH",
+                "EXECUTION_RECEIPT_UNSAFE",
+                "OUTCOME_OBSERVER_SOD",
+                "OUTCOME_WINDOW_UNSAFE",
+                "RECEIPT_BINDING_MISMATCH",
+                "UNSAFE_UNRESOLVED_EFFECT"
+              ]
+            }
+          },
+          "recorded": {
+            "const": false
+          }
+        }
+      }
+    }
+  ],
+  "properties": {
+    "attempt_id": {
+      "anyOf": [
+        {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Attempt Id"
+    },
+    "closure_id": {
+      "anyOf": [
+        {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Closure Id"
+    },
+    "closure_sequence": {
+      "anyOf": [
+        {
+          "maximum": 1000000,
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Closure Sequence"
+    },
+    "envelope_sha256": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Envelope Sha256",
+      "type": "string"
+    },
+    "expected_effect_count": {
+      "anyOf": [
+        {
+          "maximum": 16,
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Expected Effect Count"
+    },
+    "observed_success_count": {
+      "anyOf": [
+        {
+          "maximum": 128,
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Observed Success Count"
+    },
+    "payload_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Payload Sha256"
+    },
+    "previous_payload_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Previous Payload Sha256"
+    },
+    "reason_codes": {
+      "items": {
+        "enum": [
+          "ACTION_CERTIFICATE_ACCEPTANCE_UNKNOWN",
+          "ACTION_CERTIFICATE_HANDOFF_UNTRUSTED",
+          "ACTION_CERTIFICATE_UNSAFE",
+          "ATTEMPT_SEQUENCE_CONFLICT",
+          "AUTHORIZATION_BINDING_MISMATCH",
+          "CLOSURE_ID_CONFLICT",
+          "CLOSURE_TIME_INVALID",
+          "DUPLICATE_EFFECT_SUCCESS",
+          "DUPLICATE_PROVIDER_OPERATION_ID",
+          "EFFECT_BINDING_MISMATCH",
+          "EFFECT_BINDING_UNKNOWN",
+          "EFFECT_COUNT_MISMATCH",
+          "EFFECT_COVERAGE_INCOMPLETE",
+          "EFFECT_RECONCILIATION_UNRESOLVED",
+          "EFFECT_TERMINAL_INVALID",
+          "ENVELOPE_INVALID",
+          "ENVELOPE_TOO_LARGE",
+          "EVIDENCE_BYTES_UNAVAILABLE",
+          "EVIDENCE_DIGEST_MISMATCH",
+          "EVIDENCE_SOURCE_INVALID",
+          "EXECUTION_RECEIPT_ACCEPTANCE_UNKNOWN",
+          "EXECUTION_RECEIPT_HANDOFF_UNTRUSTED",
+          "EXECUTION_RECEIPT_UNSAFE",
+          "EXPECTED_BINDING_MISMATCH",
+          "FAIL_ALREADY_PRESENT",
+          "FAIL_VERIFIED",
+          "IDEMPOTENCY_CONFLICT",
+          "OUTCOME_INDEX_UNAVAILABLE",
+          "OUTCOME_OBSERVER_SOD",
+          "OUTCOME_OBSERVER_THRESHOLD_NOT_MET",
+          "OUTCOME_WINDOW_UNSAFE",
+          "PASS_ALREADY_PRESENT",
+          "PASS_VERIFIED",
+          "PAYLOAD_INVALID",
+          "PAYLOAD_TOO_LARGE",
+          "PREVIOUS_DIGEST_CONFLICT",
+          "PRODUCER_SIGNER_MISMATCH",
+          "RECEIPT_BINDING_MISMATCH",
+          "ROOT_TIME_OR_REVOCATION_INVALID",
+          "SELF_OBSERVATION",
+          "SIGNATURE_INVALID",
+          "TRUST_POLICY_MISMATCH",
+          "UNSAFE_UNRESOLVED_EFFECT"
+        ]
+      },
+      "maxItems": 16,
+      "minItems": 1,
+      "title": "Reason Codes",
+      "type": "array",
+      "uniqueItems": true
+    },
+    "recorded": {
+      "title": "Recorded",
+      "type": "boolean"
+    },
+    "status": {
+      "$ref": "#/$defs/OutcomeVerdict"
+    },
+    "unresolved_effect_count": {
+      "anyOf": [
+        {
+          "maximum": 128,
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Unresolved Effect Count"
+    },
+    "verification_version": {
+      "const": "proofflow.outcome-closure-verification/v0.1",
+      "title": "Verification Version",
+      "type": "string"
+    },
+    "verified_outcome_observer_roots": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 16,
+      "title": "Verified Outcome Observer Roots",
+      "type": "array",
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "verification_version",
+    "status",
+    "reason_codes",
+    "envelope_sha256",
+    "recorded"
+  ],
+  "title": "OutcomeClosureVerificationResult",
+  "type": "object",
+  "x-proofflow-runtime-invariants": [
+    "PASS is only emitted for a recorded exact-byte closure with expected successes and no unresolved effects",
+    "UNSAFE_SUCCESS is never recorded and signals success-like output without complete trusted closure evidence"
+  ]
+}

@@ -326,6 +326,7 @@ class TrustPurpose(StrEnum):
     ACTION_ISSUER = "ACTION_ISSUER"
     HUMAN_APPROVAL = "HUMAN_APPROVAL"
     EXECUTION_OBSERVER = "EXECUTION_OBSERVER"
+    OUTCOME_OBSERVER = "OUTCOME_OBSERVER"
 
 
 class ExecutionObserverScope(StrEnum):
@@ -336,6 +337,21 @@ class ExecutionObserverScope(StrEnum):
     INFERENCE_RESPONSE = "INFERENCE_RESPONSE"
     EFFECT_ATTEMPT = "EFFECT_ATTEMPT"
     METRICS = "METRICS"
+
+
+class OutcomeObserverScope(StrEnum):
+    """Evidence authority scopes required by the OutcomeClosure v0.1 observer."""
+
+    AUTHORIZATION_BINDING = "AUTHORIZATION_BINDING"
+    EXECUTION_RECEIPT_BINDING = "EXECUTION_RECEIPT_BINDING"
+    EFFECT_RECONCILIATION = "EFFECT_RECONCILIATION"
+    BUSINESS_STATE = "BUSINESS_STATE"
+
+
+class OutcomeEvidenceSourceKind(StrEnum):
+    """Bounded local source kinds accepted by OutcomeClosure v0.1."""
+
+    LOCAL_BYTES = "LOCAL_BYTES"
 
 
 class TrustRoot(CertificateWireModel):
@@ -351,10 +367,16 @@ class TrustRoot(CertificateWireModel):
         Literal[
             "https://proofflow.dev/attestations/action-certificate/v0.1",
             "https://proofflow.dev/attestations/execution-receipt/v0.1",
+            "https://proofflow.dev/attestations/outcome-closure/v0.1",
         ],
         ...,
     ] = Field(min_length=1, max_length=4)
     execution_observer_scopes: tuple[ExecutionObserverScope, ...] = Field(default=(), max_length=7)
+    outcome_observer_scopes: tuple[OutcomeObserverScope, ...] = Field(default=(), max_length=4)
+    outcome_evidence_source_kinds: tuple[OutcomeEvidenceSourceKind, ...] = Field(
+        default=(), max_length=1
+    )
+    outcome_evidence_source_principals: tuple[str, ...] = Field(default=(), max_length=16)
     not_before: datetime
     not_after: datetime
     revoked_at: datetime | None = None
@@ -396,6 +418,28 @@ class TrustRoot(CertificateWireModel):
             raise ValueError("EXECUTION_OBSERVER roots require every v0.1 observer scope")
         if self.purpose != TrustPurpose.EXECUTION_OBSERVER and self.execution_observer_scopes:
             raise ValueError("only EXECUTION_OBSERVER roots may declare observer scopes")
+        if self.purpose == TrustPurpose.OUTCOME_OBSERVER and frozenset(
+            self.outcome_observer_scopes
+        ) != frozenset(OutcomeObserverScope):
+            raise ValueError("OUTCOME_OBSERVER roots require every v0.1 observer scope")
+        if self.purpose != TrustPurpose.OUTCOME_OBSERVER and self.outcome_observer_scopes:
+            raise ValueError("only OUTCOME_OBSERVER roots may declare outcome observer scopes")
+        if self.purpose == TrustPurpose.OUTCOME_OBSERVER:
+            if not self.outcome_evidence_source_kinds:
+                raise ValueError("OUTCOME_OBSERVER roots must bind an evidence source kind")
+            if not self.outcome_evidence_source_principals:
+                raise ValueError("OUTCOME_OBSERVER roots must bind evidence source principals")
+        elif self.outcome_evidence_source_kinds or self.outcome_evidence_source_principals:
+            raise ValueError(
+                "only OUTCOME_OBSERVER roots may declare outcome evidence source bindings"
+            )
+        if len(set(self.outcome_evidence_source_principals)) != len(
+            self.outcome_evidence_source_principals
+        ):
+            raise ValueError("outcome evidence source principals must be unique")
+        for principal in self.outcome_evidence_source_principals:
+            if re.fullmatch(IDENTIFIER_PATTERN, principal) is None:
+                raise ValueError("outcome evidence source principal is invalid")
         return self
 
 
@@ -407,11 +451,17 @@ class TrustPolicy(CertificateWireModel):
     allowed_action_issuer_principals: tuple[str, ...] = Field(min_length=1, max_length=64)
     allowed_approval_principals: tuple[str, ...] = Field(default=(), max_length=64)
     allowed_execution_observer_principals: tuple[str, ...] = Field(default=(), max_length=64)
+    allowed_outcome_observer_principals: tuple[str, ...] = Field(default=(), max_length=64)
+    allowed_outcome_evidence_source_kinds: tuple[OutcomeEvidenceSourceKind, ...] = Field(
+        default=(), max_length=1
+    )
+    allowed_outcome_evidence_source_principals: tuple[str, ...] = Field(default=(), max_length=64)
     allowed_audiences: tuple[str, ...] = Field(min_length=1, max_length=32)
     allowed_predicate_types: tuple[
         Literal[
             "https://proofflow.dev/attestations/action-certificate/v0.1",
             "https://proofflow.dev/attestations/execution-receipt/v0.1",
+            "https://proofflow.dev/attestations/outcome-closure/v0.1",
         ],
         ...,
     ] = Field(min_length=1, max_length=4)
@@ -419,6 +469,7 @@ class TrustPolicy(CertificateWireModel):
     action_issuer_threshold: StrictInt = Field(ge=1, le=16)
     human_approval_threshold: StrictInt = Field(ge=1, le=16)
     execution_observer_threshold: StrictInt = Field(default=1, ge=1, le=16)
+    outcome_observer_threshold: StrictInt = Field(default=1, ge=1, le=16)
     max_certificate_lifetime_seconds: StrictInt = Field(ge=1, le=86400)
     max_clock_skew_seconds: StrictInt = Field(default=0, ge=0, le=300)
     roots: tuple[TrustRoot, ...] = Field(min_length=1, max_length=MAX_TRUST_ROOTS)
@@ -432,6 +483,9 @@ class TrustPolicy(CertificateWireModel):
             self.allowed_action_issuer_principals,
             self.allowed_approval_principals,
             self.allowed_execution_observer_principals,
+            self.allowed_outcome_observer_principals,
+            self.allowed_outcome_evidence_source_kinds,
+            self.allowed_outcome_evidence_source_principals,
             self.allowed_audiences,
             self.allowed_predicate_types,
         )
@@ -1188,6 +1242,8 @@ __all__ = [
     "ExecutionObserverScope",
     "ExpectedBinding",
     "InMemoryReplayLedger",
+    "OutcomeEvidenceSourceKind",
+    "OutcomeObserverScope",
     "ReplayLedger",
     "ReservationStatus",
     "SnapshotApprovalRevocationResolver",
