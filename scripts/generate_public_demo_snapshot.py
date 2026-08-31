@@ -1,11 +1,11 @@
 """Generate the public landing snapshot from one reviewed Git object.
 
-The landing page is intentionally newer than the product source commit.  This
+The landing page is intentionally newer than the product source commit. This
 generator reads product files with ``git cat-file`` so an edited worktree cannot
 silently become evidence for the pinned product snapshot.
 
 The full-suite count is a separately pinned GitHub Actions declaration for that
-commit.  It is not derived from Git blobs and never changes
+commit. It is not derived from Git blobs and never changes
 ``generator_executed_tests=false``.
 """
 
@@ -22,11 +22,11 @@ from typing import Any, Final
 ROOT: Final = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT: Final = ROOT / "public-demo" / "evidence-snapshot.json"
 
-SOURCE_COMMIT: Final = "68911dbb2858be3b217b0b80c62eea9df57ed595"
-SOURCE_TREE: Final = "be7d5d59ddbdb25bd9ab0d2480e833da829de03f"
-SOURCE_COMMITTED_AT: Final = "2026-08-29T05:34:46+08:00"
-SOURCE_CI_RUN_ID: Final = 33213175597
-SOURCE_CI_RUN_URL: Final = "https://github.com/MyGarfield/ProofFlow/actions/runs/33213175597"
+SOURCE_COMMIT: Final = "2edfe55d88abac3cc4d56dc74375b698dce7a476"
+SOURCE_TREE: Final = "2365782588f85cde01e65fdcb666560a2c1d8bb7"
+SOURCE_COMMITTED_AT: Final = "2026-08-31T18:15:27+08:00"
+SOURCE_CI_RUN_ID: Final = 33381584094
+SOURCE_CI_RUN_URL: Final = "https://github.com/MyGarfield/ProofFlow/actions/runs/33381584094"
 
 ACTION_SCHEMA_PATHS: Final = (
     "schemas/action-certificate-dsse-envelope.schema.json",
@@ -36,6 +36,32 @@ ACTION_SCHEMA_PATHS: Final = (
     "schemas/action-certificate-statement-v0p1.schema.json",
     "schemas/action-certificate-trust-policy-v0p1.schema.json",
     "schemas/action-certificate-verification-result-v0p1.schema.json",
+)
+
+EXECUTION_RECEIPT_SCHEMA_PATHS: Final = (
+    "schemas/execution-receipt-expected-binding-v0p1.schema.json",
+    "schemas/execution-receipt-predicate-v0p1.schema.json",
+    "schemas/execution-receipt-statement-v0p1.schema.json",
+    "schemas/execution-receipt-verification-result-v0p1.schema.json",
+)
+
+OUTCOME_CLOSURE_SCHEMA_PATHS: Final = (
+    "schemas/outcome-closure-expected-binding-v0p1.schema.json",
+    "schemas/outcome-closure-predicate-v0p1.schema.json",
+    "schemas/outcome-closure-statement-v0p1.schema.json",
+    "schemas/outcome-closure-verification-result-v0p1.schema.json",
+)
+
+PRIMITIVE_SOURCE_PATHS: Final = (
+    "src/proofflow/action_certificate.py",
+    "src/proofflow/execution_receipt.py",
+    "src/proofflow/outcome_closure.py",
+)
+
+PRIMITIVE_DOCUMENTATION_PATHS: Final = (
+    "docs/13_ACTION_CERTIFICATE_V0P1.md",
+    "docs/14_EXECUTION_RECEIPT_V0P1.md",
+    "docs/15_OUTCOME_CLOSURE_V0P1.md",
 )
 
 SUPPLY_FRESHNESS_ASSET_PATHS: Final = (
@@ -50,11 +76,13 @@ PRODUCT_ASSET_PATHS: Final = (
     "README.md",
     ".github/workflows/ci.yml",
     "docs/12_GLOBAL_PRODUCT_ROADMAP.md",
-    "docs/13_ACTION_CERTIFICATE_V0P1.md",
+    *PRIMITIVE_DOCUMENTATION_PATHS,
     "benchmarks/evaluation/README.md",
     "deploy/tool-service/SUPPLY_CHAIN_EVIDENCE.md",
-    "src/proofflow/action_certificate.py",
+    *PRIMITIVE_SOURCE_PATHS,
     *ACTION_SCHEMA_PATHS,
+    *EXECUTION_RECEIPT_SCHEMA_PATHS,
+    *OUTCOME_CLOSURE_SCHEMA_PATHS,
     *SUPPLY_FRESHNESS_ASSET_PATHS,
 )
 
@@ -122,6 +150,10 @@ def _require_source_claims(repository_root: Path, commit: str) -> None:
     action_doc = _blob(repository_root, commit, "docs/13_ACTION_CERTIFICATE_V0P1.md").decode(
         "utf-8"
     )
+    receipt_doc = _blob(repository_root, commit, "docs/14_EXECUTION_RECEIPT_V0P1.md").decode(
+        "utf-8"
+    )
+    closure_doc = _blob(repository_root, commit, "docs/15_OUTCOME_CLOSURE_V0P1.md").decode("utf-8")
     evaluation_doc = _blob(repository_root, commit, "benchmarks/evaluation/README.md").decode(
         "utf-8"
     )
@@ -131,11 +163,17 @@ def _require_source_claims(repository_root: Path, commit: str) -> None:
 
     required_fragments = (
         (readme, "ActionCertificate v0.1"),
-        (readme, "569 passed"),
-        (readme, "53 passed"),
+        (readme, "ExecutionReceipt v0.1"),
+        (readme, "OutcomeClosure v0.1"),
+        (readme, "771 passed + 1 skipped = 772 collected"),
         (readme, "Worker 容器数为 0"),
         (action_doc, "pre-execution slice"),
         (action_doc, "It is not a production release gate"),
+        (receipt_doc, "operator-controlled inputs"),
+        (receipt_doc, "same-process observer"),
+        (closure_doc, "operator handoff inputs"),
+        (closure_doc, "same-process observer is not an independent"),
+        (closure_doc, "physical source of truth"),
         (readme, "PROTOCOL_VALIDATED_NOT_EXECUTED"),
         (evaluation_doc, "UNKNOWN"),
         (supply_doc, "Current status: historical snapshot, stale for this branch"),
@@ -207,12 +245,10 @@ def build_snapshot(
                 "full_repo_ci_run_id": SOURCE_CI_RUN_ID,
                 "full_repo_ci_run_url": SOURCE_CI_RUN_URL,
                 "full_repo_ci_head_sha": SOURCE_COMMIT,
-                "full_repo_total": 610,
-                "full_repo_passed": 609,
+                "full_repo_total": 772,
+                "full_repo_passed": 771,
                 "full_repo_skipped": 1,
-                "source_readme_declared_full_repo_passed": 569,
-                "action_certificate_provenance": "SOURCE_README_DECLARATION",
-                "action_certificate_passed": 53,
+                "source_readme_declared_full_repo_passed": 771,
                 "generator_executed_tests": False,
             },
         },
@@ -257,10 +293,13 @@ def build_snapshot(
             "release_ready": False,
             "worker_or_llm_execution_observed": False,
             "evaluation_executed": False,
-            "execution_receipt_implemented": False,
-            "outcome_closure_implemented": False,
+            "execution_receipt_implemented": True,
+            "outcome_closure_implemented": True,
             "digests_are_signatures": False,
             "source_authenticity_proven_by_snapshot": False,
+            "operator_handoff_signed": False,
+            "same_process_observer_is_independent_truth": False,
+            "indexes_process_local_only": True,
         },
     }
 

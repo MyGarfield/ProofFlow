@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN" data-source-commit="68911dbb2858be3b217b0b80c62eea9df57ed595" data-horizontal-overflow="unchecked">
+<html lang="zh-CN" data-source-commit="2edfe55d88abac3cc4d56dc74375b698dce7a476" data-horizontal-overflow="unchecked">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -11,7 +11,7 @@
   >
   <meta
     name="description"
-    content="ProofFlow 当前 Core alpha 的只读公开快照：ActionCertificate v0.1 与严格的非声明边界。"
+    content="ProofFlow 当前 Core alpha 的只读公开快照：ActionCertificate、ExecutionReceipt、OutcomeClosure 与严格的非声明边界。"
   >
   <title>ProofFlow / Current Core Alpha Snapshot</title>
   <link rel="icon" type="image/svg+xml" href="./favicon.svg">
@@ -54,12 +54,12 @@
       <div class="hero-statement" data-qa-box>
         <p class="lede">
           ProofFlow 正在成为跨 Runtime 的可验证授权、ExecutionReceipt 与 OutcomeClosure 平面，
-          不是另一个通用 Agent Runtime。当前已合入 ActionCertificate v0.1 的预执行授权切片。
+          不是另一个通用 Agent Runtime。当前源提交包含三原语的 observer-signed public-synthetic 参考切片。
         </p>
         <dl class="hero-facts">
           <div>
             <dt class="mono">SOURCE</dt>
-            <dd><code>main@68911db</code></dd>
+            <dd><code>main@2edfe55</code></dd>
           </div>
           <div>
             <dt class="mono">LANDING RELATION</dt>
@@ -73,7 +73,7 @@
         <div class="hero-actions">
           <a
             class="button target"
-            href="https://github.com/MyGarfield/ProofFlow/commit/68911dbb2858be3b217b0b80c62eea9df57ed595"
+            href="https://github.com/MyGarfield/ProofFlow/commit/2edfe55d88abac3cc4d56dc74375b698dce7a476"
             target="_blank"
             rel="noreferrer noopener"
           >检查固定提交 →</a>
@@ -90,7 +90,7 @@
           <p class="kicker mono">SOURCE DECLARATIONS / NOT SELF-AUTHENTICATING</p>
           <h2 id="core-title">当前实现，不把路线图写成完成项</h2>
         </div>
-        <p class="section-note mono">MAIN@68911DB / P.02</p>
+        <p class="section-note mono">MAIN@2EDFE55 / P.02</p>
       </div>
 
       <div class="metric-grid grid12">
@@ -101,16 +101,16 @@
           <p>DSSE + in-toto + Ed25519；TrustPolicy、审批撤销、租户绑定与进程内防重放。</p>
         </article>
         <article class="metric source-declared" data-qa-box>
-          <p class="metric-index mono">T—53 / SOURCE README</p>
-          <strong>53</strong>
-          <h3>certificate tests</h3>
-          <p>源提交 README 声明的定向通过数；快照生成器没有执行测试。</p>
+          <p class="metric-index mono">P—03 / REFERENCE PRIMITIVES</p>
+          <strong>3</strong>
+          <h3>proof primitives</h3>
+          <p>ActionCertificate、ExecutionReceipt、OutcomeClosure 均有源码、文档与 Schema；快照生成器没有执行测试。</p>
         </article>
         <article class="metric source-declared" data-qa-box>
-          <p class="metric-index mono">T—610 / PINNED MAIN CI</p>
-          <strong>610</strong>
+          <p class="metric-index mono">T—772 / PINNED MAIN CI</p>
+          <strong>772</strong>
           <h3>collected tests</h3>
-          <p>610 collected / 609 passed + 1 skipped；生成器没有执行测试，源 README 仍写较早的 569。</p>
+          <p>771 passed + 1 skipped = 772 collected；run 33381584094，生成器没有执行测试。</p>
         </article>
         <article class="metric blocked" data-qa-box>
           <p class="metric-index mono">S—00 / RELEASE GATE</p>
@@ -148,17 +148,17 @@
           <p>把 S/A/R/C、tenant、policy、approval、effect target 与 idempotency intent 绑定到签名载荷。</p>
           <output>v0.1 IMPLEMENTED SLICE</output>
         </li>
-        <li class="primitive pending" data-qa-box>
+        <li class="primitive implemented" data-qa-box>
           <span class="primitive-no mono">02 / EXECUTION</span>
           <h3>ExecutionReceipt</h3>
-          <p>路线图目标：由可信观察者绑定实际 runtime、tool、trace、artifact、cost 与 effect。</p>
-          <output>ExecutionReceipt 未实现</output>
+          <p>由配置的可信观察者绑定执行尝试、runtime、tool、trace、artifact、cost 与 effect evidence。</p>
+          <output>OBSERVER-SIGNED REFERENCE SLICE</output>
         </li>
-        <li class="primitive pending" data-qa-box>
+        <li class="primitive implemented" data-qa-box>
           <span class="primitive-no mono">03 / POST-EFFECT</span>
           <h3>OutcomeClosure</h3>
-          <p>路线图目标：独立核验效果发生一次、符合授权且没有未闭合副作用。</p>
-          <output>OutcomeClosure 未实现</output>
+          <p>由结果观察者核对授权、执行回执与 effect reconciliation；缺证仍为 UNKNOWN。</p>
+          <output>OBSERVER-SIGNED REFERENCE SLICE</output>
         </li>
       </ol>
 
@@ -212,15 +212,15 @@
       <div class="source-ledger grid12">
         <article data-qa-box>
           <p class="mono">SOURCE COMMIT</p>
-          <code>68911dbb2858be3b217b0b80c62eea9df57ed595</code>
+          <code>2edfe55d88abac3cc4d56dc74375b698dce7a476</code>
         </article>
         <article data-qa-box>
           <p class="mono">SOURCE TREE</p>
-          <code>be7d5d59ddbdb25bd9ab0d2480e833da829de03f</code>
+          <code>2365782588f85cde01e65fdcb666560a2c1d8bb7</code>
         </article>
         <article data-qa-box>
           <p class="mono">PRODUCT ASSET BUNDLE / UNSIGNED</p>
-          <code>2fb8dab56c9e100dbd2ebd310f1c00cb13cf703b1808090160e96ff512301c48</code>
+          <code>cfad9acf4d44609721afbe28b2a3b2c84d8476c9529372fd77995846c54988f2</code>
         </article>
         <article data-qa-box>
           <p class="mono">SYNTHETIC FIXTURE BUNDLE / UNSIGNED</p>
@@ -245,37 +245,69 @@
       </div>
 
       <div class="material-links">
-        <a class="material-card target" href="https://github.com/MyGarfield/ProofFlow/blob/68911dbb2858be3b217b0b80c62eea9df57ed595/README.md" target="_blank" rel="noreferrer noopener" data-qa-box>
-          <span class="mono">01 / CURRENT STATE</span><strong>README</strong><em>源状态、610 CI / 53 README →</em>
+        <a class="material-card target" href="https://github.com/MyGarfield/ProofFlow/blob/2edfe55d88abac3cc4d56dc74375b698dce7a476/README.md" target="_blank" rel="noreferrer noopener" data-qa-box>
+          <span class="mono">01 / CURRENT STATE</span><strong>README</strong><em>源状态、771 CI / 三原语 →</em>
         </a>
-        <a class="material-card target" href="https://github.com/MyGarfield/ProofFlow/blob/68911dbb2858be3b217b0b80c62eea9df57ed595/docs/12_GLOBAL_PRODUCT_ROADMAP.md" target="_blank" rel="noreferrer noopener" data-qa-box>
+        <a class="material-card target" href="https://github.com/MyGarfield/ProofFlow/blob/2edfe55d88abac3cc4d56dc74375b698dce7a476/docs/12_GLOBAL_PRODUCT_ROADMAP.md" target="_blank" rel="noreferrer noopener" data-qa-box>
           <span class="mono">02 / STRATEGY</span><strong>Global Roadmap</strong><em>30 / 60 / 90 天验收门 →</em>
         </a>
-        <a class="material-card target" href="https://github.com/MyGarfield/ProofFlow/blob/68911dbb2858be3b217b0b80c62eea9df57ed595/docs/13_ACTION_CERTIFICATE_V0P1.md" target="_blank" rel="noreferrer noopener" data-qa-box>
-          <span class="mono">03 / CONTRACT</span><strong>ActionCertificate v0.1</strong><em>验签顺序与非声明 →</em>
+        <a class="material-card target" href="https://github.com/MyGarfield/ProofFlow/blob/2edfe55d88abac3cc4d56dc74375b698dce7a476/docs/13_ACTION_CERTIFICATE_V0P1.md" target="_blank" rel="noreferrer noopener" data-qa-box>
+          <span class="mono">03 / CONTRACT</span><strong>ActionCertificate v0.1</strong><em>授权验签与非声明 →</em>
         </a>
-        <a class="material-card target" href="https://github.com/MyGarfield/ProofFlow/tree/68911dbb2858be3b217b0b80c62eea9df57ed595/schemas" target="_blank" rel="noreferrer noopener" data-qa-box>
-          <span class="mono">04 / SCHEMAS</span><strong>Machine contracts</strong><em>七份 ActionCertificate Schema →</em>
+        <a class="material-card target" href="https://github.com/MyGarfield/ProofFlow/blob/2edfe55d88abac3cc4d56dc74375b698dce7a476/docs/14_EXECUTION_RECEIPT_V0P1.md" target="_blank" rel="noreferrer noopener" data-qa-box>
+          <span class="mono">04 / CONTRACT</span><strong>ExecutionReceipt v0.1</strong><em>observer trust 与 UNKNOWN →</em>
         </a>
-        <a class="material-card target" href="https://github.com/MyGarfield/ProofFlow/actions/runs/33213175597" target="_blank" rel="noreferrer noopener" data-qa-box>
-          <span class="mono">05 / CI OBSERVATION</span><strong>Main CI run</strong><em>609 passed + 1 skipped →</em>
+        <a class="material-card target" href="https://github.com/MyGarfield/ProofFlow/blob/2edfe55d88abac3cc4d56dc74375b698dce7a476/docs/15_OUTCOME_CLOSURE_V0P1.md" target="_blank" rel="noreferrer noopener" data-qa-box>
+          <span class="mono">05 / CONTRACT</span><strong>OutcomeClosure v0.1</strong><em>reconciliation 与闭环 verdict →</em>
         </a>
-        <a class="material-card target" href="https://github.com/MyGarfield/ProofFlow/blob/68911dbb2858be3b217b0b80c62eea9df57ed595/deploy/tool-service/SUPPLY_CHAIN_EVIDENCE.md" target="_blank" rel="noreferrer noopener" data-qa-box>
-          <span class="mono">06 / BLOCKER</span><strong>Supply-chain boundary</strong><em>为什么当前证据过期 →</em>
+        <a class="material-card target" href="https://github.com/MyGarfield/ProofFlow/blob/2edfe55d88abac3cc4d56dc74375b698dce7a476/src/proofflow/action_certificate.py" target="_blank" rel="noreferrer noopener" data-qa-box>
+          <span class="mono">06 / SOURCE</span><strong>ActionCertificate source</strong><em>reference verifier →</em>
+        </a>
+        <a class="material-card target" href="https://github.com/MyGarfield/ProofFlow/blob/2edfe55d88abac3cc4d56dc74375b698dce7a476/src/proofflow/execution_receipt.py" target="_blank" rel="noreferrer noopener" data-qa-box>
+          <span class="mono">07 / SOURCE</span><strong>ExecutionReceipt source</strong><em>observer receipt verifier →</em>
+        </a>
+        <a class="material-card target" href="https://github.com/MyGarfield/ProofFlow/blob/2edfe55d88abac3cc4d56dc74375b698dce7a476/src/proofflow/outcome_closure.py" target="_blank" rel="noreferrer noopener" data-qa-box>
+          <span class="mono">08 / SOURCE</span><strong>OutcomeClosure source</strong><em>closure verifier →</em>
+        </a>
+        <a class="material-card target" href="https://github.com/MyGarfield/ProofFlow/tree/2edfe55d88abac3cc4d56dc74375b698dce7a476/schemas" target="_blank" rel="noreferrer noopener" data-qa-box>
+          <span class="mono">09 / SCHEMAS</span><strong>Machine contracts</strong><em>三原语共 15 份 Schema →</em>
+        </a>
+        <a class="material-card target" href="https://github.com/MyGarfield/ProofFlow/actions/runs/33381584094" target="_blank" rel="noreferrer noopener" data-qa-box>
+          <span class="mono">10 / CI OBSERVATION</span><strong>Main CI run</strong><em>771 passed + 1 skipped →</em>
+        </a>
+        <a class="material-card target" href="https://github.com/MyGarfield/ProofFlow/blob/2edfe55d88abac3cc4d56dc74375b698dce7a476/deploy/tool-service/SUPPLY_CHAIN_EVIDENCE.md" target="_blank" rel="noreferrer noopener" data-qa-box>
+          <span class="mono">11 / BLOCKER</span><strong>Supply-chain boundary</strong><em>为什么当前证据过期 →</em>
         </a>
       </div>
 
       <div class="schema-section">
-        <p class="kicker mono">ACTIONCERTIFICATE V0.1 / SEVEN EXPORTED SCHEMAS</p>
+        <p class="kicker mono">THREE PRIMITIVES / FIFTEEN EXPORTED SCHEMAS</p>
         <div class="schema-links">
-          <a class="target" href="https://github.com/MyGarfield/ProofFlow/blob/68911dbb2858be3b217b0b80c62eea9df57ed595/schemas/action-certificate-dsse-envelope.schema.json" target="_blank" rel="noreferrer noopener">DSSE envelope</a>
-          <a class="target" href="https://github.com/MyGarfield/ProofFlow/blob/68911dbb2858be3b217b0b80c62eea9df57ed595/schemas/action-certificate-expected-binding.schema.json" target="_blank" rel="noreferrer noopener">Expected binding</a>
-          <a class="target" href="https://github.com/MyGarfield/ProofFlow/blob/68911dbb2858be3b217b0b80c62eea9df57ed595/schemas/action-certificate-predicate-v0p1.schema.json" target="_blank" rel="noreferrer noopener">Predicate v0.1</a>
-          <a class="target" href="https://github.com/MyGarfield/ProofFlow/blob/68911dbb2858be3b217b0b80c62eea9df57ed595/schemas/action-certificate-revocation-snapshot.schema.json" target="_blank" rel="noreferrer noopener">Revocation snapshot</a>
-          <a class="target" href="https://github.com/MyGarfield/ProofFlow/blob/68911dbb2858be3b217b0b80c62eea9df57ed595/schemas/action-certificate-statement-v0p1.schema.json" target="_blank" rel="noreferrer noopener">Statement v0.1</a>
-          <a class="target" href="https://github.com/MyGarfield/ProofFlow/blob/68911dbb2858be3b217b0b80c62eea9df57ed595/schemas/action-certificate-trust-policy-v0p1.schema.json" target="_blank" rel="noreferrer noopener">Trust policy v0.1</a>
-          <a class="target" href="https://github.com/MyGarfield/ProofFlow/blob/68911dbb2858be3b217b0b80c62eea9df57ed595/schemas/action-certificate-verification-result-v0p1.schema.json" target="_blank" rel="noreferrer noopener">Verification result</a>
+          <span class="schema-group mono">ACTIONCERTIFICATE</span>
+          <a class="target" href="https://github.com/MyGarfield/ProofFlow/blob/2edfe55d88abac3cc4d56dc74375b698dce7a476/schemas/action-certificate-dsse-envelope.schema.json" target="_blank" rel="noreferrer noopener">AC DSSE</a>
+          <a class="target" href="https://github.com/MyGarfield/ProofFlow/blob/2edfe55d88abac3cc4d56dc74375b698dce7a476/schemas/action-certificate-expected-binding.schema.json" target="_blank" rel="noreferrer noopener">AC binding</a>
+          <a class="target" href="https://github.com/MyGarfield/ProofFlow/blob/2edfe55d88abac3cc4d56dc74375b698dce7a476/schemas/action-certificate-predicate-v0p1.schema.json" target="_blank" rel="noreferrer noopener">AC predicate</a>
+          <a class="target" href="https://github.com/MyGarfield/ProofFlow/blob/2edfe55d88abac3cc4d56dc74375b698dce7a476/schemas/action-certificate-revocation-snapshot.schema.json" target="_blank" rel="noreferrer noopener">AC revocation</a>
+          <a class="target" href="https://github.com/MyGarfield/ProofFlow/blob/2edfe55d88abac3cc4d56dc74375b698dce7a476/schemas/action-certificate-statement-v0p1.schema.json" target="_blank" rel="noreferrer noopener">AC statement</a>
+          <a class="target" href="https://github.com/MyGarfield/ProofFlow/blob/2edfe55d88abac3cc4d56dc74375b698dce7a476/schemas/action-certificate-trust-policy-v0p1.schema.json" target="_blank" rel="noreferrer noopener">AC trust</a>
+          <a class="target" href="https://github.com/MyGarfield/ProofFlow/blob/2edfe55d88abac3cc4d56dc74375b698dce7a476/schemas/action-certificate-verification-result-v0p1.schema.json" target="_blank" rel="noreferrer noopener">AC result</a>
+          <span class="schema-group mono">EXECUTIONRECEIPT</span>
+          <a class="target" href="https://github.com/MyGarfield/ProofFlow/blob/2edfe55d88abac3cc4d56dc74375b698dce7a476/schemas/execution-receipt-expected-binding-v0p1.schema.json" target="_blank" rel="noreferrer noopener">ER binding</a>
+          <a class="target" href="https://github.com/MyGarfield/ProofFlow/blob/2edfe55d88abac3cc4d56dc74375b698dce7a476/schemas/execution-receipt-predicate-v0p1.schema.json" target="_blank" rel="noreferrer noopener">ER predicate</a>
+          <a class="target" href="https://github.com/MyGarfield/ProofFlow/blob/2edfe55d88abac3cc4d56dc74375b698dce7a476/schemas/execution-receipt-statement-v0p1.schema.json" target="_blank" rel="noreferrer noopener">ER statement</a>
+          <a class="target" href="https://github.com/MyGarfield/ProofFlow/blob/2edfe55d88abac3cc4d56dc74375b698dce7a476/schemas/execution-receipt-verification-result-v0p1.schema.json" target="_blank" rel="noreferrer noopener">ER result</a>
+          <span class="schema-group mono">OUTCOMECLOSURE</span>
+          <a class="target" href="https://github.com/MyGarfield/ProofFlow/blob/2edfe55d88abac3cc4d56dc74375b698dce7a476/schemas/outcome-closure-expected-binding-v0p1.schema.json" target="_blank" rel="noreferrer noopener">OC binding</a>
+          <a class="target" href="https://github.com/MyGarfield/ProofFlow/blob/2edfe55d88abac3cc4d56dc74375b698dce7a476/schemas/outcome-closure-predicate-v0p1.schema.json" target="_blank" rel="noreferrer noopener">OC predicate</a>
+          <a class="target" href="https://github.com/MyGarfield/ProofFlow/blob/2edfe55d88abac3cc4d56dc74375b698dce7a476/schemas/outcome-closure-statement-v0p1.schema.json" target="_blank" rel="noreferrer noopener">OC statement</a>
+          <a class="target" href="https://github.com/MyGarfield/ProofFlow/blob/2edfe55d88abac3cc4d56dc74375b698dce7a476/schemas/outcome-closure-verification-result-v0p1.schema.json" target="_blank" rel="noreferrer noopener">OC result</a>
         </div>
+      </div>
+
+      <div class="claim-boundary grid12" role="note">
+        <p class="boundary-mark" aria-hidden="true">!</p>
+        <p><strong>NON-CLAIMS</strong> Operator handoff is unsigned. A same-process observer is not independent truth. Indexes are process-local only.</p>
+        <p class="mono">OPERATOR HANDOFF: UNSIGNED<br>SAME-PROCESS OBSERVER IS NOT INDEPENDENT TRUTH<br>PROCESS-LOCAL INDEXES ONLY</p>
       </div>
 
       <aside class="history-note grid12" aria-labelledby="history-title">
@@ -284,7 +316,7 @@
           <h3 id="history-title">GOAI 材料只保留为演进记录</h3>
           <p>初赛作品有效，但项目未晋级 GOAI 复赛；历史候选 PPT/PDF 不是当前产品主材料、官方提交或评分证明。</p>
         </div>
-        <a class="text-link target" href="https://github.com/MyGarfield/ProofFlow/blob/68911dbb2858be3b217b0b80c62eea9df57ed595/submission/public/README.md" target="_blank" rel="noreferrer noopener">查看历史披露 →</a>
+        <a class="text-link target" href="https://github.com/MyGarfield/ProofFlow/blob/2edfe55d88abac3cc4d56dc74375b698dce7a476/submission/public/README.md" target="_blank" rel="noreferrer noopener">查看历史披露 →</a>
       </aside>
     </section>
   </main>

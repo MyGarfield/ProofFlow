@@ -5,9 +5,9 @@
   "repository": "https://github.com/MyGarfield/ProofFlow",
   "source": {
     "branch": "main",
-    "commit": "68911dbb2858be3b217b0b80c62eea9df57ed595",
-    "tree": "be7d5d59ddbdb25bd9ab0d2480e833da829de03f",
-    "committed_at": "2026-08-29T05:34:46+08:00",
+    "commit": "2edfe55d88abac3cc4d56dc74375b698dce7a476",
+    "tree": "2365782588f85cde01e65fdcb666560a2c1d8bb7",
+    "committed_at": "2026-08-31T18:15:27+08:00",
     "commit_signature_verified_by_generator": false
   },
   "landing": {
@@ -30,15 +30,13 @@
     },
     "test_counts": {
       "full_repo_provenance": "PINNED_MAIN_CI_DECLARATION",
-      "full_repo_ci_run_id": 33213175597,
-      "full_repo_ci_run_url": "https://github.com/MyGarfield/ProofFlow/actions/runs/33213175597",
-      "full_repo_ci_head_sha": "68911dbb2858be3b217b0b80c62eea9df57ed595",
-      "full_repo_total": 610,
-      "full_repo_passed": 609,
+      "full_repo_ci_run_id": 33381584094,
+      "full_repo_ci_run_url": "https://github.com/MyGarfield/ProofFlow/actions/runs/33381584094",
+      "full_repo_ci_head_sha": "2edfe55d88abac3cc4d56dc74375b698dce7a476",
+      "full_repo_total": 772,
+      "full_repo_passed": 771,
       "full_repo_skipped": 1,
-      "source_readme_declared_full_repo_passed": 569,
-      "action_certificate_provenance": "SOURCE_README_DECLARATION",
-      "action_certificate_passed": 53,
+      "source_readme_declared_full_repo_passed": 771,
       "generator_executed_tests": false
     }
   },
@@ -69,27 +67,37 @@
   },
   "product_assets": {
     "hash_kind": "UNSIGNED_GIT_BLOB_CONTENT_DIGEST",
-    "bundle_sha256": "2fb8dab56c9e100dbd2ebd310f1c00cb13cf703b1808090160e96ff512301c48",
+    "bundle_sha256": "cfad9acf4d44609721afbe28b2a3b2c84d8476c9529372fd77995846c54988f2",
     "entries": [
       {
         "path": "README.md",
-        "sha256": "feccad30163d8b9dafa4944c8e421143490ed2c7ed90d85c1c4d30a75d0c727c",
-        "bytes": 13352
+        "sha256": "89d00af815e0772e07faa6a959eda0fc3533b24e477e1b3e3d867cb8603cf693",
+        "bytes": 16384
       },
       {
         "path": ".github/workflows/ci.yml",
-        "sha256": "729b2c47ea61b7be20b7d14023cf29eeff581033452cc3298e933ca82a03fcd2",
-        "bytes": 1761
+        "sha256": "59b83d4bcea71d12dafd9ddbe91b90758e7089b5c0bb95492b29a7328cf48eda",
+        "bytes": 2981
       },
       {
         "path": "docs/12_GLOBAL_PRODUCT_ROADMAP.md",
-        "sha256": "4bd3691647dde43d6e7fbe00de7626ed021212a174568b337e830ca0d604f608",
-        "bytes": 9340
+        "sha256": "c3b70dfc21f28fe4a55df0d738eafd94c9f3290e830c2c5908a5622c040ce55e",
+        "bytes": 9402
       },
       {
         "path": "docs/13_ACTION_CERTIFICATE_V0P1.md",
         "sha256": "7a95735ecb4d5eb16ef3c7c480168f4fbb73f55479cada3575c52c79e94501f4",
         "bytes": 7173
+      },
+      {
+        "path": "docs/14_EXECUTION_RECEIPT_V0P1.md",
+        "sha256": "85c63c8827c99b563cec6dfab40bcba0529b569d65bb834c2d51ff944a690345",
+        "bytes": 10391
+      },
+      {
+        "path": "docs/15_OUTCOME_CLOSURE_V0P1.md",
+        "sha256": "7cab5cc4b9a3a8995f85630a4db07dedf8a70214798306bcfb7ba28e44968341",
+        "bytes": 5345
       },
       {
         "path": "benchmarks/evaluation/README.md",
@@ -103,8 +111,18 @@
       },
       {
         "path": "src/proofflow/action_certificate.py",
-        "sha256": "530b2aadb3b142f63826b4bdc281bf8f20c1623cd317d294973952d99457a8f3",
-        "bytes": 46695
+        "sha256": "db539d7c8eed307c92d6287166f1135fa61cea0467029581b93aaa356e365c16",
+        "bytes": 51553
+      },
+      {
+        "path": "src/proofflow/execution_receipt.py",
+        "sha256": "4134924050562aaf5fc966d69597a615ea57716c3aadb8c42562e0ebd180f3be",
+        "bytes": 64065
+      },
+      {
+        "path": "src/proofflow/outcome_closure.py",
+        "sha256": "0752f8534f8951069abf991ee93db90c9acda80f782aa5dae93aae96e70721ce",
+        "bytes": 69502
       },
       {
         "path": "schemas/action-certificate-dsse-envelope.schema.json",
@@ -133,13 +151,53 @@
       },
       {
         "path": "schemas/action-certificate-trust-policy-v0p1.schema.json",
-        "sha256": "417be263f5e114255313ca330d4a4c7e3e121b022a85b592f674ac15d15c37a8",
-        "bytes": 7236
+        "sha256": "9fe6b9fb9fac98f96f82b951d126bea69f452cb29d927435af6aa672a3a36015",
+        "bytes": 13647
       },
       {
         "path": "schemas/action-certificate-verification-result-v0p1.schema.json",
         "sha256": "a60e42bbe2bbed7d24304a2e7c8fa4d9f3fd53a5ba5a9d1d3168bc5c229f845c",
         "bytes": 4740
+      },
+      {
+        "path": "schemas/execution-receipt-expected-binding-v0p1.schema.json",
+        "sha256": "cf44166d67e7bf50075d3548a9fb871964964017322abf1c3edb61f9802de93d",
+        "bytes": 23592
+      },
+      {
+        "path": "schemas/execution-receipt-predicate-v0p1.schema.json",
+        "sha256": "cd3ac7572e1b1fb73853e2284bcab668e4dbde2ecd053b8f5777d2c5f2f3feb0",
+        "bytes": 52373
+      },
+      {
+        "path": "schemas/execution-receipt-statement-v0p1.schema.json",
+        "sha256": "cdee2538a76962a96cc6aa61e3edfed8dcc18c397ad5ab6388d4938ece9bdf76",
+        "bytes": 55263
+      },
+      {
+        "path": "schemas/execution-receipt-verification-result-v0p1.schema.json",
+        "sha256": "79509861fac70e1ecabf3db3c931be48ffbf64e402cb4c4c1ee35a789e31cfd7",
+        "bytes": 7029
+      },
+      {
+        "path": "schemas/outcome-closure-expected-binding-v0p1.schema.json",
+        "sha256": "58914c8a24114f80d828c3f133a1aa45ea86cd96343856478c3c0ed96fe30e7a",
+        "bytes": 8797
+      },
+      {
+        "path": "schemas/outcome-closure-predicate-v0p1.schema.json",
+        "sha256": "0cfcb9af137056b0e1bc9981121af2be033d83617d5055b9dee6107995b5227e",
+        "bytes": 20190
+      },
+      {
+        "path": "schemas/outcome-closure-statement-v0p1.schema.json",
+        "sha256": "0fb7cc79a33823f1c345289cd1b72492153dac5bf879522f5df94b31c44a523d",
+        "bytes": 22768
+      },
+      {
+        "path": "schemas/outcome-closure-verification-result-v0p1.schema.json",
+        "sha256": "a483c3f23bc4ce9e00c8b703622a1502930e2caeda6ae9566551b86ca8fe4325",
+        "bytes": 11831
       },
       {
         "path": ".github/workflows/release-supply-chain-evidence.yml",
@@ -158,13 +216,13 @@
       },
       {
         "path": "deploy/tool-service/scripts/collect_supply_chain_evidence.py",
-        "sha256": "e5a5ba2e845905d7323300d37f4d45666daac823f9678e28c448d0331f9d67ab",
-        "bytes": 33603
+        "sha256": "4c98de2c820c4bc31bbfd991bf838b3167e6ec85f56fdec1761e79d76cdb16dc",
+        "bytes": 34024
       },
       {
         "path": "deploy/tool-service/scripts/validate_supply_chain_evidence.py",
-        "sha256": "32b7dc526e635e95611e50b4ce4f3248b3d66deb730a0a175d401eb30c960189",
-        "bytes": 45606
+        "sha256": "60360ff4770af2a67a61ef771fa10148d126641e50d98e5ad841d0349fd260c3",
+        "bytes": 46027
       }
     ]
   },
@@ -200,9 +258,12 @@
     "release_ready": false,
     "worker_or_llm_execution_observed": false,
     "evaluation_executed": false,
-    "execution_receipt_implemented": false,
-    "outcome_closure_implemented": false,
+    "execution_receipt_implemented": true,
+    "outcome_closure_implemented": true,
     "digests_are_signatures": false,
-    "source_authenticity_proven_by_snapshot": false
+    "source_authenticity_proven_by_snapshot": false,
+    "operator_handoff_signed": false,
+    "same_process_observer_is_independent_truth": false,
+    "indexes_process_local_only": true
   }
 }

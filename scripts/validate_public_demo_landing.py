@@ -37,10 +37,10 @@ from generate_public_demo_snapshot import (  # noqa: E402
 SITE_ROOT: Final = ROOT / "public-demo"
 
 # These verifier pins are deliberately duplicated outside the generated JSON.
-EXPECTED_SOURCE_COMMIT: Final = "68911dbb2858be3b217b0b80c62eea9df57ed595"
-EXPECTED_SOURCE_TREE: Final = "be7d5d59ddbdb25bd9ab0d2480e833da829de03f"
+EXPECTED_SOURCE_COMMIT: Final = "2edfe55d88abac3cc4d56dc74375b698dce7a476"
+EXPECTED_SOURCE_TREE: Final = "2365782588f85cde01e65fdcb666560a2c1d8bb7"
 EXPECTED_SOURCE_CI_RUN_URL: Final = (
-    "https://github.com/MyGarfield/ProofFlow/actions/runs/33213175597"
+    "https://github.com/MyGarfield/ProofFlow/actions/runs/33381584094"
 )
 
 EXPECTED_SITE_FILES: Final = frozenset(
@@ -74,6 +74,26 @@ EXPECTED_EXTERNAL_ANCHORS: Final = frozenset(
             "https://github.com/MyGarfield/ProofFlow/blob/"
             f"{EXPECTED_SOURCE_COMMIT}/docs/13_ACTION_CERTIFICATE_V0P1.md"
         ),
+        (
+            "https://github.com/MyGarfield/ProofFlow/blob/"
+            f"{EXPECTED_SOURCE_COMMIT}/docs/14_EXECUTION_RECEIPT_V0P1.md"
+        ),
+        (
+            "https://github.com/MyGarfield/ProofFlow/blob/"
+            f"{EXPECTED_SOURCE_COMMIT}/docs/15_OUTCOME_CLOSURE_V0P1.md"
+        ),
+        (
+            "https://github.com/MyGarfield/ProofFlow/blob/"
+            f"{EXPECTED_SOURCE_COMMIT}/src/proofflow/action_certificate.py"
+        ),
+        (
+            "https://github.com/MyGarfield/ProofFlow/blob/"
+            f"{EXPECTED_SOURCE_COMMIT}/src/proofflow/execution_receipt.py"
+        ),
+        (
+            "https://github.com/MyGarfield/ProofFlow/blob/"
+            f"{EXPECTED_SOURCE_COMMIT}/src/proofflow/outcome_closure.py"
+        ),
         f"https://github.com/MyGarfield/ProofFlow/tree/{EXPECTED_SOURCE_COMMIT}/schemas",
         EXPECTED_SOURCE_CI_RUN_URL,
         (
@@ -90,6 +110,14 @@ EXPECTED_EXTERNAL_ANCHORS: Final = frozenset(
                 "action-certificate-statement-v0p1.schema.json",
                 "action-certificate-trust-policy-v0p1.schema.json",
                 "action-certificate-verification-result-v0p1.schema.json",
+                "execution-receipt-expected-binding-v0p1.schema.json",
+                "execution-receipt-predicate-v0p1.schema.json",
+                "execution-receipt-statement-v0p1.schema.json",
+                "execution-receipt-verification-result-v0p1.schema.json",
+                "outcome-closure-expected-binding-v0p1.schema.json",
+                "outcome-closure-predicate-v0p1.schema.json",
+                "outcome-closure-statement-v0p1.schema.json",
+                "outcome-closure-verification-result-v0p1.schema.json",
             )
         ),
         (
@@ -126,12 +154,16 @@ REQUIRED_VISIBLE_BOUNDARIES: Final = (
     "NO EXTERNAL SIDE EFFECTS",
     "非法律意见",
     "ActionCertificate v0.1",
-    "53 certificate tests",
-    "610 collected / 609 passed + 1 skipped",
+    "ExecutionReceipt v0.1",
+    "OutcomeClosure v0.1",
+    "OBSERVER-SIGNED REFERENCE SLICE",
+    "OPERATOR HANDOFF: UNSIGNED",
+    "SAME-PROCESS OBSERVER IS NOT INDEPENDENT TRUTH",
+    "PROCESS-LOCAL INDEXES ONLY",
+    "771 passed + 1 skipped = 772 collected",
+    "33381584094",
     "LANDING POST-DATES SOURCE",
     "NOT RELEASE ELIGIBLE",
-    "ExecutionReceipt 未实现",
-    "OutcomeClosure 未实现",
     "EVALUATION NOT_EXECUTED / UNKNOWN",
     "SUPPLY EVIDENCE STALE",
     "未晋级 GOAI 复赛",
@@ -140,7 +172,7 @@ REQUIRED_VISIBLE_BOUNDARIES: Final = (
     "self_authenticating=false",
     EXPECTED_SOURCE_COMMIT,
     EXPECTED_SOURCE_TREE,
-    "2fb8dab56c9e100dbd2ebd310f1c00cb13cf703b1808090160e96ff512301c48",
+    "cfad9acf4d44609721afbe28b2a3b2c84d8476c9529372fd77995846c54988f2",
     "a050229692db496056f26fd9af52bbb41f0e53f96c8446c93ae3bd87a0d887f5",
 )
 
@@ -153,8 +185,18 @@ FORBIDDEN_CLAIMS: Final = (
     re.compile(r"\bREAL[_ -]?CASE\b", re.IGNORECASE),
     re.compile(r"LEGAL\s+ACCURACY\s*(?:=|:)?\s*100%", re.IGNORECASE),
     re.compile(r"SUPPLY\s+EVIDENCE\s+(?:FRESH|CURRENT)", re.IGNORECASE),
-    re.compile(r"ExecutionReceipt\s+(?:IMPLEMENTED|READY|AVAILABLE)", re.IGNORECASE),
-    re.compile(r"OutcomeClosure\s+(?:IMPLEMENTED|READY|AVAILABLE)", re.IGNORECASE),
+    re.compile(r"OPERATOR HANDOFF\s*:\s*(?:SIGNED|VERIFIED)", re.IGNORECASE),
+    re.compile(
+        r"SAME[- ]PROCESS OBSERVER IS\s+(?:AN )?INDEPENDENT"
+        r"(?: PHYSICAL)? TRUTH",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"PROCESS[- ]LOCAL INDEXES?\s+(?:ARE\s+)?(?:DURABLE|CROSS[- ]PROCESS)",
+        re.IGNORECASE,
+    ),
+    re.compile(r"ExecutionReceipt\s+(?:READY|AVAILABLE)", re.IGNORECASE),
+    re.compile(r"OutcomeClosure\s+(?:READY|AVAILABLE)", re.IGNORECASE),
 )
 
 SENSITIVE_TEXT_PATTERNS: Final[tuple[tuple[str, re.Pattern[str]], ...]] = (
@@ -230,6 +272,26 @@ NETWORK_JS_TOKENS: Final = (
     "serviceWorker",
     "localStorage",
     "sessionStorage",
+)
+
+URL_BEARING_HTML_ATTRIBUTES: Final = frozenset(
+    {
+        "action",
+        "background",
+        "cite",
+        "data",
+        "formaction",
+        "href",
+        "longdesc",
+        "manifest",
+        "ping",
+        "poster",
+        "profile",
+        "src",
+        "srcset",
+        "usemap",
+        "xlink:href",
+    }
 )
 
 CHECKOUT_ACTION: Final = "actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803"
@@ -400,16 +462,17 @@ class LandingHTMLParser(HTMLParser):
             self._current_heading = []
         if tag == "a":
             self.anchors.append(values)
-        if tag == "meta" and values.get("http-equiv", "").casefold() == ("content-security-policy"):
-            self.csp_values.append(values.get("content", ""))
+        if tag == "meta" and (http_equiv := values.get("http-equiv", "").casefold()):
+            if http_equiv == "content-security-policy":
+                self.csp_values.append(values.get("content", ""))
+            else:
+                self.forbidden_elements.append(f"meta[http-equiv={http_equiv}]")
         if tag == "script":
             if values.get("src"):
                 self.resource_urls.append((tag, "src", values["src"]))
             else:
                 self.inline_scripts += 1
-        elif tag == "link" and {"icon", "stylesheet"}.intersection(
-            values.get("rel", "").casefold().split()
-        ):
+        elif tag == "link":
             self.resource_urls.append((tag, "href", values.get("href", "")))
         else:
             for attribute in ("src", "poster"):
@@ -420,6 +483,22 @@ class LandingHTMLParser(HTMLParser):
                     self.resource_urls.append(
                         (tag, "srcset", candidate.strip().split(maxsplit=1)[0])
                     )
+        handled_url_attributes = {
+            ("a", "href"),
+            ("link", "href"),
+            ("script", "src"),
+            ("audio", "src"),
+            ("img", "src"),
+            ("source", "src"),
+            ("track", "src"),
+            ("video", "src"),
+            ("video", "poster"),
+            ("img", "srcset"),
+            ("source", "srcset"),
+        }
+        for attribute in URL_BEARING_HTML_ATTRIBUTES:
+            if values.get(attribute) and (tag, attribute) not in handled_url_attributes:
+                self.resource_urls.append((tag, attribute, values[attribute]))
         if tag == "style":
             self.inline_styles += 1
 
