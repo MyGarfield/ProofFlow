@@ -3,28 +3,39 @@
 ## 结论与信任边界
 
 `public-demo/` 是只读静态页面，绑定产品源提交
-`68911dbb2858be3b217b0b80c62eea9df57ed595` 及其 tree
-`be7d5d59ddbdb25bd9ab0d2480e833da829de03f`。页面代码晚于该产品提交，因此机器快照明确记录：
+`2edfe55d88abac3cc4d56dc74375b698dce7a476` 及其 tree
+`2365782588f85cde01e65fdcb666560a2c1d8bb7`。页面代码晚于该产品提交，因此机器快照明确记录：
 
 - `included_in_source_commit=false`；
 - `self_authenticating=false`；
 - `commit_signature_verified_by_generator=false`；
-- 产品资产和 fixture 的 SHA-256 都是 unsigned Git blob 内容摘要。
+- ActionCertificate、ExecutionReceipt、OutcomeClosure 的源码、文档和 15 份 Schema 均纳入产品资产
+  SHA-256 清单；所有摘要都是 unsigned Git blob 内容摘要。
 
-生成器从固定 Git object 读取 19 个产品资产和 4 个 `PUBLIC_SYNTHETIC` fixture，不读取当前工作树来
+生成器从固定 Git object 读取 31 个产品资产和 4 个 `PUBLIC_SYNTHETIC` fixture，不读取当前工作树来
 替代它们。validator 从独立的 expected source 常量重新生成预期对象，并要求 JSON closed shape、确定性
 序列化和精确 hash。这个结构可发现漂移，但不能让 landing 自己成为来源真实性、测试执行或产品语义的
 信任根。
 
+产品资产闭集覆盖三条原语的实现与机器合同：
+
+- `src/proofflow/action_certificate.py`、`docs/13_ACTION_CERTIFICATE_V0P1.md` 及 7 份
+  `action-certificate-*.schema.json`；
+- `src/proofflow/execution_receipt.py`、`docs/14_EXECUTION_RECEIPT_V0P1.md` 及 4 份
+  `execution-receipt-*.schema.json`；
+- `src/proofflow/outcome_closure.py`、`docs/15_OUTCOME_CLOSURE_V0P1.md` 及 4 份
+  `outcome-closure-*.schema.json`。
+
 ## 页面披露的当前状态
 
-- ActionCertificate v0.1 已进入固定源提交，范围是预执行授权验证切片，不是生产发布门；
-- ActionCertificate 的 `53 passed` 是固定源 README 声明；固定 main CI 记录
-  `610 collected / 609 passed + 1 skipped`，而源 README 仍保留较早的 `569 passed`；生成器本身没有执行测试；
+- ActionCertificate v0.1、ExecutionReceipt v0.1、OutcomeClosure v0.1 均已进入固定源提交，都是
+  observer-signed 的 public-synthetic reference slice，不是生产发布门；
+- 固定 main CI 记录 `771 passed + 1 skipped = 772 collected`（[run 33381584094](https://github.com/MyGarfield/ProofFlow/actions/runs/33381584094)）；
+  生成器本身没有执行测试；
+- operator handoff 是 unsigned；same-process observer 不是 independent truth；三个索引都是 process-local only；
 - `Workers Stopped`、`readyWorkers=0`、Worker 容器为 0、`LLM OFF`；
 - 评测为 `PROTOCOL_VALIDATED_NOT_EXECUTED`，各臂与官方分值保持 `UNKNOWN / null`；
 - 供应链证据为 `STALE`，当前不可用于 release eligibility；
-- ExecutionReceipt 与 OutcomeClosure 是路线图目标，当前尚未实现；
 - 不连接本地 runtime、不代理服务、不使用真实案件、不产生外部副作用、不构成法律意见。
 
 GOAI 初赛作品有效，但项目未晋级复赛。竞赛候选 PPT/PDF 仅在 History 区域链接到固定提交的披露页，
@@ -36,9 +47,9 @@ GOAI 初赛作品有效，但项目未晋级复赛。竞赛候选 PPT/PDF 仅在
 
 ```bash
 uv run --frozen python scripts/generate_public_demo_snapshot.py --check \
-  --source-commit 68911dbb2858be3b217b0b80c62eea9df57ed595
+  --source-commit 2edfe55d88abac3cc4d56dc74375b698dce7a476
 uv run --frozen python scripts/validate_public_demo_landing.py \
-  --expected-source-commit 68911dbb2858be3b217b0b80c62eea9df57ed595
+  --expected-source-commit 2edfe55d88abac3cc4d56dc74375b698dce7a476
 node --check public-demo/app.js
 node --check scripts/qa_public_demo_browser.mjs
 node --test tests/js/test_public_demo_storyboard.cjs

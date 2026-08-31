@@ -15,7 +15,7 @@
     window.addEventListener("resize", recordGeometry, { passive: true });
   }
 })(function createPublicSnapshotApi() {
-  const EXPECTED_SOURCE_COMMIT = "68911dbb2858be3b217b0b80c62eea9df57ed595";
+  const EXPECTED_SOURCE_COMMIT = "2edfe55d88abac3cc4d56dc74375b698dce7a476";
 
   function hasHorizontalOverflow(root) {
     return root.scrollWidth > root.clientWidth;
@@ -37,7 +37,13 @@
         snapshot.evaluation_boundary.status === "PROTOCOL_VALIDATED_NOT_EXECUTED" &&
         snapshot.supply_chain_boundary &&
         snapshot.supply_chain_boundary.status === "STALE" &&
-        snapshot.supply_chain_boundary.release_eligible === false,
+        snapshot.supply_chain_boundary.release_eligible === false &&
+        snapshot.non_claims &&
+        snapshot.non_claims.execution_receipt_implemented === true &&
+        snapshot.non_claims.outcome_closure_implemented === true &&
+        snapshot.non_claims.operator_handoff_signed === false &&
+        snapshot.non_claims.same_process_observer_is_independent_truth === false &&
+        snapshot.non_claims.indexes_process_local_only === true,
     );
   }
 

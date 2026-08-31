@@ -13,6 +13,11 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scripts.generate_public_demo_snapshot import (  # noqa: E402
+    ACTION_SCHEMA_PATHS,
+    EXECUTION_RECEIPT_SCHEMA_PATHS,
+    OUTCOME_CLOSURE_SCHEMA_PATHS,
+    PRIMITIVE_DOCUMENTATION_PATHS,
+    PRIMITIVE_SOURCE_PATHS,
     SOURCE_COMMIT,
     SOURCE_TREE,
     SnapshotGenerationError,
@@ -57,17 +62,15 @@ def test_snapshot_is_exact_deterministic_git_object_derivation() -> None:
     assert snapshot["landing"]["self_authenticating"] is False
     assert snapshot["current_core"]["test_counts"] == {
         "full_repo_provenance": "PINNED_MAIN_CI_DECLARATION",
-        "full_repo_ci_run_id": 33213175597,
+        "full_repo_ci_run_id": 33381584094,
         "full_repo_ci_run_url": (
-            "https://github.com/MyGarfield/ProofFlow/actions/runs/33213175597"
+            "https://github.com/MyGarfield/ProofFlow/actions/runs/33381584094"
         ),
         "full_repo_ci_head_sha": SOURCE_COMMIT,
-        "full_repo_total": 610,
-        "full_repo_passed": 609,
+        "full_repo_total": 772,
+        "full_repo_passed": 771,
         "full_repo_skipped": 1,
-        "source_readme_declared_full_repo_passed": 569,
-        "action_certificate_provenance": "SOURCE_README_DECLARATION",
-        "action_certificate_passed": 53,
+        "source_readme_declared_full_repo_passed": 771,
         "generator_executed_tests": False,
     }
 
@@ -80,8 +83,13 @@ def test_snapshot_generator_rejects_unreviewed_source_commit() -> None:
 def test_product_asset_records_match_pinned_git_blobs() -> None:
     snapshot = build_snapshot(ROOT)
     records = snapshot["product_assets"]["entries"]
-    assert len(records) == 19
+    assert len(records) == 31
     assert {record["path"] for record in records} >= {
+        *PRIMITIVE_SOURCE_PATHS,
+        *PRIMITIVE_DOCUMENTATION_PATHS,
+        *ACTION_SCHEMA_PATHS,
+        *EXECUTION_RECEIPT_SCHEMA_PATHS,
+        *OUTCOME_CLOSURE_SCHEMA_PATHS,
         ".github/workflows/release-supply-chain-evidence.yml",
         "deploy/tool-service/evidence/supply-chain-evidence.schema.json",
         "deploy/tool-service/evidence/supply-chain-release-policy.schema.json",
@@ -156,6 +164,27 @@ def test_validator_rejects_source_commit_substitution(tmp_path: Path, surface: s
     assert any("source commit" in error or ".source.commit" in error for error in errors)
 
 
+@pytest.mark.parametrize("surface", ("index.html", "evidence-snapshot.json"))
+def test_validator_rejects_historical_source_pin(tmp_path: Path, surface: str) -> None:
+    copied = _copy_site(tmp_path)
+    target = copied / surface
+    historical_commit = "68911dbb2858be3b217b0b80c62eea9df57ed595"
+    target.write_text(
+        target.read_text(encoding="utf-8").replace(SOURCE_COMMIT, historical_commit, 1),
+        encoding="utf-8",
+    )
+
+    errors = validate_public_demo(ROOT, copied)
+
+    assert errors
+    assert any(
+        "source commit" in error
+        or "reviewed source-derived snapshot" in error
+        or "deterministic generated serialization" in error
+        for error in errors
+    )
+
+
 @pytest.mark.parametrize(
     "claim",
     (
@@ -164,7 +193,10 @@ def test_validator_rejects_source_commit_substitution(tmp_path: Path, surface: s
         "LLM ON",
         "OFFICIAL SCORE: 100",
         "SUPPLY EVIDENCE FRESH",
-        "ExecutionReceipt IMPLEMENTED",
+        "OPERATOR HANDOFF: SIGNED",
+        "SAME-PROCESS OBSERVER IS INDEPENDENT TRUTH",
+        "PROCESS-LOCAL INDEXES ARE DURABLE",
+        "ExecutionReceipt READY",
         "OutcomeClosure READY",
     ),
 )
@@ -213,6 +245,36 @@ def test_validator_rejects_remote_loaded_script(tmp_path: Path) -> None:
     errors = validate_public_demo(ROOT, copied)
 
     assert any("loaded resources" in error or "must be path-relative" in error for error in errors)
+
+
+@pytest.mark.parametrize(
+    "injected",
+    (
+        '<meta http-equiv="refresh" content="0;url=https://evil.example/">',
+        '<link rel="preconnect" href="https://evil.example/">',
+        '<link rel="preload" href="https://evil.example/x" as="fetch">',
+        '<link rel="dns-prefetch" href="//evil.example">',
+        '<link rel="canonical" href="https://evil.example/">',
+    ),
+)
+def test_validator_rejects_unreviewed_external_html_behaviors(
+    tmp_path: Path, injected: str
+) -> None:
+    copied = _copy_site(tmp_path)
+    index = copied / "index.html"
+    index.write_text(
+        index.read_text(encoding="utf-8").replace("<head>", f"<head>\n{injected}", 1),
+        encoding="utf-8",
+    )
+
+    errors = validate_public_demo(ROOT, copied)
+
+    assert any(
+        "loaded resources" in error
+        or "must be path-relative" in error
+        or "forbidden active/embed elements" in error
+        for error in errors
+    )
 
 
 def test_validator_rejects_remote_css_resource(tmp_path: Path) -> None:
@@ -284,6 +346,30 @@ def test_validator_rejects_forged_release_boolean(tmp_path: Path) -> None:
     errors = validate_public_demo(ROOT, copied)
 
     assert any("release_eligible" in error for error in errors)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    (
+        ("operator_handoff_signed", True),
+        ("same_process_observer_is_independent_truth", True),
+        ("indexes_process_local_only", False),
+    ),
+)
+def test_validator_rejects_forged_non_claim_boundary(
+    tmp_path: Path, field: str, value: bool
+) -> None:
+    copied = _copy_site(tmp_path)
+    target = copied / "evidence-snapshot.json"
+    snapshot = json.loads(target.read_text(encoding="utf-8"))
+    snapshot["non_claims"][field] = value
+    _write_json(target, snapshot)
+
+    errors = validate_public_demo(ROOT, copied)
+
+    assert any(
+        "value does not match the reviewed source-derived snapshot" in error for error in errors
+    )
 
 
 @pytest.mark.parametrize(

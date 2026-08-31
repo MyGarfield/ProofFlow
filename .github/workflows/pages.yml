@@ -38,11 +38,11 @@ jobs:
       - name: Verify source-bound public snapshot
         run: >-
           uv run --frozen python scripts/generate_public_demo_snapshot.py --check
-          --source-commit 68911dbb2858be3b217b0b80c62eea9df57ed595
+          --source-commit 2edfe55d88abac3cc4d56dc74375b698dce7a476
       - name: Validate static claim and privacy boundary
         run: >-
           uv run --frozen python scripts/validate_public_demo_landing.py
-          --expected-source-commit 68911dbb2858be3b217b0b80c62eea9df57ed595
+          --expected-source-commit 2edfe55d88abac3cc4d56dc74375b698dce7a476
       - name: Upload only the static public-demo artifact
         uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b
         with:

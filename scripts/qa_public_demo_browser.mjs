@@ -264,9 +264,17 @@ async function inspectViewport({ debuggingPort, outputDirectory, url, viewport }
           reducedMotionAnimationName: heroStyle.animationName,
           requiredBoundaryVisible:
             bodyText.includes('CURRENT CORE ALPHA SNAPSHOT') &&
+            bodyText.includes('ActionCertificate v0.1') &&
+            bodyText.includes('ExecutionReceipt v0.1') &&
+            bodyText.includes('OutcomeClosure v0.1') &&
             bodyText.includes('Workers Stopped') &&
+            bodyText.includes('readyWorkers=0') &&
             bodyText.includes('LLM OFF') &&
-            bodyText.includes('SUPPLY EVIDENCE STALE'),
+            bodyText.includes('EVALUATION NOT_EXECUTED / UNKNOWN') &&
+            bodyText.includes('SUPPLY EVIDENCE STALE') &&
+            bodyText.includes('OPERATOR HANDOFF: UNSIGNED') &&
+            bodyText.includes('SAME-PROCESS OBSERVER IS NOT INDEPENDENT TRUTH') &&
+            bodyText.includes('PROCESS-LOCAL INDEXES ONLY'),
           resourceCount: resources.length,
           scrollWidth: root.scrollWidth,
           sourceCommit: root.dataset.sourceCommit,
@@ -314,7 +322,7 @@ async function inspectViewport({ debuggingPort, outputDirectory, url, viewport }
     if (facts.reducedMotionAnimationName !== "none") {
       errors.push(`reduced-motion did not disable hero animation: ${facts.reducedMotionAnimationName}`);
     }
-    if (facts.sourceCommit !== "68911dbb2858be3b217b0b80c62eea9df57ed595") {
+    if (facts.sourceCommit !== "2edfe55d88abac3cc4d56dc74375b698dce7a476") {
       errors.push(`visible page source pin drifted: ${facts.sourceCommit}`);
     }
     if (!facts.requiredBoundaryVisible) {

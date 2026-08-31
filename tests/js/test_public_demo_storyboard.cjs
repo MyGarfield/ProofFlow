@@ -11,8 +11,10 @@ const {
 } = require("../../public-demo/app.js");
 
 test("static snapshot is pinned to the reviewed product source", () => {
-  assert.equal(EXPECTED_SOURCE_COMMIT, "68911dbb2858be3b217b0b80c62eea9df57ed595");
+  assert.equal(EXPECTED_SOURCE_COMMIT, "2edfe55d88abac3cc4d56dc74375b698dce7a476");
   assert.equal(hasExactStaticBoundary(snapshot), true);
+  assert.equal(snapshot.non_claims.execution_receipt_implemented, true);
+  assert.equal(snapshot.non_claims.outcome_closure_implemented, true);
 });
 
 test("static boundary rejects runtime, evaluation, and supply escalation", () => {
@@ -36,6 +38,21 @@ test("static boundary rejects runtime, evaluation, and supply escalation", () =>
         ...snapshot.supply_chain_boundary,
         release_eligible: true,
       },
+    },
+    {
+      ...snapshot,
+      non_claims: { ...snapshot.non_claims, operator_handoff_signed: true },
+    },
+    {
+      ...snapshot,
+      non_claims: {
+        ...snapshot.non_claims,
+        same_process_observer_is_independent_truth: true,
+      },
+    },
+    {
+      ...snapshot,
+      non_claims: { ...snapshot.non_claims, indexes_process_local_only: false },
     },
   ];
 
