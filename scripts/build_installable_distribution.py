@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import base64
 import csv
+import errno
 import hashlib
 import io
 import json
@@ -63,6 +64,47 @@ class SnapshotReceipt:
     kind: str
     sha256: str
     file_count: int
+
+
+@dataclass(frozen=True)
+class ReleaseGateReceipt:
+    evidence_file_sha256: str
+    evidence_set_id: str
+    release_policy_sha256: str
+
+
+@dataclass(frozen=True)
+class StableFileSnapshot:
+    payload: bytes
+    device: int
+    inode: int
+    size: int
+    mtime_ns: int
+    ctime_ns: int
+
+
+@dataclass(frozen=True)
+class OutputDirectoryBinding:
+    descriptor: int
+    device: int
+    inode: int
+
+
+RELEASE_VALIDATOR_MAX_STDOUT_BYTES = 16 * 1024
+RELEASE_VALIDATOR_TIMEOUT_SECONDS = 300
+
+
+def _reject_duplicate_json_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate JSON object key")
+        result[key] = value
+    return result
+
+
+def _reject_json_constant(value: str) -> None:
+    raise ValueError(f"non-finite JSON constant is not allowed: {value}")
 
 
 def _run(
@@ -145,19 +187,128 @@ def _source_binding() -> SourceBinding:
     )
 
 
-def _release_supply_chain_preflight() -> None:
-    completed = subprocess.run(
-        [sys.executable, str(SUPPLY_CHAIN_VALIDATOR), "--release-gate"],
-        cwd=ROOT,
-        check=False,
-        capture_output=True,
-        text=True,
+def _release_supply_chain_preflight(
+    *,
+    evidence_path: Path,
+    release_policy: Path,
+    release_policy_sha256: str,
+) -> ReleaseGateReceipt:
+    """Run the release verifier with an operator-bound v1.2 evidence set.
+
+    The builder deliberately does not parse either JSON file or derive a policy digest.  The
+    validator reads the exact evidence and policy paths and checks the latter against the
+    independently supplied digest, so the policy file cannot self-authorise its own identity.
+    """
+
+    evidence_before = _read_stable_release_input(
+        evidence_path,
+        failure_code="SUPPLY_CHAIN_RELEASE_GATE_REJECTED",
     )
+    policy_before = _read_stable_release_input(
+        release_policy,
+        failure_code="SUPPLY_CHAIN_RELEASE_GATE_REJECTED",
+    )
+    actual_policy_sha256 = f"sha256:{hashlib.sha256(policy_before.payload).hexdigest()}"
+    if actual_policy_sha256 != release_policy_sha256:
+        raise DistributionBuildError(
+            "SUPPLY_CHAIN_RELEASE_GATE_REJECTED",
+            "release build rejected because the external release policy digest did not match",
+        )
+    try:
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(SUPPLY_CHAIN_VALIDATOR),
+                str(evidence_path),
+                "--mode",
+                "release",
+                "--release-policy",
+                str(release_policy),
+                "--release-policy-sha256",
+                release_policy_sha256,
+            ],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=False,
+            timeout=RELEASE_VALIDATOR_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise DistributionBuildError(
+            "SUPPLY_CHAIN_RELEASE_GATE_REJECTED",
+            "release build rejected because the release validator could not be executed",
+        ) from exc
+    evidence_after = _read_stable_release_input(
+        evidence_path,
+        failure_code="SUPPLY_CHAIN_RELEASE_INPUT_CHANGED",
+    )
+    policy_after = _read_stable_release_input(
+        release_policy,
+        failure_code="SUPPLY_CHAIN_RELEASE_INPUT_CHANGED",
+    )
+    if evidence_after != evidence_before or policy_after != policy_before:
+        raise DistributionBuildError(
+            "SUPPLY_CHAIN_RELEASE_INPUT_CHANGED",
+            "release evidence or policy changed during validation",
+        )
     if completed.returncode != 0:
         raise DistributionBuildError(
             "SUPPLY_CHAIN_RELEASE_GATE_REJECTED",
             "release build rejected because current supply-chain evidence is not valid",
         )
+    if not isinstance(completed.stdout, bytes) or len(completed.stdout) > (
+        RELEASE_VALIDATOR_MAX_STDOUT_BYTES
+    ):
+        raise DistributionBuildError(
+            "SUPPLY_CHAIN_RELEASE_GATE_REJECTED",
+            "release build rejected because the release validator returned an oversized result",
+        )
+    try:
+        stdout = completed.stdout.decode("utf-8")
+        result = json.loads(
+            stdout,
+            object_pairs_hook=_reject_duplicate_json_pairs,
+            parse_constant=_reject_json_constant,
+        )
+    except (TypeError, UnicodeDecodeError, ValueError) as exc:
+        raise DistributionBuildError(
+            "SUPPLY_CHAIN_RELEASE_GATE_REJECTED",
+            "release build rejected because the release validator returned an invalid result",
+        ) from exc
+    if not isinstance(result, dict):
+        raise DistributionBuildError(
+            "SUPPLY_CHAIN_RELEASE_GATE_REJECTED",
+            "release build rejected because the release validator returned an invalid result",
+        )
+    expected_keys = {
+        "mode",
+        "schema_version",
+        "evidence_set_id",
+        "release_eligible",
+        "status",
+        "valid",
+    }
+    evidence_set_id = result.get("evidence_set_id")
+    if (
+        set(result) != expected_keys
+        or result.get("mode") != "release"
+        or result.get("schema_version") != "1.2.0"
+        or not isinstance(evidence_set_id, str)
+        or not re.fullmatch(r"sha256:[0-9a-f]{64}", evidence_set_id)
+        or result.get("release_eligible") is not True
+        or result.get("status") != "RELEASE_ELIGIBLE"
+        or result.get("valid") is not True
+    ):
+        raise DistributionBuildError(
+            "SUPPLY_CHAIN_RELEASE_GATE_REJECTED",
+            "release build rejected because the release validator did not attest "
+            "release eligibility",
+        )
+    return ReleaseGateReceipt(
+        evidence_file_sha256=f"sha256:{hashlib.sha256(evidence_before.payload).hexdigest()}",
+        evidence_set_id=evidence_set_id,
+        release_policy_sha256=release_policy_sha256,
+    )
 
 
 def _is_allowed_source_path(relative_path: str) -> bool:
@@ -206,6 +357,60 @@ def _read_regular_file(path: Path) -> bytes:
                 "a source file changed while the immutable snapshot was created",
             )
         return b"".join(chunks)
+    finally:
+        os.close(descriptor)
+
+
+def _read_stable_release_input(path: Path, *, failure_code: str) -> StableFileSnapshot:
+    """Read one release input through a no-follow descriptor and bind its stat identity."""
+
+    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(path, flags)
+    except OSError as exc:
+        raise DistributionBuildError(
+            failure_code,
+            "the release evidence or policy file could not be opened safely",
+        ) from exc
+    try:
+        try:
+            before = os.fstat(descriptor)
+            if not stat.S_ISREG(before.st_mode):
+                raise DistributionBuildError(
+                    failure_code,
+                    "the release evidence or policy file is not a regular file",
+                )
+            chunks: list[bytes] = []
+            while True:
+                chunk = os.read(descriptor, 1024 * 1024)
+                if not chunk:
+                    break
+                chunks.append(chunk)
+            after = os.fstat(descriptor)
+        except OSError as exc:
+            raise DistributionBuildError(
+                failure_code,
+                "the release evidence or policy file could not be read safely",
+            ) from exc
+        if (
+            before.st_dev != after.st_dev
+            or before.st_ino != after.st_ino
+            or before.st_size != after.st_size
+            or before.st_mtime_ns != after.st_mtime_ns
+            or before.st_ctime_ns != after.st_ctime_ns
+        ):
+            raise DistributionBuildError(
+                "SUPPLY_CHAIN_RELEASE_INPUT_CHANGED",
+                "release evidence or policy changed during stable capture",
+            )
+        return StableFileSnapshot(
+            payload=b"".join(chunks),
+            device=before.st_dev,
+            inode=before.st_ino,
+            size=before.st_size,
+            mtime_ns=before.st_mtime_ns,
+            ctime_ns=before.st_ctime_ns,
+        )
     finally:
         os.close(descriptor)
 
@@ -350,7 +555,90 @@ def _source_record_map(records: list[tuple[str, bytes]]) -> dict[str, bytes]:
     return mapped
 
 
-def _validate_sdist_sources(payload: bytes, source_records: list[tuple[str, bytes]]) -> None:
+def _metadata_contract(
+    source_map: dict[str, bytes], package: dict[str, str]
+) -> tuple[dict[str, Any], dict[str, list[str]]]:
+    try:
+        document = tomllib.loads(source_map["pyproject.toml"].decode("utf-8"))
+        project = document["project"]
+    except (KeyError, TypeError, UnicodeError, tomllib.TOMLDecodeError) as exc:
+        raise DistributionBuildError(
+            "BUILD_SOURCE_BINDING_MISMATCH",
+            "the snapshotted project metadata is invalid",
+        ) from exc
+    if not isinstance(project, dict):
+        raise DistributionBuildError(
+            "BUILD_SOURCE_BINDING_MISMATCH",
+            "the snapshotted project metadata is invalid",
+        )
+    authors = project.get("authors")
+    license_value = project.get("license")
+    if (
+        project.get("name") != package["name"]
+        or project.get("version") != package["version"]
+        or project.get("description")
+        != "Evidence-native control plane for auditable high-risk multi-agent decisions"
+        or project.get("requires-python") != ">=3.12,<3.15"
+        or project.get("dependencies") != ["cryptography>=46,<47", "pydantic>=2.11,<3"]
+        or project.get("readme") != "README.md"
+        or not isinstance(authors, list)
+        or len(authors) != 1
+        or not isinstance(authors[0], dict)
+        or authors[0].get("name") != "VeriAgent"
+        or not isinstance(license_value, dict)
+        or license_value.get("text") != "Apache-2.0"
+        or source_map.get("LICENSE") is None
+        or source_map.get("NOTICE") is None
+    ):
+        raise DistributionBuildError(
+            "BUILD_SOURCE_BINDING_MISMATCH",
+            "the snapshotted project metadata contract is unexpected",
+        )
+    return project, {
+        "Metadata-Version": ["2.5"],
+        "Name": [package["name"]],
+        "Version": [package["version"]],
+        "Summary": [project["description"]],
+        "Author": [authors[0]["name"]],
+        "License": ["Apache-2.0"],
+        "License-File": ["LICENSE", "NOTICE"],
+        "Requires-Python": ["<3.15,>=3.12"],
+        "Requires-Dist": ["cryptography<47,>=46", "pydantic<3,>=2.11"],
+        "Description-Content-Type": ["text/markdown"],
+    }
+
+
+def _validate_metadata_contract(
+    metadata_bytes: bytes, source_map: dict[str, bytes], package: dict[str, str]
+) -> dict[str, Any]:
+    project, expected_headers = _metadata_contract(source_map, package)
+    _metadata_headers, metadata_separator, metadata_body = metadata_bytes.partition(b"\n\n")
+    try:
+        metadata = BytesParser(policy=policy.default).parsebytes(metadata_bytes)
+    except (TypeError, UnicodeError, ValueError) as exc:
+        raise DistributionBuildError(
+            "BUILD_SOURCE_BINDING_MISMATCH",
+            "the distribution metadata cannot be parsed",
+        ) from exc
+    if (
+        metadata_separator != b"\n\n"
+        or metadata_body != source_map["README.md"]
+        or [name for name, _value in metadata.items()]
+        != [name for name, values in expected_headers.items() for _value in values]
+        or any(metadata.get_all(name, []) != values for name, values in expected_headers.items())
+    ):
+        raise DistributionBuildError(
+            "BUILD_SOURCE_BINDING_MISMATCH",
+            "the distribution metadata contract is invalid",
+        )
+    return project
+
+
+def _validate_sdist_sources(
+    payload: bytes,
+    source_records: list[tuple[str, bytes]],
+    package: dict[str, str],
+) -> None:
     expected = _source_record_map(source_records)
     try:
         with tarfile.open(fileobj=io.BytesIO(payload), mode="r:gz") as archive:
@@ -405,6 +693,7 @@ def _validate_sdist_sources(payload: bytes, source_records: list[tuple[str, byte
             "BUILD_SOURCE_BINDING_MISMATCH",
             "the source distribution differs from its immutable source snapshot",
         )
+    _validate_metadata_contract(actual["PKG-INFO"], expected, package)
 
 
 def _validate_wheel_sources(
@@ -490,35 +779,7 @@ def _validate_wheel_sources(
             "the wheel license payload differs from its source snapshot",
         )
 
-    project = tomllib.loads(source_map["pyproject.toml"].decode("utf-8"))["project"]
-    if project.get("dependencies") != ["cryptography>=46,<47", "pydantic>=2.11,<3"]:
-        raise DistributionBuildError(
-            "BUILD_SOURCE_BINDING_MISMATCH",
-            "the snapshotted dependency contract is unexpected",
-        )
-    metadata_bytes = actual[metadata_path]
-    _metadata_headers, metadata_separator, metadata_body = metadata_bytes.partition(b"\n\n")
-    metadata = BytesParser(policy=policy.default).parsebytes(metadata_bytes)
-    authors = project.get("authors")
-    expected_author = authors[0].get("name") if isinstance(authors, list) and authors else None
-    if (
-        metadata.get("Metadata-Version") != "2.5"
-        or metadata.get("Name") != package["name"]
-        or metadata.get("Version") != package["version"]
-        or metadata.get("Summary") != project.get("description")
-        or metadata.get("Author") != expected_author
-        or metadata.get("License") != "Apache-2.0"
-        or metadata.get("Requires-Python") != "<3.15,>=3.12"
-        or metadata.get_all("Requires-Dist") != ["cryptography<47,>=46", "pydantic<3,>=2.11"]
-        or metadata.get_all("License-File") != ["LICENSE", "NOTICE"]
-        or metadata.get("Description-Content-Type") != "text/markdown"
-        or metadata_separator != b"\n\n"
-        or metadata_body != source_map["README.md"]
-    ):
-        raise DistributionBuildError(
-            "BUILD_SOURCE_BINDING_MISMATCH",
-            "the wheel METADATA contract is invalid",
-        )
+    project = _validate_metadata_contract(actual[metadata_path], source_map, package)
 
     wheel_metadata = BytesParser(policy=policy.default).parsebytes(actual[wheel_path])
     generator = wheel_metadata.get("Generator")
@@ -600,7 +861,7 @@ def _validate_artifact_source_bindings(
         if filename.endswith(".whl"):
             _validate_wheel_sources(payload, source_records, package)
         elif filename.endswith(".tar.gz"):
-            _validate_sdist_sources(payload, source_records)
+            _validate_sdist_sources(payload, source_records, package)
         else:  # pragma: no cover - the caller enforces the closed artifact set.
             raise DistributionBuildError(
                 "BUILD_ARTIFACT_SET_INVALID",
@@ -608,27 +869,133 @@ def _validate_artifact_source_bindings(
             )
 
 
-def _prepare_output_directory(output_dir: Path) -> None:
-    if output_dir.exists():
-        if output_dir.is_symlink() or not output_dir.is_dir() or any(output_dir.iterdir()):
+def _output_race(message: str) -> DistributionBuildError:
+    return DistributionBuildError("BUILD_OUTPUT_RACE_DETECTED", message)
+
+
+def _assert_output_path_binding(output_dir: Path, binding: OutputDirectoryBinding) -> None:
+    try:
+        directory_stat = os.fstat(binding.descriptor)
+        path_stat = os.lstat(output_dir)
+    except OSError as exc:
+        raise _output_race("the distribution output directory changed during the build") from exc
+    if (
+        not stat.S_ISDIR(directory_stat.st_mode)
+        or not stat.S_ISDIR(path_stat.st_mode)
+        or path_stat.st_dev != directory_stat.st_dev
+        or path_stat.st_ino != directory_stat.st_ino
+        or directory_stat.st_dev != binding.device
+        or directory_stat.st_ino != binding.inode
+    ):
+        raise _output_race("the distribution output directory changed during the build")
+
+
+def _assert_output_directory_binding(
+    output_dir: Path,
+    binding: OutputDirectoryBinding,
+    expected_names: set[str],
+) -> None:
+    _assert_output_path_binding(output_dir, binding)
+    try:
+        actual_names = set(os.listdir(binding.descriptor))
+    except OSError as exc:
+        raise _output_race(
+            "the distribution output directory could not be inspected safely"
+        ) from exc
+    if actual_names != expected_names:
+        raise _output_race("the distribution output directory contains an unexpected entry")
+
+
+def _open_output_directory(output_dir: Path) -> OutputDirectoryBinding:
+    flags = (
+        os.O_RDONLY
+        | getattr(os, "O_DIRECTORY", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_CLOEXEC", 0)
+    )
+    created = False
+    try:
+        descriptor = os.open(output_dir, flags)
+    except FileNotFoundError:
+        try:
+            output_dir.mkdir(parents=True, mode=0o700)
+            created = True
+        except FileExistsError as exc:
+            raise _output_race("the distribution output target changed during creation") from exc
+        except OSError as exc:
+            raise DistributionBuildError(
+                "BUILD_OUTPUT_UNAVAILABLE",
+                "the distribution output directory cannot be created",
+            ) from exc
+        try:
+            descriptor = os.open(output_dir, flags)
+        except OSError as exc:
+            raise _output_race("the distribution output target changed during creation") from exc
+    except NotADirectoryError as exc:
+        raise DistributionBuildError(
+            "BUILD_OUTPUT_NOT_EMPTY",
+            "the distribution output target must be a new or empty directory",
+        ) from exc
+    except OSError as exc:
+        if exc.errno == errno.ELOOP:
+            raise _output_race("the distribution output target is a symbolic link") from exc
+        raise DistributionBuildError(
+            "BUILD_OUTPUT_UNAVAILABLE",
+            "the distribution output directory cannot be opened safely",
+        ) from exc
+
+    try:
+        directory_stat = os.fstat(descriptor)
+        if not stat.S_ISDIR(directory_stat.st_mode):
             raise DistributionBuildError(
                 "BUILD_OUTPUT_NOT_EMPTY",
                 "the distribution output target must be a new or empty directory",
             )
-        return
+        binding = OutputDirectoryBinding(
+            descriptor=descriptor,
+            device=directory_stat.st_dev,
+            inode=directory_stat.st_ino,
+        )
+        _assert_output_path_binding(output_dir, binding)
+        try:
+            if os.listdir(descriptor):
+                if created:
+                    raise _output_race("the new distribution output directory was modified")
+                raise DistributionBuildError(
+                    "BUILD_OUTPUT_NOT_EMPTY",
+                    "the distribution output target must be a new or empty directory",
+                )
+        except OSError as exc:
+            raise _output_race(
+                "the distribution output directory could not be inspected safely"
+            ) from exc
+        return binding
+    except BaseException:
+        os.close(descriptor)
+        raise
+
+
+def _publish_file(binding: OutputDirectoryBinding, filename: str, payload: bytes) -> None:
+    if PurePosixPath(filename).name != filename or not filename:
+        raise _output_race("the distribution output filename is not a regular member name")
+    flags = (
+        os.O_WRONLY
+        | os.O_CREAT
+        | os.O_EXCL
+        | getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_CLOEXEC", 0)
+    )
     try:
-        output_dir.mkdir(parents=True, mode=0o700)
+        descriptor = os.open(filename, flags, 0o600, dir_fd=binding.descriptor)
+    except FileExistsError as exc:
+        raise _output_race("the distribution output directory was modified during publish") from exc
     except OSError as exc:
         raise DistributionBuildError(
-            "BUILD_OUTPUT_UNAVAILABLE",
-            "the distribution output directory cannot be created",
+            "BUILD_ARTIFACT_PUBLISH_FAILED",
+            "a built artifact could not be published without overwriting a file",
         ) from exc
-
-
-def _publish_file(output_dir: Path, filename: str, payload: bytes) -> None:
-    destination = output_dir / filename
     try:
-        with destination.open("xb") as handle:
+        with os.fdopen(descriptor, "wb", closefd=True) as handle:
             handle.write(payload)
             handle.flush()
             os.fsync(handle.fileno())
@@ -639,16 +1006,46 @@ def _publish_file(output_dir: Path, filename: str, payload: bytes) -> None:
         ) from exc
 
 
-def build_distribution(output_dir: Path, *, release: bool) -> dict[str, Any]:
-    binding = _source_binding()
-    if release:
-        _release_supply_chain_preflight()
-        if not binding.worktree_clean_observed:
-            raise DistributionBuildError(
-                "SOURCE_TREE_DIRTY",
-                "release build requires a clean source tree",
-            )
-    _prepare_output_directory(output_dir)
+def _fsync_output_directory(binding: OutputDirectoryBinding) -> None:
+    try:
+        os.fsync(binding.descriptor)
+    except OSError as exc:
+        raise DistributionBuildError(
+            "BUILD_ARTIFACT_PUBLISH_FAILED",
+            "the distribution output directory could not be synchronized",
+        ) from exc
+
+
+def _require_release_inputs(
+    *,
+    evidence_path: Path | None,
+    release_policy: Path | None,
+    release_policy_sha256: str | None,
+) -> tuple[Path, Path, str]:
+    if evidence_path is None or release_policy is None or release_policy_sha256 is None:
+        raise DistributionBuildError(
+            "SUPPLY_CHAIN_RELEASE_INPUT_MISSING",
+            "release build requires explicit v1.2 evidence, release policy, and policy SHA-256",
+        )
+    policy_digest = str(release_policy_sha256)
+    if not re.fullmatch(r"sha256:[0-9a-f]{64}", policy_digest):
+        raise DistributionBuildError(
+            "SUPPLY_CHAIN_RELEASE_INPUT_INVALID",
+            "release build requires a policy SHA-256 in sha256:<64hex> form",
+        )
+    # Path conversion is intentionally limited to the command boundary.  The validator owns
+    # file reading and independently binds policy bytes to the operator-supplied digest.
+    return Path(evidence_path), Path(release_policy), policy_digest
+
+
+def _build_distribution_with_output(
+    output_dir: Path,
+    output_binding: OutputDirectoryBinding,
+    binding: SourceBinding,
+    *,
+    release: bool,
+    release_gate_receipt: ReleaseGateReceipt | None,
+) -> dict[str, Any]:
 
     with tempfile.TemporaryDirectory(prefix="proofflow-distribution-") as temporary:
         temporary_root = Path(temporary)
@@ -715,6 +1112,13 @@ def build_distribution(output_dir: Path, *, release: bool) -> dict[str, Any]:
                 "SOURCE_TREE_CHANGED_DURING_BUILD",
                 "release build rejected because the live source tree changed during the build",
             )
+        if release:
+            final_binding = _source_binding()
+            if final_binding != binding:
+                raise DistributionBuildError(
+                    "SOURCE_TREE_CHANGED_DURING_BUILD",
+                    "release build rejected because the source binding changed during the build",
+                )
         exact_commit_binding = snapshot_kind == "GIT_COMMIT_TREE"
         manifest: dict[str, Any] = {
             "schema_version": "proofflow.distribution/v1alpha2",
@@ -736,16 +1140,92 @@ def build_distribution(output_dir: Path, *, release: bool) -> dict[str, Any]:
             "supply_chain_release_gate": "PASSED" if release else "NOT_RUN",
             "artifacts": [record for record, _payload in measured_artifacts],
         }
+        if release:
+            if release_gate_receipt is None:
+                raise DistributionBuildError(
+                    "SUPPLY_CHAIN_RELEASE_GATE_REJECTED",
+                    "release build rejected because its gate receipt is missing",
+                )
+            manifest["supply_chain_release_gate_receipt"] = {
+                "mode": "release",
+                "evidence_schema_version": "1.2.0",
+                "evidence_file_sha256": release_gate_receipt.evidence_file_sha256,
+                "evidence_set_id": release_gate_receipt.evidence_set_id,
+                "release_policy_sha256": release_gate_receipt.release_policy_sha256,
+            }
+        expected_names = {record["filename"] for record, _payload in measured_artifacts} | {
+            "artifact-manifest.json"
+        }
+        _assert_output_directory_binding(output_dir, output_binding, set())
         for record, payload in measured_artifacts:
-            _publish_file(output_dir, record["filename"], payload)
+            _publish_file(output_binding, record["filename"], payload)
         _publish_file(
-            output_dir,
+            output_binding,
             "artifact-manifest.json",
             (json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode(
                 "utf-8"
             ),
         )
+        _fsync_output_directory(output_binding)
+        _assert_output_directory_binding(output_dir, output_binding, expected_names)
         return manifest
+
+
+def build_distribution(
+    output_dir: Path,
+    *,
+    release: bool,
+    evidence_path: Path | None = None,
+    release_policy: Path | None = None,
+    release_policy_sha256: str | None = None,
+) -> dict[str, Any]:
+    if not release and any(
+        value is not None for value in (evidence_path, release_policy, release_policy_sha256)
+    ):
+        raise DistributionBuildError(
+            "SUPPLY_CHAIN_RELEASE_INPUT_UNEXPECTED",
+            "supply-chain release inputs require --release",
+        )
+    release_gate_receipt: ReleaseGateReceipt | None = None
+    if release:
+        release_evidence_path, release_policy_path, release_policy_digest = _require_release_inputs(
+            evidence_path=evidence_path,
+            release_policy=release_policy,
+            release_policy_sha256=release_policy_sha256,
+        )
+        binding = _source_binding()
+        release_gate_receipt = _release_supply_chain_preflight(
+            evidence_path=release_evidence_path,
+            release_policy=release_policy_path,
+            release_policy_sha256=release_policy_digest,
+        )
+        # The validator binds v1.2 evidence to the checked-out revision.  Re-observe the
+        # revision after that subprocess so a concurrent checkout/commit cannot make the
+        # validator attest one source while this builder snapshots another.
+        post_preflight_binding = _source_binding()
+        if post_preflight_binding != binding:
+            raise DistributionBuildError(
+                "SOURCE_BINDING_CHANGED_DURING_RELEASE_PREFLIGHT",
+                "release build rejected because the source binding changed during validation",
+            )
+        if not binding.worktree_clean_observed:
+            raise DistributionBuildError(
+                "SOURCE_TREE_DIRTY",
+                "release build requires a clean source tree",
+            )
+    else:
+        binding = _source_binding()
+    output_binding = _open_output_directory(output_dir)
+    try:
+        return _build_distribution_with_output(
+            output_dir,
+            output_binding,
+            binding,
+            release=release,
+            release_gate_receipt=release_gate_receipt,
+        )
+    finally:
+        os.close(output_binding.descriptor)
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -756,13 +1236,38 @@ def _parser() -> argparse.ArgumentParser:
         action="store_true",
         help="require fresh supply-chain evidence and a clean exact-commit source binding",
     )
+    parser.add_argument(
+        "--supply-chain-evidence",
+        "--evidence",
+        dest="evidence_path",
+        type=Path,
+        help="explicit v1.2 supply-chain evidence JSON path required by --release",
+    )
+    parser.add_argument(
+        "--release-policy",
+        type=Path,
+        help="external release policy JSON path required by --release",
+    )
+    parser.add_argument(
+        "--release-policy-sha256",
+        help=(
+            "independently supplied sha256:<64hex> of the exact release policy file required "
+            "by --release"
+        ),
+    )
     return parser
 
 
 def main() -> int:
     arguments = _parser().parse_args()
     try:
-        manifest = build_distribution(arguments.output, release=arguments.release)
+        manifest = build_distribution(
+            arguments.output,
+            release=arguments.release,
+            evidence_path=arguments.evidence_path,
+            release_policy=arguments.release_policy,
+            release_policy_sha256=arguments.release_policy_sha256,
+        )
     except DistributionBuildError as exc:
         print(
             json.dumps(

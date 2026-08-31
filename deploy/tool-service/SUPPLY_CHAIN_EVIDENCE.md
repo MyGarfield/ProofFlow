@@ -109,6 +109,30 @@ uv run python deploy/tool-service/scripts/validate_supply_chain_evidence.py \
 uv run pytest tests/contract/test_tool_service_supply_chain.py -q
 ```
 
+可安装发行包的 release builder 也必须使用同一组显式、外部绑定的 v1.2 输入。它会原样调用上面的
+validator；policy 文件的 SHA-256 必须由独立信任域提供，builder 不从 policy 内容自报或推导摘要：
+
+```bash
+uv run --frozen python scripts/build_installable_distribution.py \
+  --output /approved/new/proofflow-release \
+  --release \
+  --supply-chain-evidence /approved/evidence/supply-chain-evidence-v1.2.json \
+  --release-policy /approved/policy/release-policy-v1.2.json \
+  --release-policy-sha256 'sha256:<independently-approved-policy-digest>'
+```
+
+builder release 缺少任一显式输入，或 validator 拒绝 v1.1/stale evidence、错误 policy pin、HIGH/CRITICAL
+finding 时，流程 fail closed 且不创建 output 目录。`--evidence` 是 evidence 参数的兼容别名；包版本
+`0.1.0a0`、版本/tag 与 registry 发布仍是独立门禁，不由此 release gate 自动满足。成功构建的
+`artifact-manifest.json` 只在 `supply_chain_release_gate_receipt` 中记录 validator 返回的
+`evidence_file_sha256`、`evidence_set_id`、`evidence_schema_version=1.2.0`、`mode=release` 和外部
+`release_policy_sha256`，不写 evidence/policy 本机路径。builder 在 validator 前后通过 no-follow
+regular-file FD 稳定读取并比较 bytes/stat；验证完成后路径替换不会改写已捕获 receipt，但原始
+evidence/policy 文件必须留存，供 receipt 复核。validator subprocess 设有 300 秒 timeout 和 16 KiB
+stdout 上限。output 目录同样通过持有的 no-follow directory FD
+创建/打开，以 `O_CREAT|O_EXCL|O_NOFOLLOW` 发布、fsync，并在完成前复核路径 inode 与精确成员闭集；
+rename、symlink、sentinel 或覆盖竞态会以 `BUILD_OUTPUT_RACE_DETECTED` 拒绝。
+
 The first command validates the exact v1.1 historical manifest, raw artifacts and historical
 build-input snapshot, then returns `HISTORICAL_CONSISTENT_STALE` with
 `release_eligible=false`. `--expect-stale-build-inputs` remains only as a compatibility assertion
