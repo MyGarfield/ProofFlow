@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import sys
 from datetime import datetime
@@ -19,17 +20,26 @@ from proofflow.action_certificate import (
     SnapshotApprovalRevocationResolver,
     TrustPolicy,
     VerificationStatus,
+    _strict_json_object,
     parse_json_model,
     parse_utc_rfc3339_z,
     verify_action_certificate,
 )
 from proofflow.demo_init import DemoInitializationError, initialize_demo
 from proofflow.execution_receipt import (
+    ExecutionReceiptVerificationResult,
     ExpectedExecutionBinding,
     InMemoryReceiptIndex,
     verify_execution_receipt,
 )
 from proofflow.models import ApprovalDecision
+from proofflow.outcome_closure import (
+    ExpectedOutcomeBinding,
+    InMemoryOutcomeClosureIndex,
+    InMemoryOutcomeEvidenceResolver,
+    OutcomeVerdict,
+    verify_outcome_closure,
+)
 from proofflow.reference_runtime import (
     ReferenceRunBlocked,
     ReferenceRunError,
@@ -131,6 +141,66 @@ def _parser() -> argparse.ArgumentParser:
         help="explicit timezone-aware RFC 3339 verification time",
     )
     receipt_verify.add_argument("--index-capacity", type=int, default=10_000)
+
+    outcome = commands.add_parser(
+        "outcome", help="derive an outcome verdict from externally accepted proof inputs"
+    )
+    outcome_commands = outcome.add_subparsers(dest="outcome_command", required=True)
+    outcome_verify = outcome_commands.add_parser(
+        "verify", help="verify and process-locally index one OutcomeClosure"
+    )
+    outcome_verify.add_argument("--envelope", type=Path, required=True)
+    outcome_verify.add_argument(
+        "--trust-policy", type=Path, required=True, help="operator trust policy"
+    )
+    outcome_verify.add_argument(
+        "--expected-binding",
+        "--operator-expected-binding",
+        dest="expected_binding",
+        type=Path,
+        required=True,
+        help="operator-trusted expected binding; never sourced from the Outcome producer",
+    )
+    outcome_verify.add_argument(
+        "--action-certificate-envelope",
+        type=Path,
+        required=True,
+        help="operator-supplied exact ActionCertificate envelope",
+    )
+    outcome_verify.add_argument(
+        "--action-certificate-verification",
+        "--operator-action-certificate-verification",
+        dest="action_certificate_verification",
+        type=Path,
+        required=True,
+        help="operator-trusted unsigned ActionCertificate verification result",
+    )
+    outcome_verify.add_argument(
+        "--execution-receipt-envelope",
+        type=Path,
+        required=True,
+        help="operator-supplied exact ExecutionReceipt envelope",
+    )
+    outcome_verify.add_argument(
+        "--execution-receipt-verification",
+        "--operator-execution-receipt-verification",
+        dest="execution_receipt_verification",
+        type=Path,
+        required=True,
+        help="operator-trusted unsigned ExecutionReceipt verification result",
+    )
+    outcome_verify.add_argument(
+        "--evidence",
+        type=Path,
+        required=True,
+        help="local JSON map of sha256 digests to canonical base64 evidence bytes",
+    )
+    outcome_verify.add_argument(
+        "--at",
+        required=True,
+        help="explicit timezone-aware RFC 3339 verification time",
+    )
+    outcome_verify.add_argument("--index-capacity", type=int, default=10_000)
 
     prepare = commands.add_parser("prepare", help="prepare and stop at the Human Gate")
     prepare.add_argument("--manifest", type=Path, required=True)
@@ -290,6 +360,73 @@ def _verify_receipt_command(args: argparse.Namespace) -> int:
     return 3
 
 
+def _verify_outcome_command(args: argparse.Namespace) -> int:
+    envelope = _read_certificate_envelope(args.envelope)
+    action_certificate_envelope = _read_certificate_envelope(args.action_certificate_envelope)
+    execution_receipt_envelope = _read_certificate_envelope(args.execution_receipt_envelope)
+    trust_policy = parse_json_model(
+        _read_bounded_local_file(args.trust_policy, limit=256 * 1024, label="trust policy"),
+        TrustPolicy,
+        "trust policy",
+    )
+    expected_binding = parse_json_model(
+        _read_bounded_local_file(
+            args.expected_binding,
+            limit=256 * 1024,
+            label="expected outcome binding",
+        ),
+        ExpectedOutcomeBinding,
+        "expected outcome binding",
+    )
+    action_verification = parse_json_model(
+        _read_bounded_local_file(
+            args.action_certificate_verification,
+            limit=128 * 1024,
+            label="ActionCertificate verification result",
+        ),
+        ActionCertificateVerificationResult,
+        "ActionCertificate verification result",
+    )
+    execution_verification = parse_json_model(
+        _read_bounded_local_file(
+            args.execution_receipt_verification,
+            limit=128 * 1024,
+            label="ExecutionReceipt verification result",
+        ),
+        ExecutionReceiptVerificationResult,
+        "ExecutionReceipt verification result",
+    )
+    evidence_document = _strict_json_object(
+        _read_bounded_local_file(args.evidence, limit=256 * 1024, label="outcome evidence"),
+        "outcome evidence",
+    )
+    evidence: dict[str, bytes] = {}
+    for digest, encoded in evidence_document.items():
+        if not isinstance(digest, str) or not isinstance(encoded, str):
+            raise ValueError("outcome evidence entries must be string digest/base64 pairs")
+        evidence[digest] = base64.b64decode(encoded, validate=True)
+    result = verify_outcome_closure(
+        envelope,
+        trust_policy=trust_policy,
+        expected_binding=expected_binding,
+        action_certificate_envelope_bytes=action_certificate_envelope,
+        action_certificate_verification=action_verification,
+        execution_receipt_envelope_bytes=execution_receipt_envelope,
+        execution_receipt_verification=execution_verification,
+        outcome_index=InMemoryOutcomeClosureIndex(capacity=args.index_capacity),
+        evidence_resolver=InMemoryOutcomeEvidenceResolver(evidence),
+        now=_parse_verification_time(args.at),
+    )
+    print(json.dumps(result.model_dump(mode="json"), ensure_ascii=False, indent=2))
+    if result.status == OutcomeVerdict.PASS:
+        return 0
+    if result.status == OutcomeVerdict.FAIL:
+        return 1
+    if result.status == OutcomeVerdict.UNSAFE_SUCCESS:
+        return 4
+    return 3
+
+
 def main() -> int:
     args = _parser().parse_args()
     output: dict[str, Any]
@@ -306,6 +443,8 @@ def main() -> int:
             return _verify_certificate_command(args)
         elif args.command == "receipt":
             return _verify_receipt_command(args)
+        elif args.command == "outcome":
+            return _verify_outcome_command(args)
         elif args.command == "prepare":
             state = prepare_reference_run(
                 manifest_path=args.manifest,

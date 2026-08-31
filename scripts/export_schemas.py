@@ -57,6 +57,17 @@ from proofflow.models import (
     TimelineEvent,
     TraceEvent,
 )
+from proofflow.outcome_closure import (
+    FAIL_OUTCOME_REASONS,
+    PASS_OUTCOME_REASONS,
+    UNKNOWN_OUTCOME_REASONS,
+    UNSAFE_OUTCOME_REASONS,
+    ExpectedOutcomeBinding,
+    OutcomeClosurePredicate,
+    OutcomeClosureStatement,
+    OutcomeClosureVerificationReason,
+    OutcomeClosureVerificationResult,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "schemas"
@@ -72,6 +83,10 @@ MODELS: dict[str, type[BaseModel]] = {
     "execution-receipt-predicate-v0p1": ExecutionReceiptPredicate,
     "execution-receipt-statement-v0p1": ExecutionReceiptStatement,
     "execution-receipt-verification-result-v0p1": ExecutionReceiptVerificationResult,
+    "outcome-closure-expected-binding-v0p1": ExpectedOutcomeBinding,
+    "outcome-closure-predicate-v0p1": OutcomeClosurePredicate,
+    "outcome-closure-statement-v0p1": OutcomeClosureStatement,
+    "outcome-closure-verification-result-v0p1": OutcomeClosureVerificationResult,
     "approval-record": ApprovalRecord,
     "approval-request": ApprovalRequest,
     "audit-report": AuditReport,
@@ -220,6 +235,9 @@ def _patch_action_certificate_schema(schema: dict[str, Any]) -> dict[str, Any]:
             "allowed_action_issuer_principals",
             "allowed_approval_principals",
             "allowed_execution_observer_principals",
+            "allowed_outcome_observer_principals",
+            "allowed_outcome_evidence_source_kinds",
+            "allowed_outcome_evidence_source_principals",
             "allowed_audiences",
             "allowed_predicate_types",
             "roots",
@@ -248,6 +266,9 @@ def _patch_action_certificate_schema(schema: dict[str, Any]) -> dict[str, Any]:
             "audiences",
             "predicate_types",
             "execution_observer_scopes",
+            "outcome_observer_scopes",
+            "outcome_evidence_source_kinds",
+            "outcome_evidence_source_principals",
         ):
             _require_unique_array(trust_root, property_name)
         root_properties = _properties(trust_root)
@@ -257,6 +278,10 @@ def _patch_action_certificate_schema(schema: dict[str, Any]) -> dict[str, Any]:
             raise ValueError("TrustRoot.keyid_hints must have an item schema")
         _forbid_remote_reference(keyid_item)
         keyid_item["maxLength"] = 128
+        source_principal_items = root_properties["outcome_evidence_source_principals"].get("items")
+        if not isinstance(source_principal_items, dict):
+            raise ValueError("TrustRoot.outcome_evidence_source_principals needs item schema")
+        source_principal_items["pattern"] = r"^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$"
         trust_root.setdefault("allOf", []).append(
             {
                 "if": {
@@ -270,10 +295,48 @@ def _patch_action_certificate_schema(schema: dict[str, Any]) -> dict[str, Any]:
                 "else": {"properties": {"execution_observer_scopes": {"maxItems": 0}}},
             }
         )
+        trust_root.setdefault("allOf", []).append(
+            {
+                "if": {
+                    "properties": {"purpose": {"const": "OUTCOME_OBSERVER"}},
+                    "required": ["purpose"],
+                },
+                "then": {
+                    "required": ["outcome_observer_scopes"],
+                    "properties": {"outcome_observer_scopes": {"minItems": 4}},
+                },
+                "else": {"properties": {"outcome_observer_scopes": {"maxItems": 0}}},
+            }
+        )
+        trust_root.setdefault("allOf", []).append(
+            {
+                "if": {
+                    "properties": {"purpose": {"const": "OUTCOME_OBSERVER"}},
+                    "required": ["purpose"],
+                },
+                "then": {
+                    "required": [
+                        "outcome_evidence_source_kinds",
+                        "outcome_evidence_source_principals",
+                    ],
+                    "properties": {
+                        "outcome_evidence_source_kinds": {"minItems": 1},
+                        "outcome_evidence_source_principals": {"minItems": 1},
+                    },
+                },
+                "else": {
+                    "properties": {
+                        "outcome_evidence_source_kinds": {"maxItems": 0},
+                        "outcome_evidence_source_principals": {"maxItems": 0},
+                    }
+                },
+            }
+        )
         trust_root["x-proofflow-runtime-invariants"] = [
             "not_after is later than not_before",
             "revoked_at, when present, is evaluated against the operator verification time",
             "EXECUTION_OBSERVER roots contain all seven v0.1 observer scopes",
+            "OUTCOME_OBSERVER roots contain all four v0.1 outcome observer scopes",
         ]
 
     signature = _schema_node(schema, "DsseSignature")
@@ -627,9 +690,268 @@ def _patch_execution_receipt_schema(schema: dict[str, Any]) -> dict[str, Any]:
     return schema
 
 
+def _patch_outcome_closure_schema(schema: dict[str, Any]) -> dict[str, Any]:
+    producer = _schema_node(schema, "OutcomeProducerDeclaration")
+    if producer is not None:
+        _require_unique_array(producer, "observer_principals")
+        observer_items = _properties(producer)["observer_principals"].get("items")
+        if not isinstance(observer_items, dict):
+            raise ValueError("OutcomeProducerDeclaration.observer_principals needs item schema")
+        observer_items["pattern"] = r"^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$"
+        producer["x-proofflow-runtime-invariants"] = [
+            "observer principals are unique and must match qualifying OUTCOME_OBSERVER roots"
+        ]
+
+    source = _schema_node(schema, "OutcomeEvidenceSource")
+    if source is not None:
+        source_properties = _properties(source)
+        source_properties["observed_at"]["pattern"] = UTC_RFC3339_Z_PATTERN
+        source_properties["valid_until"]["pattern"] = UTC_RFC3339_Z_PATTERN
+        source["x-proofflow-runtime-invariants"] = [
+            "observed_at is no later than valid_until",
+            "source_event_sha256 resolves to exact bytes from the operator-controlled resolver",
+        ]
+
+    unresolved = _schema_node(schema, "UnresolvedEffectObservation")
+    if unresolved is not None:
+        unresolved.setdefault("allOf", []).extend(
+            (
+                {
+                    "if": {
+                        "properties": {"reason": {"const": "MISSING_EVIDENCE"}},
+                        "required": ["reason"],
+                    },
+                    "then": {
+                        "required": ["observer_evidence_sha256"],
+                        "properties": {"observer_evidence_sha256": {"type": "null"}},
+                    },
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "reason": {
+                                "enum": [
+                                    "QUERY_UNAVAILABLE",
+                                    "PENDING",
+                                    "CONFLICT",
+                                ]
+                            }
+                        },
+                        "required": ["reason"],
+                    },
+                    "then": {
+                        "required": ["observer_evidence_sha256"],
+                        "properties": {"observer_evidence_sha256": {"not": {"type": "null"}}},
+                    },
+                },
+            )
+        )
+        unresolved["x-proofflow-runtime-invariants"] = [
+            "MISSING_EVIDENCE must carry null observer_evidence_sha256",
+            "QUERY_UNAVAILABLE, PENDING, and CONFLICT require observer evidence",
+        ]
+
+    reconciliation = _schema_node(schema, "EffectReconciliation")
+    if reconciliation is not None:
+        _require_unique_array(reconciliation, "attempts")
+        _require_unique_array(reconciliation, "unresolved")
+        reconciliation["x-proofflow-runtime-invariants"] = [
+            "attempt IDs and effect IDs are unique",
+            "resolved and unresolved effect IDs are disjoint",
+            (
+                "every attempt binds the reconciliation effect type, target, intent, and "
+                "idempotency key"
+            ),
+            "unresolved count does not exceed expected_effect_count",
+            "provider operation IDs are unique",
+        ]
+
+    attempt = _schema_node(schema, "EffectAttemptObservation")
+    if attempt is not None:
+        attempt.setdefault("allOf", []).extend(
+            (
+                {
+                    "if": {
+                        "properties": {"status": {"const": "SUCCEEDED"}},
+                        "required": ["status"],
+                    },
+                    "then": {
+                        "required": ["provider_operation_id"],
+                        "properties": {
+                            "provider_operation_id": {"not": {"type": "null"}},
+                            "terminal_result": {"const": "EFFECT_COMMITTED"},
+                        },
+                    },
+                },
+                {
+                    "if": {
+                        "properties": {"status": {"const": "FAILED"}},
+                        "required": ["status"],
+                    },
+                    "then": {
+                        "properties": {
+                            "terminal_result": {"enum": ["EFFECT_REJECTED", "EFFECT_NOT_APPLIED"]}
+                        }
+                    },
+                },
+            )
+        )
+        attempt["x-proofflow-runtime-invariants"] = [
+            "SUCCEEDED requires a provider operation ID and EFFECT_COMMITTED",
+            "FAILED requires an authoritative rejection or no-effect terminal result",
+        ]
+
+    statement = _schema_node(schema, "OutcomeClosureStatement")
+    if statement is not None:
+        _require_unique_array(statement, "subject")
+        statement["x-proofflow-runtime-invariants"] = [
+            "OutcomeClosure subjects are unique; business-state semantics remain verifier-derived"
+        ]
+
+    expected = _schema_node(schema, "ExpectedOutcomeBinding")
+    if expected is not None:
+        for property_name in (
+            "human_principal_key_fingerprints",
+            "executor_workload_key_fingerprints",
+        ):
+            _require_unique_array(expected, property_name)
+            items = _properties(expected)[property_name].get("items")
+            if not isinstance(items, dict):
+                raise ValueError(f"{property_name} needs item schema")
+            items["pattern"] = r"^sha256:[0-9a-f]{64}$"
+        expected["x-proofflow-runtime-invariants"] = [
+            "the binding is operator-controlled and must not be derived from the signed closure"
+        ]
+
+    predicate = _schema_node(schema, "OutcomeClosurePredicate")
+    if predicate is not None:
+        predicate_properties = _properties(predicate)
+        predicate_properties["issued_at"]["pattern"] = UTC_RFC3339_Z_PATTERN
+        predicate["x-proofflow-runtime-invariants"] = [
+            (
+                "claimed_outcome is informational; PASS/FAIL/UNKNOWN/UNSAFE_SUCCESS is "
+                "verifier-derived"
+            ),
+            "certificate_ref and receipt_ref must bind exact external accepted inputs",
+        ]
+
+    result = _schema_node(schema, "OutcomeClosureVerificationResult")
+    if result is not None:
+        _require_unique_array(result, "reason_codes")
+        _require_unique_array(result, "verified_outcome_observer_roots")
+        reason_values = sorted(reason.value for reason in OutcomeClosureVerificationReason)
+        pass_reasons = sorted(reason.value for reason in PASS_OUTCOME_REASONS)
+        fail_reasons = sorted(reason.value for reason in FAIL_OUTCOME_REASONS)
+        unknown_reasons = sorted(reason.value for reason in UNKNOWN_OUTCOME_REASONS)
+        unsafe_reasons = sorted(reason.value for reason in UNSAFE_OUTCOME_REASONS)
+        properties = _properties(result)
+        properties["reason_codes"]["items"] = {"enum": reason_values}
+        result.setdefault("allOf", []).extend(
+            (
+                {
+                    "if": {
+                        "properties": {"status": {"const": "PASS"}},
+                        "required": ["status"],
+                    },
+                    "then": {
+                        "properties": {
+                            "recorded": {"const": True},
+                            "reason_codes": {"enum": [[reason] for reason in pass_reasons]},
+                            "closure_id": {"not": {"type": "null"}},
+                            "payload_sha256": {"not": {"type": "null"}},
+                            "verified_outcome_observer_roots": {"minItems": 1},
+                        },
+                        "required": [
+                            "closure_id",
+                            "payload_sha256",
+                            "verified_outcome_observer_roots",
+                            "expected_effect_count",
+                            "observed_success_count",
+                            "unresolved_effect_count",
+                            "attempt_id",
+                            "closure_sequence",
+                        ],
+                    },
+                },
+                {
+                    "if": {
+                        "properties": {"status": {"const": "FAIL"}},
+                        "required": ["status"],
+                    },
+                    "then": {
+                        "properties": {
+                            "recorded": {"const": True},
+                            "reason_codes": {"enum": [[reason] for reason in fail_reasons]},
+                            "closure_id": {"not": {"type": "null"}},
+                            "payload_sha256": {"not": {"type": "null"}},
+                            "verified_outcome_observer_roots": {"minItems": 1},
+                        },
+                        "required": [
+                            "closure_id",
+                            "payload_sha256",
+                            "verified_outcome_observer_roots",
+                            "expected_effect_count",
+                            "observed_success_count",
+                            "unresolved_effect_count",
+                            "attempt_id",
+                            "closure_sequence",
+                        ],
+                    },
+                },
+                {
+                    "if": {
+                        "properties": {"status": {"const": "UNKNOWN"}},
+                        "required": ["status"],
+                    },
+                    "then": {
+                        "properties": {
+                            "recorded": {"const": False},
+                            "reason_codes": {"items": {"enum": unknown_reasons}},
+                        }
+                    },
+                },
+                {
+                    "if": {
+                        "properties": {"status": {"const": "UNSAFE_SUCCESS"}},
+                        "required": ["status"],
+                    },
+                    "then": {
+                        "properties": {
+                            "recorded": {"const": False},
+                            "reason_codes": {"items": {"enum": unsafe_reasons}},
+                        }
+                    },
+                },
+            )
+        )
+        result["x-proofflow-runtime-invariants"] = [
+            (
+                "PASS is only emitted for a recorded exact-byte closure with expected "
+                "successes and no unresolved effects"
+            ),
+            (
+                "UNSAFE_SUCCESS is never recorded and signals success-like output without "
+                "complete trusted closure evidence"
+            ),
+        ]
+    for title, reference_fields in (
+        ("OutcomeProducerDeclaration", ("software_name", "software_version")),
+        ("EffectAttemptObservation", ("effect_type", "target")),
+        ("EffectReconciliation", ("effect_type", "target")),
+        ("ExpectedOutcomeBinding", ("effect_type", "effect_target")),
+    ):
+        node = _schema_node(schema, title)
+        if node is not None:
+            properties = _properties(node)
+            for field_name in reference_fields:
+                _forbid_remote_reference(properties[field_name])
+    return schema
+
+
 def render(model: type[BaseModel]) -> str:
     schema = _patch_action_certificate_schema(model.model_json_schema())
     schema = _patch_execution_receipt_schema(schema)
+    schema = _patch_outcome_closure_schema(schema)
     return json.dumps(schema, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
 
 

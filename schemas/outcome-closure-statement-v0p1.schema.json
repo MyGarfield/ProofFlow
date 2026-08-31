@@ -1,0 +1,852 @@
+{
+  "$defs": {
+    "ActionCertificateReference": {
+      "additionalProperties": false,
+      "properties": {
+        "certificate_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Certificate Id",
+          "type": "string"
+        },
+        "envelope_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Envelope Sha256",
+          "type": "string"
+        },
+        "intent_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Intent Sha256",
+          "type": "string"
+        },
+        "payload_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Payload Sha256",
+          "type": "string"
+        },
+        "reserved_at": {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+          "title": "Reserved At",
+          "type": "string"
+        },
+        "verification_at": {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+          "title": "Verification At",
+          "type": "string"
+        },
+        "verification_result_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Verification Result Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "certificate_id",
+        "payload_sha256",
+        "envelope_sha256",
+        "verification_result_sha256",
+        "intent_sha256",
+        "verification_at",
+        "reserved_at"
+      ],
+      "title": "ActionCertificateReference",
+      "type": "object",
+      "x-proofflow-runtime-invariants": [
+        "reserved_at is greater than or equal to verification_at"
+      ]
+    },
+    "ClaimedOutcome": {
+      "enum": [
+        "PASS",
+        "FAIL",
+        "UNKNOWN"
+      ],
+      "title": "ClaimedOutcome",
+      "type": "string"
+    },
+    "EffectAttemptObservation": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "SUCCEEDED"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "provider_operation_id": {
+                "not": {
+                  "type": "null"
+                }
+              },
+              "terminal_result": {
+                "const": "EFFECT_COMMITTED"
+              }
+            },
+            "required": [
+              "provider_operation_id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "FAILED"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "terminal_result": {
+                "enum": [
+                  "EFFECT_REJECTED",
+                  "EFFECT_NOT_APPLIED"
+                ]
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "after_state_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "After State Sha256",
+          "type": "string"
+        },
+        "attempt_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Attempt Id",
+          "type": "string"
+        },
+        "before_state_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Before State Sha256",
+          "type": "string"
+        },
+        "effect_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Effect Id",
+          "type": "string"
+        },
+        "effect_type": {
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "pattern": "://"
+                  },
+                  {
+                    "pattern": "^[Ff][Ii][Ll][Ee]:"
+                  },
+                  {
+                    "pattern": "^[Dd][Aa][Tt][Aa]:"
+                  },
+                  {
+                    "pattern": "^[Uu][Rr][Nn]:"
+                  }
+                ]
+              }
+            }
+          ],
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Effect Type",
+          "type": "string"
+        },
+        "idempotency_key": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Idempotency Key",
+          "type": "string"
+        },
+        "intent_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Intent Sha256",
+          "type": "string"
+        },
+        "observer_evidence_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Observer Evidence Sha256",
+          "type": "string"
+        },
+        "provider_event_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Provider Event Sha256",
+          "type": "string"
+        },
+        "provider_operation_id": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider Operation Id"
+        },
+        "status": {
+          "$ref": "#/$defs/EffectAttemptStatus"
+        },
+        "target": {
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "pattern": "://"
+                  },
+                  {
+                    "pattern": "^[Ff][Ii][Ll][Ee]:"
+                  },
+                  {
+                    "pattern": "^[Dd][Aa][Tt][Aa]:"
+                  },
+                  {
+                    "pattern": "^[Uu][Rr][Nn]:"
+                  }
+                ]
+              }
+            }
+          ],
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Target",
+          "type": "string"
+        },
+        "terminal_result": {
+          "$ref": "#/$defs/EffectTerminalResult"
+        }
+      },
+      "required": [
+        "effect_id",
+        "attempt_id",
+        "effect_type",
+        "target",
+        "intent_sha256",
+        "idempotency_key",
+        "status",
+        "terminal_result",
+        "before_state_sha256",
+        "after_state_sha256",
+        "provider_event_sha256",
+        "observer_evidence_sha256"
+      ],
+      "title": "EffectAttemptObservation",
+      "type": "object",
+      "x-proofflow-runtime-invariants": [
+        "SUCCEEDED requires a provider operation ID and EFFECT_COMMITTED",
+        "FAILED requires an authoritative rejection or no-effect terminal result"
+      ]
+    },
+    "EffectAttemptStatus": {
+      "enum": [
+        "SUCCEEDED",
+        "FAILED"
+      ],
+      "title": "EffectAttemptStatus",
+      "type": "string"
+    },
+    "EffectReconciliation": {
+      "additionalProperties": false,
+      "properties": {
+        "attempts": {
+          "items": {
+            "$ref": "#/$defs/EffectAttemptObservation"
+          },
+          "maxItems": 128,
+          "title": "Attempts",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "effect_type": {
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "pattern": "://"
+                  },
+                  {
+                    "pattern": "^[Ff][Ii][Ll][Ee]:"
+                  },
+                  {
+                    "pattern": "^[Dd][Aa][Tt][Aa]:"
+                  },
+                  {
+                    "pattern": "^[Uu][Rr][Nn]:"
+                  }
+                ]
+              }
+            }
+          ],
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Effect Type",
+          "type": "string"
+        },
+        "expected_effect_count": {
+          "maximum": 16,
+          "minimum": 1,
+          "title": "Expected Effect Count",
+          "type": "integer"
+        },
+        "idempotency_key": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Idempotency Key",
+          "type": "string"
+        },
+        "intent_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Intent Sha256",
+          "type": "string"
+        },
+        "target": {
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "pattern": "://"
+                  },
+                  {
+                    "pattern": "^[Ff][Ii][Ll][Ee]:"
+                  },
+                  {
+                    "pattern": "^[Dd][Aa][Tt][Aa]:"
+                  },
+                  {
+                    "pattern": "^[Uu][Rr][Nn]:"
+                  }
+                ]
+              }
+            }
+          ],
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Target",
+          "type": "string"
+        },
+        "unresolved": {
+          "items": {
+            "$ref": "#/$defs/UnresolvedEffectObservation"
+          },
+          "maxItems": 128,
+          "title": "Unresolved",
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "effect_type",
+        "target",
+        "intent_sha256",
+        "idempotency_key",
+        "expected_effect_count",
+        "attempts",
+        "unresolved"
+      ],
+      "title": "EffectReconciliation",
+      "type": "object",
+      "x-proofflow-runtime-invariants": [
+        "attempt IDs and effect IDs are unique",
+        "resolved and unresolved effect IDs are disjoint",
+        "every attempt binds the reconciliation effect type, target, intent, and idempotency key",
+        "unresolved count does not exceed expected_effect_count",
+        "provider operation IDs are unique"
+      ]
+    },
+    "EffectTerminalResult": {
+      "enum": [
+        "EFFECT_COMMITTED",
+        "EFFECT_REJECTED",
+        "EFFECT_NOT_APPLIED"
+      ],
+      "title": "EffectTerminalResult",
+      "type": "string"
+    },
+    "ExecutionReceiptReference": {
+      "additionalProperties": false,
+      "properties": {
+        "envelope_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Envelope Sha256",
+          "type": "string"
+        },
+        "payload_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Payload Sha256",
+          "type": "string"
+        },
+        "receipt_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Receipt Id",
+          "type": "string"
+        },
+        "verification_result_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Verification Result Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "receipt_id",
+        "payload_sha256",
+        "envelope_sha256",
+        "verification_result_sha256"
+      ],
+      "title": "ExecutionReceiptReference",
+      "type": "object"
+    },
+    "InTotoSubject": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "$ref": "#/$defs/Sha256DigestSet"
+        },
+        "name": {
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "pattern": "://"
+                  },
+                  {
+                    "pattern": "^[Ff][Ii][Ll][Ee]:"
+                  },
+                  {
+                    "pattern": "^[Dd][Aa][Tt][Aa]:"
+                  },
+                  {
+                    "pattern": "^[Uu][Rr][Nn]:"
+                  }
+                ]
+              }
+            }
+          ],
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "digest"
+      ],
+      "title": "InTotoSubject",
+      "type": "object"
+    },
+    "OutcomeClosurePredicate": {
+      "additionalProperties": false,
+      "properties": {
+        "attempt_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Attempt Id",
+          "type": "string"
+        },
+        "case_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Case Id",
+          "type": "string"
+        },
+        "certificate_ref": {
+          "$ref": "#/$defs/ActionCertificateReference"
+        },
+        "claimed_outcome": {
+          "$ref": "#/$defs/ClaimedOutcome"
+        },
+        "closure_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Closure Id",
+          "type": "string"
+        },
+        "closure_sequence": {
+          "maximum": 1000000,
+          "minimum": 1,
+          "title": "Closure Sequence",
+          "type": "integer"
+        },
+        "evidence_source": {
+          "$ref": "#/$defs/OutcomeEvidenceSource"
+        },
+        "execution_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Execution Id",
+          "type": "string"
+        },
+        "issued_at": {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+          "title": "Issued At",
+          "type": "string"
+        },
+        "previous_payload_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Previous Payload Sha256"
+        },
+        "producer": {
+          "$ref": "#/$defs/OutcomeProducerDeclaration"
+        },
+        "receipt_ref": {
+          "$ref": "#/$defs/ExecutionReceiptReference"
+        },
+        "reconciliation": {
+          "$ref": "#/$defs/EffectReconciliation"
+        },
+        "task_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Task Id",
+          "type": "string"
+        },
+        "tenant_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Tenant Id",
+          "type": "string"
+        },
+        "version": {
+          "const": "0.1",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "version",
+        "closure_id",
+        "execution_id",
+        "task_id",
+        "attempt_id",
+        "closure_sequence",
+        "tenant_id",
+        "case_id",
+        "issued_at",
+        "certificate_ref",
+        "receipt_ref",
+        "evidence_source",
+        "producer",
+        "reconciliation",
+        "claimed_outcome"
+      ],
+      "title": "OutcomeClosurePredicate",
+      "type": "object",
+      "x-proofflow-runtime-invariants": [
+        "claimed_outcome is informational; PASS/FAIL/UNKNOWN/UNSAFE_SUCCESS is verifier-derived",
+        "certificate_ref and receipt_ref must bind exact external accepted inputs"
+      ]
+    },
+    "OutcomeEvidenceSource": {
+      "additionalProperties": false,
+      "description": "Operator-bound, local authoritative evidence source declaration.",
+      "properties": {
+        "observed_at": {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+          "title": "Observed At",
+          "type": "string"
+        },
+        "principal_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Principal Id",
+          "type": "string"
+        },
+        "source_event_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Source Event Sha256",
+          "type": "string"
+        },
+        "source_kind": {
+          "$ref": "#/$defs/OutcomeEvidenceSourceKind"
+        },
+        "source_version": {
+          "const": "proofflow.outcome-evidence/v0.1",
+          "title": "Source Version",
+          "type": "string"
+        },
+        "valid_until": {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+          "title": "Valid Until",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_kind",
+        "source_version",
+        "principal_id",
+        "observed_at",
+        "valid_until",
+        "source_event_sha256"
+      ],
+      "title": "OutcomeEvidenceSource",
+      "type": "object",
+      "x-proofflow-runtime-invariants": [
+        "observed_at is no later than valid_until",
+        "source_event_sha256 resolves to exact bytes from the operator-controlled resolver"
+      ]
+    },
+    "OutcomeEvidenceSourceKind": {
+      "description": "Bounded local source kinds accepted by OutcomeClosure v0.1.",
+      "enum": [
+        "LOCAL_BYTES"
+      ],
+      "title": "OutcomeEvidenceSourceKind",
+      "type": "string"
+    },
+    "OutcomeProducerDeclaration": {
+      "additionalProperties": false,
+      "properties": {
+        "observer_principals": {
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+            "type": "string"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Observer Principals",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "producer_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Producer Id",
+          "type": "string"
+        },
+        "software_name": {
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "pattern": "://"
+                  },
+                  {
+                    "pattern": "^[Ff][Ii][Ll][Ee]:"
+                  },
+                  {
+                    "pattern": "^[Dd][Aa][Tt][Aa]:"
+                  },
+                  {
+                    "pattern": "^[Uu][Rr][Nn]:"
+                  }
+                ]
+              }
+            }
+          ],
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Software Name",
+          "type": "string"
+        },
+        "software_version": {
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "pattern": "://"
+                  },
+                  {
+                    "pattern": "^[Ff][Ii][Ll][Ee]:"
+                  },
+                  {
+                    "pattern": "^[Dd][Aa][Tt][Aa]:"
+                  },
+                  {
+                    "pattern": "^[Uu][Rr][Nn]:"
+                  }
+                ]
+              }
+            }
+          ],
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Software Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "producer_id",
+        "software_name",
+        "software_version",
+        "observer_principals"
+      ],
+      "title": "OutcomeProducerDeclaration",
+      "type": "object",
+      "x-proofflow-runtime-invariants": [
+        "observer principals are unique and must match qualifying OUTCOME_OBSERVER roots"
+      ]
+    },
+    "Sha256DigestSet": {
+      "additionalProperties": false,
+      "properties": {
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sha256"
+      ],
+      "title": "Sha256DigestSet",
+      "type": "object"
+    },
+    "UnresolvedEffectObservation": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "reason": {
+                "const": "MISSING_EVIDENCE"
+              }
+            },
+            "required": [
+              "reason"
+            ]
+          },
+          "then": {
+            "properties": {
+              "observer_evidence_sha256": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "observer_evidence_sha256"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "reason": {
+                "enum": [
+                  "QUERY_UNAVAILABLE",
+                  "PENDING",
+                  "CONFLICT"
+                ]
+              }
+            },
+            "required": [
+              "reason"
+            ]
+          },
+          "then": {
+            "properties": {
+              "observer_evidence_sha256": {
+                "not": {
+                  "type": "null"
+                }
+              }
+            },
+            "required": [
+              "observer_evidence_sha256"
+            ]
+          }
+        }
+      ],
+      "properties": {
+        "effect_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$",
+          "title": "Effect Id",
+          "type": "string"
+        },
+        "observer_evidence_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Observer Evidence Sha256"
+        },
+        "reason": {
+          "$ref": "#/$defs/UnresolvedEffectReason"
+        }
+      },
+      "required": [
+        "effect_id",
+        "reason"
+      ],
+      "title": "UnresolvedEffectObservation",
+      "type": "object",
+      "x-proofflow-runtime-invariants": [
+        "MISSING_EVIDENCE must carry null observer_evidence_sha256",
+        "QUERY_UNAVAILABLE, PENDING, and CONFLICT require observer evidence"
+      ]
+    },
+    "UnresolvedEffectReason": {
+      "enum": [
+        "QUERY_UNAVAILABLE",
+        "PENDING",
+        "CONFLICT",
+        "MISSING_EVIDENCE"
+      ],
+      "title": "UnresolvedEffectReason",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "_type": {
+      "const": "https://in-toto.io/Statement/v1",
+      "title": "Type",
+      "type": "string"
+    },
+    "predicate": {
+      "$ref": "#/$defs/OutcomeClosurePredicate"
+    },
+    "predicateType": {
+      "const": "https://proofflow.dev/attestations/outcome-closure/v0.1",
+      "title": "Predicatetype",
+      "type": "string"
+    },
+    "subject": {
+      "items": {
+        "$ref": "#/$defs/InTotoSubject"
+      },
+      "maxItems": 64,
+      "title": "Subject",
+      "type": "array",
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "_type",
+    "subject",
+    "predicateType",
+    "predicate"
+  ],
+  "title": "OutcomeClosureStatement",
+  "type": "object",
+  "x-proofflow-runtime-invariants": [
+    "OutcomeClosure subjects are unique; business-state semantics remain verifier-derived"
+  ]
+}
