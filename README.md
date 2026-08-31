@@ -72,7 +72,7 @@ finding 都只是未签名的历史点时证据；其漏洞数据库已超过声
 新增密码学依赖并改变 `src/` 后，这套镜像/SBOM/扫描与构建输入证据已明确标记为 `STALE`；
 consistency mode 只能验证“历史快照完整且确实已过时”，release gate 会拒绝。它不证明构建关系、数字签名、attestation、远端 registry 状态、
 持续可用性或生产安全，也绝不等于镜像“clean”或无漏洞。当前 main CI 为
-`728 passed + 1 skipped = 729 collected`（[run 33304628887](https://github.com/MyGarfield/ProofFlow/actions/runs/33304628887)）。
+`771 passed + 1 skipped = 772 collected`（[run 33380863159](https://github.com/MyGarfield/ProofFlow/actions/runs/33380863159)）。
 
 脱敏点时证据见 [AgentTeams 本地证据](deploy/agentteams/LOCAL_INFRA_EVIDENCE.md)、
 [MCP Manager 操作员冒烟](deploy/agentteams/evidence/mcp-manager-operator-smoke-2026-08-20.json)、
@@ -244,10 +244,10 @@ uv run mypy
 uv run pytest
 ```
 
-最近一次已发布 main CI 为 `728 passed + 1 skipped = 729 collected`（[run 33304628887](https://github.com/MyGarfield/ProofFlow/actions/runs/33304628887)）。
-ExecutionReceipt v0.1 与 OutcomeClosure v0.1 当前切片均为 observer-signed 的 public-synthetic
-参考实现；它们不是持久化 exactly-once 证明或真实运行时执行证明。main 的 exact-head CI
-仍只复核已合并内容，当前切片需通过本分支 CI 后才能宣称合入。测试覆盖正常链、文件哈希、
+最近一次已发布 main CI 为 `771 passed + 1 skipped = 772 collected`（[run 33380863159](https://github.com/MyGarfield/ProofFlow/actions/runs/33380863159)）。
+ExecutionReceipt v0.1 与 OutcomeClosure v0.1 均已随 main 合并并由该 exact-head run 复核；它们仍只是
+observer-signed 的 public-synthetic 参考实现，不是持久化 exactly-once、真实运行时执行或独立业务
+事实证明。测试覆盖正常链、文件哈希、
 提示注入字段、地区/时态规则过滤、缺参阻断、确定性重放、冲突检测、Trace 缺失、越权审批、批准后
 篡改、包文件篡改和未执行评测的 `UNKNOWN`/`null` 合同。
 
