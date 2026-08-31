@@ -32,7 +32,9 @@ GOAI 初赛作品已通过有效性审核，但未晋级复赛；公开目录中
 `sha256:1a4c4efb2d4e4fe37503ba0082282218e0b8c978dd22c1bd1488b5942d087775` 的供应链 subject、MCP 快照
 根级和脱敏运行观察三处 image ID 交叉绑定。固定数据库点时扫描的所有 severity 均为 0，但数据库已超过声明的下一更新时间；摘要、
 交叉绑定和零 finding 不是 clean 结论、签名、build attestation、构建关系证明、持续运行证明或
-生产安全认证。当前 main CI 为 `771 passed + 1 skipped = 772 collected`（[run 33380863159](https://github.com/MyGarfield/ProofFlow/actions/runs/33380863159)），Demo 定向测试为 `19 passed`。
+生产安全认证。本披露最后一次点时 CI receipt 为 `main@bdb85f2` 的
+`817 passed + 1 skipped = 818 collected`（[run 33449398693](https://github.com/MyGarfield/ProofFlow/actions/runs/33449398693)），
+Demo 定向测试为 `19 passed`；该 receipt 不声称是未来提交后的动态计数。
 
 评测资产状态仍为 `PROTOCOL_VALIDATED_NOT_EXECUTED`；三臂和五项官方评分均为 `UNKNOWN`，分值为
 `null`。因此不主张 Worker/LLM/Team 多 Agent 流程或三臂评测已经运行，也不主张已有真实客户、
