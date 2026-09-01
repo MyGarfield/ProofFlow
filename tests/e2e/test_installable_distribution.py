@@ -1260,3 +1260,117 @@ def test_output_directory_sentinel_injection_cannot_publish_or_overwrite(
     assert rejected.value.code == "BUILD_OUTPUT_RACE_DETECTED"
     assert sentinel.read_bytes() == b"must remain untouched"
     assert list(output.iterdir()) == [sentinel]
+
+
+@pytest.mark.parametrize("helper", ["text", "bytes"])
+@pytest.mark.parametrize(
+    "failure", ["os-error", "subprocess-error", "timeout", "invalid-utf8", "huge-output"]
+)
+def test_builder_command_helpers_fail_closed_without_raw_output(
+    monkeypatch: pytest.MonkeyPatch,
+    failure: str,
+    helper: str,
+) -> None:
+    builder = _load_builder()
+    if helper == "bytes" and failure == "invalid-utf8":
+        pytest.skip("binary command output is not decoded by _run_bytes")
+
+    def fake_run(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
+        if failure == "os-error":
+            raise OSError("private command error")
+        if failure == "subprocess-error":
+            raise subprocess.SubprocessError("private subprocess error")
+        if failure == "timeout":
+            raise subprocess.TimeoutExpired(command, kwargs["timeout"])
+        stdout = (
+            b"\xff" if failure == "invalid-utf8" else b"x" * (builder.MAX_COMMAND_STDOUT_BYTES + 1)
+        )
+        return subprocess.CompletedProcess(command, 0, stdout=stdout, stderr=b"private stderr")
+
+    monkeypatch.setattr(builder.subprocess, "run", fake_run)
+    with pytest.raises(builder.DistributionBuildError) as rejected:
+        if helper == "text":
+            builder._run(["synthetic-command"])
+        else:
+            builder._run_bytes(["synthetic-command"])
+    assert rejected.value.code == "BUILD_TOOL_FAILED"
+    assert "private" not in rejected.value.safe_message
+
+
+@pytest.mark.parametrize(
+    "failure", ["os-error", "subprocess-error", "timeout", "invalid-utf8", "huge-output"]
+)
+def test_builder_git_source_binding_fail_closed_without_path_or_stderr(
+    monkeypatch: pytest.MonkeyPatch,
+    failure: str,
+) -> None:
+    builder = _load_builder()
+
+    def fake_run(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
+        if failure == "os-error":
+            raise OSError("private git error")
+        if failure == "subprocess-error":
+            raise subprocess.SubprocessError("private git subprocess error")
+        if failure == "timeout":
+            raise subprocess.TimeoutExpired(command, kwargs["timeout"])
+        stdout = (
+            b"\xff" if failure == "invalid-utf8" else b"x" * (builder.MAX_COMMAND_STDOUT_BYTES + 1)
+        )
+        return subprocess.CompletedProcess(command, 0, stdout=stdout, stderr=b"private stderr")
+
+    monkeypatch.setattr(builder.subprocess, "run", fake_run)
+    with pytest.raises(builder.DistributionBuildError) as rejected:
+        builder._git("rev-parse", "--verify", "HEAD^{commit}")
+    assert rejected.value.code == "SOURCE_BINDING_UNAVAILABLE"
+    assert "private" not in rejected.value.safe_message
+
+
+@pytest.mark.parametrize("failure", ["missing", "invalid-utf8", "huge-output"])
+def test_optimized_cli_source_binding_failures_return_safe_json_without_output(
+    tmp_path: Path,
+    failure: str,
+) -> None:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    if failure != "missing":
+        fake_git = bin_dir / "git"
+        if failure == "invalid-utf8":
+            fake_git.write_text("#!/bin/sh\nprintf '\\377'\n")
+        else:
+            fake_git.write_text("#!/bin/sh\n/usr/bin/head -c 16777217 /dev/zero\n")
+        fake_git.chmod(0o755)
+    evidence = tmp_path / "evidence.json"
+    policy = tmp_path / "policy.json"
+    evidence.write_bytes(b"evidence")
+    policy.write_bytes(b"policy")
+    output = tmp_path / "release"
+    environment = _clean_environment()
+    environment["PATH"] = str(bin_dir)
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-O",
+            str(BUILD_SCRIPT),
+            "--output",
+            str(output),
+            "--release",
+            "--evidence",
+            str(evidence),
+            "--release-policy",
+            str(policy),
+            "--release-policy-sha256",
+            "sha256:" + "0" * 64,
+        ],
+        cwd=tmp_path,
+        env=environment,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert completed.returncode == 2
+    error = json.loads(completed.stderr)
+    assert error["error"]["code"] == "SOURCE_BINDING_UNAVAILABLE"
+    assert str(tmp_path) not in completed.stderr
+    assert "Traceback" not in completed.stderr
+    assert not output.exists()

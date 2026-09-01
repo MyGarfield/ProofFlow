@@ -92,6 +92,10 @@ class OutputDirectoryBinding:
 
 RELEASE_VALIDATOR_MAX_STDOUT_BYTES = 16 * 1024
 RELEASE_VALIDATOR_TIMEOUT_SECONDS = 300
+BUILD_TOOL_TIMEOUT_SECONDS = 300
+GIT_COMMAND_TIMEOUT_SECONDS = 30
+MAX_COMMAND_STDOUT_BYTES = 16 * 1024 * 1024
+MAX_RELEASE_INPUT_BYTES = 64 * 1024 * 1024
 
 
 def _reject_duplicate_json_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -113,45 +117,83 @@ def _run(
     environment: dict[str, str] | None = None,
     cwd: Path | None = None,
 ) -> str:
-    completed = subprocess.run(
-        command,
-        cwd=cwd or ROOT,
-        env=environment,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    if completed.returncode != 0:
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=cwd or ROOT,
+            env=environment,
+            check=False,
+            capture_output=True,
+            text=False,
+            timeout=BUILD_TOOL_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.SubprocessError, TypeError, ValueError):
+        raise DistributionBuildError(
+            "BUILD_TOOL_FAILED",
+            "the local distribution build tool failed",
+        ) from None
+    if completed.returncode != 0 or not isinstance(completed.stdout, bytes):
         raise DistributionBuildError(
             "BUILD_TOOL_FAILED",
             "the local distribution build tool failed",
         )
-    return completed.stdout.strip()
+    if len(completed.stdout) > MAX_COMMAND_STDOUT_BYTES:
+        raise DistributionBuildError(
+            "BUILD_TOOL_FAILED",
+            "the local distribution build tool returned an oversized result",
+        )
+    try:
+        return completed.stdout.decode("utf-8").strip()
+    except UnicodeDecodeError:
+        raise DistributionBuildError(
+            "BUILD_TOOL_FAILED",
+            "the local distribution build tool returned invalid output",
+        ) from None
 
 
 def _run_bytes(command: list[str], *, cwd: Path | None = None) -> bytes:
-    completed = subprocess.run(
-        command,
-        cwd=cwd or ROOT,
-        check=False,
-        capture_output=True,
-    )
-    if completed.returncode != 0:
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=cwd or ROOT,
+            check=False,
+            capture_output=True,
+            text=False,
+            timeout=GIT_COMMAND_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.SubprocessError, TypeError, ValueError):
         raise DistributionBuildError(
             "BUILD_TOOL_FAILED",
             "the local distribution build tool failed",
+        ) from None
+    if completed.returncode != 0 or not isinstance(completed.stdout, bytes):
+        raise DistributionBuildError(
+            "BUILD_TOOL_FAILED",
+            "the local distribution build tool failed",
+        )
+    if len(completed.stdout) > MAX_COMMAND_STDOUT_BYTES:
+        raise DistributionBuildError(
+            "BUILD_TOOL_FAILED",
+            "the local distribution build tool returned an oversized result",
         )
     return completed.stdout
 
 
 def _git(*arguments: str) -> str:
     try:
-        return _run(["git", *arguments])
+        output = _run_bytes(["git", *arguments])
+        encoding = "utf-8" if arguments and arguments[0] == "status" else "ascii"
+        return output.decode(encoding).strip()
     except DistributionBuildError as exc:
         raise DistributionBuildError(
             "SOURCE_BINDING_UNAVAILABLE",
             "the source Git binding could not be established",
         ) from exc
+    except UnicodeDecodeError:
+        raise DistributionBuildError(
+            "SOURCE_BINDING_UNAVAILABLE",
+            "the source Git binding could not be established",
+        ) from None
 
 
 def _git_bytes(*arguments: str) -> bytes:
@@ -364,7 +406,12 @@ def _read_regular_file(path: Path) -> bytes:
 def _read_stable_release_input(path: Path, *, failure_code: str) -> StableFileSnapshot:
     """Read one release input through a no-follow descriptor and bind its stat identity."""
 
-    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+    flags = (
+        os.O_RDONLY
+        | getattr(os, "O_CLOEXEC", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_NONBLOCK", 0)
+    )
     try:
         descriptor = os.open(path, flags)
     except OSError as exc:
@@ -379,6 +426,11 @@ def _read_stable_release_input(path: Path, *, failure_code: str) -> StableFileSn
                 raise DistributionBuildError(
                     failure_code,
                     "the release evidence or policy file is not a regular file",
+                )
+            if before.st_size < 0 or before.st_size > MAX_RELEASE_INPUT_BYTES:
+                raise DistributionBuildError(
+                    failure_code,
+                    "the release evidence or policy file exceeds the snapshot size limit",
                 )
             chunks: list[bytes] = []
             while True:

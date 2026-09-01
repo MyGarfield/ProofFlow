@@ -147,6 +147,23 @@ the exact policy-file SHA-256 to a later release-verifier invocation. A scan, re
 failure leaves the previous historical directory intact. This repository change did not run the
 networked collector and did not rewrite any SBOM or Trivy report.
 
+## File-snapshot trust boundary
+
+The validator treats the evidence report, each raw artifact, and a path-based external release policy
+as untrusted filesystem inputs. It opens every directory component and terminal file with no-follow
+file-descriptor flags, rejects symlinks, FIFOs, devices, non-regular files, and oversized inputs, and
+checks the descriptor identity and metadata before and after reading. A read that changes in place,
+shrinks, grows, or is renamed during capture is rejected with a stable validation code. The report is
+parsed once from its captured bytes; its closed artifact basenames are then resolved lexically and each
+artifact is captured once. Artifact hashes, JSON parsing, schema checks, and leakage checks all consume
+that same captured byte string. A policy file is hashed and parsed from the same capture, so replacing
+the pathname after hashing cannot cause a different policy document to be verified.
+
+This boundary proves consistency of the bytes captured by one verifier invocation. It does not prove
+that a pathname was never changed before capture, that the producer was honest, or that the bytes were
+created by the claimed build. The external policy SHA-256 and any future signed provenance remain
+separate trust anchors.
+
 ## v1.2 freshness and release binding contract
 
 No v1.2 evidence instance is committed. The schema and verifier define what a later exact-build

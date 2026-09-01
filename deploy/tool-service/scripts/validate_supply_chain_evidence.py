@@ -6,13 +6,16 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
+import stat
 import subprocess
 import sys
 from collections import Counter
 from collections.abc import Mapping
+from contextlib import suppress
 from datetime import UTC, datetime, timedelta
-from pathlib import Path, PurePosixPath
+from pathlib import Path, PurePath, PurePosixPath
 from typing import Any, Literal, NamedTuple
 
 from jsonschema import Draft202012Validator, FormatChecker
@@ -31,6 +34,13 @@ MAX_SNAPSHOT_AGE = timedelta(hours=6)
 MAX_DATABASE_AGE = timedelta(hours=24)
 MAX_SCAN_DURATION = timedelta(minutes=30)
 MAX_FUTURE_SKEW = timedelta(minutes=5)
+MAX_REPORT_BYTES = 64 * 1024 * 1024
+MAX_ARTIFACT_BYTES = 64 * 1024 * 1024
+MAX_POLICY_BYTES = 4 * 1024 * 1024
+MAX_SCHEMA_BYTES = 8 * 1024 * 1024
+MAX_BUILD_INPUT_FILE_BYTES = 16 * 1024 * 1024
+MAX_REPOSITORY_STATUS_BYTES = 4 * 1024 * 1024
+FILE_READ_CHUNK_BYTES = 1024 * 1024
 RELEASE_BINDING_ALGORITHM = "CANONICAL_JSON_SHA256_V1"
 RELEASE_BINDING_FIELDS = (
     "scan",
@@ -130,6 +140,18 @@ class VerificationResult(NamedTuple):
         return self._asdict()
 
 
+class RepositoryState(NamedTuple):
+    """The bounded Git state observed by one validator invocation."""
+
+    commit_sha: str
+    tree_sha: str
+    status_bytes: bytes
+
+    @property
+    def working_tree_clean(self) -> bool:
+        return not self.status_bytes
+
+
 class EvidenceValidationError(ValueError):
     """Raised for a public-evidence contract violation with a stable machine code."""
 
@@ -152,18 +174,143 @@ def _reject_duplicate_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     return result
 
 
-def load_json_strict(path: Path) -> dict[str, Any]:
+def _safe_label(path: Path | str, fallback: str = "file") -> str:
+    """Return a non-sensitive label for a filesystem object."""
+
+    name = Path(path).name if isinstance(path, (Path, str)) else ""
+    return name or fallback
+
+
+def _open_directory_fd(path: Path) -> int:
+    """Open every directory component without following symlinks."""
+
+    absolute = Path(os.path.abspath(os.fspath(path)))
+    if not all(hasattr(os, flag) for flag in ("O_CLOEXEC", "O_DIRECTORY", "O_NOFOLLOW")):
+        raise OSError("required no-follow flags are unavailable")
+    flags = os.O_RDONLY | os.O_CLOEXEC | os.O_DIRECTORY | os.O_NOFOLLOW
+    descriptor = os.open(os.sep, flags)
+    try:
+        for component in absolute.parts[1:]:
+            if component in {"", ".", ".."}:
+                raise OSError("unsafe directory component")
+            child = os.open(component, flags, dir_fd=descriptor)
+            os.close(descriptor)
+            descriptor = child
+        return descriptor
+    except BaseException:
+        with suppress(OSError):
+            os.close(descriptor)
+        raise
+
+
+def _snapshot_regular_file(
+    path: Path,
+    *,
+    label: str,
+    max_bytes: int,
+    error_code: str = "EVIDENCE_CONTRACT_INVALID",
+) -> bytes:
+    """Capture one stable regular file through an O_NOFOLLOW file descriptor.
+
+    The caller receives the exact bytes whose size/hash/JSON semantics it validates. The path is
+    never resolved before opening: directory components and the terminal name are opened with
+    O_NOFOLLOW, and the file is rejected if its descriptor metadata changes during the read.
+    """
+
+    safe_label = _safe_label(label)
+    directory_fd: int | None = None
+    file_fd: int | None = None
+    try:
+        if not all(
+            hasattr(os, flag) for flag in ("O_CLOEXEC", "O_DIRECTORY", "O_NOFOLLOW", "O_NONBLOCK")
+        ):
+            raise OSError("required no-follow flags are unavailable")
+        directory_fd = _open_directory_fd(path.parent)
+        flags = os.O_RDONLY | os.O_CLOEXEC | os.O_NONBLOCK | os.O_NOFOLLOW
+        file_fd = os.open(path.name, flags, dir_fd=directory_fd)
+        before = os.fstat(file_fd)
+        if not stat.S_ISREG(before.st_mode):
+            raise OSError("file is not a regular file")
+        if before.st_size < 0 or before.st_size > max_bytes:
+            raise EvidenceValidationError(
+                f"{safe_label} exceeds the snapshot size limit",
+                code=error_code,
+            )
+
+        expected_size = before.st_size
+        chunks: list[bytes] = []
+        remaining = expected_size
+        while remaining:
+            chunk = os.read(file_fd, min(FILE_READ_CHUNK_BYTES, remaining))
+            if not chunk:
+                raise OSError("file ended during snapshot")
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        payload = b"".join(chunks)
+        after = os.fstat(file_fd)
+        before_identity = (
+            before.st_dev,
+            before.st_ino,
+            before.st_mode,
+            before.st_nlink,
+            before.st_size,
+            before.st_mtime_ns,
+            before.st_ctime_ns,
+        )
+        after_identity = (
+            after.st_dev,
+            after.st_ino,
+            after.st_mode,
+            after.st_nlink,
+            after.st_size,
+            after.st_mtime_ns,
+            after.st_ctime_ns,
+        )
+        if len(payload) != expected_size or before_identity != after_identity:
+            raise EvidenceValidationError(
+                f"{safe_label} changed during snapshot",
+                code=error_code,
+            )
+        return payload
+    except EvidenceValidationError:
+        raise
+    except (OSError, TypeError, ValueError, NotImplementedError):
+        raise EvidenceValidationError(
+            f"{safe_label} is unavailable or unsafe",
+            code=error_code,
+        ) from None
+    finally:
+        if file_fd is not None:
+            with suppress(OSError):
+                os.close(file_fd)
+        if directory_fd is not None:
+            with suppress(OSError):
+                os.close(directory_fd)
+
+
+def _parse_json_strict(payload: bytes, label: str) -> dict[str, Any]:
     try:
         parsed = json.loads(
-            path.read_text(encoding="utf-8"),
+            payload,
             object_pairs_hook=_reject_duplicate_pairs,
             parse_constant=_reject_constant,
         )
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
-        raise EvidenceValidationError(f"invalid JSON file: {path.name}") from exc
+        raise EvidenceValidationError(f"invalid JSON file: {_safe_label(label)}") from exc
     if not isinstance(parsed, dict):
-        raise EvidenceValidationError(f"JSON root must be an object: {path.name}")
+        raise EvidenceValidationError(f"JSON root must be an object: {_safe_label(label)}")
     return parsed
+
+
+def load_json_strict(path: Path) -> dict[str, Any]:
+    """Read and parse one JSON file through a single stable regular-file snapshot."""
+
+    payload = _snapshot_regular_file(
+        path,
+        label=path.name,
+        max_bytes=MAX_SCHEMA_BYTES,
+    )
+    return _parse_json_strict(payload, path.name)
 
 
 def _validate_schema(document: dict[str, Any], schema: dict[str, Any]) -> None:
@@ -180,48 +327,221 @@ def _sha256(payload: bytes) -> str:
     return f"sha256:{hashlib.sha256(payload).hexdigest()}"
 
 
-def _is_generated_python_cache(relative_path: Path) -> bool:
+def _is_generated_python_cache(relative_path: PurePath) -> bool:
     return "__pycache__" in relative_path.parts or relative_path.suffix in {".pyc", ".pyo"}
 
 
-def _directory_input_files(relative_directory: str) -> list[Path]:
-    directory = ROOT / relative_directory
-    if not directory.is_dir() or directory.is_symlink():
-        raise EvidenceValidationError(
-            f"build input directory is missing or unsafe: {relative_directory}"
-        )
-    files: list[Path] = []
-    for candidate in directory.rglob("*"):
-        relative_path = candidate.relative_to(directory)
-        if _is_generated_python_cache(relative_path):
-            continue
-        if candidate.is_symlink():
-            raise EvidenceValidationError(f"build input symlink is not allowed: {candidate}")
-        if candidate.is_dir():
-            continue
-        if not candidate.is_file():
-            raise EvidenceValidationError(f"build input is not a regular file: {candidate}")
-        if relative_directory == "src":
-            allowed = candidate.suffix == ".py" or relative_path.as_posix() in (
-                EXPECTED_SRC_DATA_FILES
+def _build_input_error(relative_directory: str) -> EvidenceValidationError:
+    label = relative_directory if relative_directory in BUILD_INPUT_DIRECTORIES else "build-input"
+    return EvidenceValidationError(
+        f"build input directory is unavailable or unsafe: {label}",
+        code="BUILD_INPUT_MISMATCH",
+    )
+
+
+def _stat_identity(observed: os.stat_result) -> tuple[int, int, int, int, int, int, int]:
+    return (
+        observed.st_dev,
+        observed.st_ino,
+        observed.st_mode,
+        observed.st_nlink,
+        observed.st_size,
+        observed.st_mtime_ns,
+        observed.st_ctime_ns,
+    )
+
+
+def _directory_entries(
+    directory_fd: int, relative_directory: str
+) -> list[tuple[str, tuple[int, int, int, int, int, int, int]]]:
+    entries: list[tuple[str, tuple[int, int, int, int, int, int, int]]] = []
+    try:
+        with os.scandir(directory_fd) as iterator:
+            for entry in iterator:
+                name = entry.name
+                if not isinstance(name, str) or not name or name in {".", ".."}:
+                    raise _build_input_error(relative_directory)
+                observed = entry.stat(follow_symlinks=False)
+                entries.append((name, _stat_identity(observed)))
+    except EvidenceValidationError:
+        raise
+    except (OSError, RuntimeError, TypeError, ValueError, NotImplementedError):
+        raise _build_input_error(relative_directory) from None
+    return sorted(entries, key=lambda item: item[0])
+
+
+def _snapshot_regular_file_fd(
+    directory_fd: int,
+    name: str,
+    *,
+    label: str,
+    max_bytes: int,
+    error_code: str,
+    expected_identity: tuple[int, int, int, int, int, int, int] | None = None,
+) -> bytes:
+    """Read a regular file already anchored by its containing directory FD."""
+
+    safe_label = _safe_label(label)
+    file_fd: int | None = None
+    try:
+        if not all(hasattr(os, flag) for flag in ("O_CLOEXEC", "O_NOFOLLOW", "O_NONBLOCK")):
+            raise OSError("required no-follow flags are unavailable")
+        flags = os.O_RDONLY | os.O_CLOEXEC | os.O_NONBLOCK | os.O_NOFOLLOW
+        file_fd = os.open(name, flags, dir_fd=directory_fd)
+        before = os.fstat(file_fd)
+        before_identity = _stat_identity(before)
+        if not stat.S_ISREG(before.st_mode) or (
+            expected_identity is not None and before_identity != expected_identity
+        ):
+            raise OSError("file is not the expected regular file")
+        if before.st_size < 0 or before.st_size > max_bytes:
+            raise EvidenceValidationError(
+                f"{safe_label} exceeds the snapshot size limit",
+                code=error_code,
             )
-        else:
-            allowed = candidate.suffix == ".json"
-        if not allowed:
-            raise EvidenceValidationError(f"unexpected build input file: {candidate}")
-        files.append(candidate)
-    if not files:
-        raise EvidenceValidationError(f"build input directory is empty: {relative_directory}")
-    return sorted(files, key=lambda item: item.relative_to(directory).as_posix())
+
+        expected_size = before.st_size
+        chunks: list[bytes] = []
+        remaining = expected_size
+        while remaining:
+            chunk = os.read(file_fd, min(FILE_READ_CHUNK_BYTES, remaining))
+            if not chunk:
+                raise OSError("file ended during snapshot")
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        payload = b"".join(chunks)
+        after = os.fstat(file_fd)
+        if len(payload) != expected_size or before_identity != _stat_identity(after):
+            raise EvidenceValidationError(
+                f"{safe_label} changed during snapshot",
+                code=error_code,
+            )
+        return payload
+    except EvidenceValidationError:
+        raise
+    except (OSError, TypeError, ValueError, NotImplementedError):
+        raise EvidenceValidationError(
+            f"{safe_label} is unavailable or unsafe",
+            code=error_code,
+        ) from None
+    finally:
+        if file_fd is not None:
+            with suppress(OSError):
+                os.close(file_fd)
 
 
-def _expected_build_input_records() -> list[dict[str, Any]]:
+def _snapshot_directory_fd(
+    directory_fd: int,
+    relative_directory: str,
+    relative_parts: tuple[str, ...],
+    *,
+    expected_identity: tuple[int, int, int, int, int, int, int] | None = None,
+) -> list[tuple[str, bytes]]:
+    try:
+        before_stat = os.fstat(directory_fd)
+        if not stat.S_ISDIR(before_stat.st_mode) or (
+            expected_identity is not None and _stat_identity(before_stat) != expected_identity
+        ):
+            raise _build_input_error(relative_directory)
+        before_entries = _directory_entries(directory_fd, relative_directory)
+        records: list[tuple[str, bytes]] = []
+        for name, entry_identity in before_entries:
+            entry_mode = entry_identity[2]
+            entry_parts = (*relative_parts, name)
+            relative_path = "/".join(entry_parts)
+            relative_path_obj = PurePosixPath(relative_path)
+            if stat.S_ISLNK(entry_mode):
+                raise _build_input_error(relative_directory)
+            if stat.S_ISDIR(entry_mode):
+                if _is_generated_python_cache(relative_path_obj):
+                    continue
+                child_fd: int | None = None
+                try:
+                    child_fd = os.open(
+                        name,
+                        os.O_RDONLY | os.O_CLOEXEC | os.O_DIRECTORY | os.O_NOFOLLOW,
+                        dir_fd=directory_fd,
+                    )
+                    records.extend(
+                        _snapshot_directory_fd(
+                            child_fd,
+                            relative_directory,
+                            entry_parts,
+                            expected_identity=entry_identity,
+                        )
+                    )
+                finally:
+                    if child_fd is not None:
+                        with suppress(OSError):
+                            os.close(child_fd)
+                continue
+            if not stat.S_ISREG(entry_mode):
+                raise _build_input_error(relative_directory)
+            if _is_generated_python_cache(relative_path_obj):
+                continue
+            if relative_directory == "src":
+                allowed = (
+                    relative_path_obj.suffix == ".py" or relative_path in EXPECTED_SRC_DATA_FILES
+                )
+            else:
+                allowed = relative_path_obj.suffix == ".json"
+            if not allowed:
+                raise _build_input_error(relative_directory)
+            payload = _snapshot_regular_file_fd(
+                directory_fd,
+                name,
+                label=relative_directory,
+                max_bytes=MAX_BUILD_INPUT_FILE_BYTES,
+                error_code="BUILD_INPUT_MISMATCH",
+                expected_identity=entry_identity,
+            )
+            records.append((relative_path, payload))
+
+        after_stat = os.fstat(directory_fd)
+        after_entries = _directory_entries(directory_fd, relative_directory)
+        if (
+            _stat_identity(before_stat) != _stat_identity(after_stat)
+            or before_entries != after_entries
+        ):
+            raise _build_input_error(relative_directory)
+        if not records:
+            raise _build_input_error(relative_directory)
+        return sorted(records, key=lambda item: item[0])
+    except EvidenceValidationError:
+        raise
+    except (OSError, RuntimeError, TypeError, ValueError, NotImplementedError):
+        raise _build_input_error(relative_directory) from None
+
+
+def _snapshot_directory_input(relative_directory: str) -> list[tuple[str, bytes]]:
+    if relative_directory not in BUILD_INPUT_DIRECTORIES:
+        raise _build_input_error(relative_directory)
+    directory_fd: int | None = None
+    try:
+        directory_fd = _open_directory_fd(ROOT / relative_directory)
+        return _snapshot_directory_fd(directory_fd, relative_directory, ())
+    except EvidenceValidationError:
+        raise
+    except (OSError, RuntimeError, TypeError, ValueError, NotImplementedError):
+        raise _build_input_error(relative_directory) from None
+    finally:
+        if directory_fd is not None:
+            with suppress(OSError):
+                os.close(directory_fd)
+
+
+def _expected_build_input_records_with_snapshots() -> tuple[list[dict[str, Any]], dict[str, bytes]]:
     records: list[dict[str, Any]] = []
+    snapshots: dict[str, bytes] = {}
     for relative_path in BUILD_INPUT_FILES:
         source = ROOT / relative_path
-        if not source.is_file() or source.is_symlink():
-            raise EvidenceValidationError(f"build input file is missing or unsafe: {relative_path}")
-        payload = source.read_bytes()
+        payload = _snapshot_regular_file(
+            source,
+            label=relative_path,
+            max_bytes=MAX_BUILD_INPUT_FILE_BYTES,
+            error_code="BUILD_INPUT_MISMATCH",
+        )
+        snapshots[relative_path] = payload
         records.append(
             {
                 "path": relative_path,
@@ -232,15 +552,13 @@ def _expected_build_input_records() -> list[dict[str, Any]]:
             }
         )
     for relative_directory in BUILD_INPUT_DIRECTORIES:
-        directory = ROOT / relative_directory
         digest = hashlib.sha256()
         total_bytes = 0
-        files = _directory_input_files(relative_directory)
-        for source in files:
-            relative_path = source.relative_to(directory).as_posix().encode("utf-8")
-            payload = source.read_bytes()
-            digest.update(len(relative_path).to_bytes(8, byteorder="big"))
-            digest.update(relative_path)
+        files = _snapshot_directory_input(relative_directory)
+        for relative_path_string, payload in files:
+            encoded_path = relative_path_string.encode("utf-8")
+            digest.update(len(encoded_path).to_bytes(8, byteorder="big"))
+            digest.update(encoded_path)
             digest.update(len(payload).to_bytes(8, byteorder="big"))
             digest.update(payload)
             total_bytes += len(payload)
@@ -253,6 +571,11 @@ def _expected_build_input_records() -> list[dict[str, Any]]:
                 "file_count": len(files),
             }
         )
+    return records, snapshots
+
+
+def _expected_build_input_records() -> list[dict[str, Any]]:
+    records, _snapshots = _expected_build_input_records_with_snapshots()
     return records
 
 
@@ -281,23 +604,32 @@ def _build_input_binding_sha256(provenance: Mapping[str, Any]) -> str:
 
 def _validate_build_input_provenance(
     report: dict[str, Any], *, expect_stale_build_inputs: bool, require_current: bool
-) -> bool:
+) -> tuple[bool, dict[str, bytes]]:
     provenance = report["build_input_provenance"]
     if provenance["directory_bundle_format"] != DIRECTORY_BUNDLE_FORMAT:
         raise EvidenceValidationError("unexpected build-input directory bundle format")
+    current_snapshots: dict[str, bytes] = {}
+    try:
+        current_records, current_snapshots = _expected_build_input_records_with_snapshots()
+    except EvidenceValidationError:
+        if require_current:
+            raise
+        current_records = []
+        current_snapshots = {}
+    matches_current = provenance["inputs"] == current_records
     if require_current:
-        dockerignore = set((ROOT / ".dockerignore").read_text(encoding="utf-8").splitlines())
+        try:
+            dockerignore = set(current_snapshots[".dockerignore"].decode("utf-8").splitlines())
+        except (KeyError, UnicodeError) as exc:
+            raise EvidenceValidationError(
+                "Docker build context exclusions could not be inspected",
+                code="BUILD_INPUT_MISMATCH",
+            ) from exc
         if not {"demo", "**/__pycache__/", "**/*.py[cod]"} <= dockerignore:
             raise EvidenceValidationError(
                 "Docker build context exclusions were weakened",
                 code="BUILD_INPUT_MISMATCH",
             )
-    try:
-        matches_current = provenance["inputs"] == _expected_build_input_records()
-    except EvidenceValidationError:
-        if require_current:
-            raise
-        matches_current = False
     if report["schema_version"] == CURRENT_SCHEMA_VERSION:
         if provenance["aggregate_sha256"] != _build_input_binding_sha256(provenance):
             raise EvidenceValidationError(
@@ -314,14 +646,14 @@ def _validate_build_input_provenance(
                 "build-input provenance differs from repository bytes",
                 code="BUILD_INPUT_MISMATCH",
             )
-        return matches_current
+        return matches_current, current_snapshots
     if expect_stale_build_inputs:
         if _build_input_provenance_sha256(provenance) != (HISTORICAL_BUILD_INPUT_PROVENANCE_SHA256):
             raise EvidenceValidationError("historical build-input provenance snapshot was altered")
-        return False
+        return False, current_snapshots
     if not matches_current:
         raise EvidenceValidationError("build-input provenance differs from repository bytes")
-    return True
+    return True, current_snapshots
 
 
 def _parse_datetime(value: str, label: str) -> datetime:
@@ -332,6 +664,82 @@ def _parse_datetime(value: str, label: str) -> datetime:
     if parsed.tzinfo is None:
         raise EvidenceValidationError(f"{label} must carry an offset")
     return parsed.astimezone(UTC)
+
+
+def _observe_repository_state() -> RepositoryState:
+    """Observe exact HEAD/tree and bounded porcelain status without exposing status text."""
+
+    try:
+
+        def observe_revision(revision: str) -> str:
+            completed = subprocess.run(
+                ["git", "rev-parse", "--verify", revision],
+                cwd=ROOT,
+                check=False,
+                capture_output=True,
+                timeout=30,
+            )
+            output = completed.stdout
+            if completed.returncode != 0 or not isinstance(output, bytes) or len(output) > 1024:
+                raise OSError("git revision observation failed")
+            lines = output.decode("ascii").splitlines()
+            if len(lines) != 1 or not re.fullmatch(r"[0-9a-f]{40}", lines[0]):
+                raise ValueError("git revision observation was invalid")
+            return lines[0]
+
+        commit_sha = observe_revision("HEAD^{commit}")
+        tree_sha = observe_revision("HEAD^{tree}")
+
+        status = subprocess.run(
+            ["git", "status", "--porcelain=v1", "--untracked-files=all"],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            timeout=30,
+        )
+        if status.returncode != 0 or not isinstance(status.stdout, bytes):
+            raise OSError("git status observation failed")
+        if len(status.stdout) > MAX_REPOSITORY_STATUS_BYTES:
+            raise ValueError("git status observation exceeded its size limit")
+        # Validate encoding without ever including a path/status value in an error.
+        status.stdout.decode("utf-8")
+        return RepositoryState(commit_sha, tree_sha, status.stdout)
+    except (OSError, UnicodeError, ValueError, subprocess.SubprocessError):
+        raise EvidenceValidationError(
+            "repository state could not be observed",
+            code="SOURCE_REVISION_MISMATCH",
+        ) from None
+
+
+def _require_repository_state_matches(
+    state: RepositoryState,
+    report: Mapping[str, Any],
+    policy: Mapping[str, Any],
+) -> None:
+    """Require clean observed Git state to match both report and external policy declarations."""
+
+    if not state.working_tree_clean:
+        raise EvidenceValidationError(
+            "repository working tree is not clean",
+            code="SOURCE_REVISION_MISMATCH",
+        )
+    report_source = report.get("source")
+    policy_source = policy.get("expected_source")
+    if not isinstance(report_source, Mapping) or not isinstance(policy_source, Mapping):
+        raise EvidenceValidationError(
+            "release source binding is unavailable",
+            code="SOURCE_REVISION_MISMATCH",
+        )
+    for source in (report_source, policy_source):
+        if (
+            source.get("commit_sha") != state.commit_sha
+            or source.get("tree_sha") != state.tree_sha
+            or source.get("working_tree_clean") is not True
+        ):
+            raise EvidenceValidationError(
+                "observed repository revision differs from release binding",
+                code="SOURCE_REVISION_MISMATCH",
+            )
 
 
 def _walk_strings(value: Any) -> list[str]:
@@ -371,7 +779,9 @@ def _validate_no_public_leakage(filename: str, payload: bytes, document: dict[st
 def _artifact_paths(
     evidence_path: Path, report: dict[str, Any]
 ) -> tuple[dict[str, Path], dict[str, dict[str, Any]]]:
-    evidence_dir = evidence_path.parent.resolve()
+    # Keep this path lexical. Each later open walks the directory components with O_NOFOLLOW;
+    # resolving here would create a path/FD race and could bind the report to a different tree.
+    evidence_dir = evidence_path.parent
     paths: dict[str, Path] = {}
     records: dict[str, dict[str, Any]] = {}
     for record in report["artifacts"]:
@@ -387,14 +797,7 @@ def _artifact_paths(
                 "artifact paths must be unique",
                 code="ARTIFACT_SET_MISMATCH",
             )
-        resolved = (evidence_dir / raw_path).resolve()
-        if resolved.parent != evidence_dir:
-            raise EvidenceValidationError("artifact path escapes the evidence directory")
-        if not resolved.is_file():
-            raise EvidenceValidationError(
-                f"artifact is missing: {raw_path}",
-                code="ARTIFACT_SET_MISMATCH",
-            )
+        resolved = evidence_dir / raw_path
         records[raw_path] = record
         paths[raw_path] = resolved
     if set(paths) != set(EXPECTED_ARTIFACTS):
@@ -406,10 +809,9 @@ def _artifact_paths(
 
 
 def _validate_artifact_integrity(
-    paths: dict[str, Path], records: dict[str, dict[str, Any]]
+    snapshots: dict[str, bytes], records: dict[str, dict[str, Any]]
 ) -> None:
-    for name, path in paths.items():
-        payload = path.read_bytes()
+    for name, payload in snapshots.items():
         record = records[name]
         if record["media_type"] != EXPECTED_ARTIFACTS[name]:
             raise EvidenceValidationError(
@@ -730,23 +1132,18 @@ def _load_release_policy(
                     "path-based release policy requires an independently supplied SHA-256",
                     code="RELEASE_POLICY_MISSING",
                 )
-            try:
-                payload = policy.resolve().read_bytes()
-            except OSError as exc:
-                raise EvidenceValidationError(
-                    "release policy file could not be read",
-                    code="RELEASE_POLICY_INVALID",
-                ) from exc
+            payload = _snapshot_regular_file(
+                policy,
+                label="release policy",
+                max_bytes=MAX_POLICY_BYTES,
+                error_code="RELEASE_POLICY_INVALID",
+            )
             if _sha256(payload) != expected_policy_sha256:
                 raise EvidenceValidationError(
                     "release policy file differs from the external policy SHA-256",
                     code="RELEASE_POLICY_INVALID",
                 )
-            parsed = json.loads(
-                payload,
-                object_pairs_hook=_reject_duplicate_pairs,
-                parse_constant=_reject_constant,
-            )
+            parsed = _parse_json_strict(payload, "release policy")
         else:
             serialised = json.dumps(policy, ensure_ascii=False, allow_nan=False)
             parsed = json.loads(
@@ -807,31 +1204,6 @@ def _validate_policy_binding(report: dict[str, Any], policy: dict[str, Any]) -> 
     if any(source[key] != expected_source[key] for key in expected_source):
         raise EvidenceValidationError(
             "evidence source revision differs from release policy",
-            code="SOURCE_REVISION_MISMATCH",
-        )
-    try:
-        observed_commit = subprocess.run(
-            ["git", "-C", str(ROOT), "rev-parse", "HEAD"],
-            check=True,
-            capture_output=True,
-            text=True,
-            timeout=30,
-        ).stdout.strip()
-        observed_tree = subprocess.run(
-            ["git", "-C", str(ROOT), "rev-parse", "HEAD^{tree}"],
-            check=True,
-            capture_output=True,
-            text=True,
-            timeout=30,
-        ).stdout.strip()
-    except (OSError, subprocess.SubprocessError) as exc:
-        raise EvidenceValidationError(
-            "release verifier could not observe the repository revision",
-            code="SOURCE_REVISION_MISMATCH",
-        ) from exc
-    if source["commit_sha"] != observed_commit or source["tree_sha"] != observed_tree:
-        raise EvidenceValidationError(
-            "evidence source revision differs from the checked-out repository",
             code="SOURCE_REVISION_MISMATCH",
         )
     if (
@@ -927,20 +1299,41 @@ def _validate_release_freshness(
 def _validate_common(
     evidence_path: Path = DEFAULT_EVIDENCE,
     *,
+    report_payload: bytes | None = None,
     expect_stale_build_inputs: bool = False,
     require_current_build_inputs: bool = False,
 ) -> tuple[dict[str, Any], dict[str, dict[str, Any]], bool]:
-    evidence_path = evidence_path.resolve()
-    report = load_json_strict(evidence_path)
-    schema = load_json_strict(DEFAULT_SCHEMA)
+    if report_payload is None:
+        report_payload = _snapshot_regular_file(
+            evidence_path,
+            label="evidence report",
+            max_bytes=MAX_REPORT_BYTES,
+        )
+    report = _parse_json_strict(report_payload, evidence_path.name)
+    schema_payload = _snapshot_regular_file(
+        DEFAULT_SCHEMA,
+        label="evidence schema",
+        max_bytes=MAX_SCHEMA_BYTES,
+    )
+    schema = _parse_json_strict(schema_payload, DEFAULT_SCHEMA.name)
     _validate_schema(report, schema)
-    build_inputs_current = _validate_build_input_provenance(
+    build_inputs_current, build_input_snapshots = _validate_build_input_provenance(
         report,
         expect_stale_build_inputs=expect_stale_build_inputs,
         require_current=require_current_build_inputs,
     )
 
-    dockerfile = (ROOT / "deploy/tool-service/Dockerfile").read_text(encoding="utf-8")
+    dockerfile_payload = build_input_snapshots.get("deploy/tool-service/Dockerfile")
+    if dockerfile_payload is None:
+        dockerfile = ""
+    else:
+        try:
+            dockerfile = dockerfile_payload.decode("utf-8")
+        except UnicodeError as exc:
+            raise EvidenceValidationError(
+                "Dockerfile is not valid UTF-8",
+                code="BUILD_INPUT_MISMATCH",
+            ) from exc
     expected_from = f"FROM {report['scope']['base_image']}\n"
     if build_inputs_current and not dockerfile.startswith(expected_from):
         raise EvidenceValidationError(
@@ -949,11 +1342,20 @@ def _validate_common(
         )
 
     paths, records = _artifact_paths(evidence_path, report)
-    _validate_artifact_integrity(paths, records)
+    snapshots = {
+        name: _snapshot_regular_file(
+            path,
+            label=name,
+            max_bytes=MAX_ARTIFACT_BYTES,
+            error_code="ARTIFACT_SET_MISMATCH",
+        )
+        for name, path in paths.items()
+    }
+    _validate_artifact_integrity(snapshots, records)
     documents: dict[str, dict[str, Any]] = {}
-    for name, path in paths.items():
-        document = load_json_strict(path)
-        _validate_no_public_leakage(name, path.read_bytes(), document)
+    for name, payload in snapshots.items():
+        document = _parse_json_strict(payload, name)
+        _validate_no_public_leakage(name, payload, document)
         documents[name] = document
 
     syft_target_version = _validate_cyclonedx(
@@ -986,7 +1388,7 @@ def _validate_common(
     if tuple(report["limitations"]) != EXPECTED_LIMITATIONS:
         raise EvidenceValidationError("limitations were weakened or rewritten")
 
-    _validate_no_public_leakage(evidence_path.name, evidence_path.read_bytes(), report)
+    _validate_no_public_leakage(evidence_path.name, report_payload, report)
     if report["schema_version"] == CURRENT_SCHEMA_VERSION:
         _validate_release_binding(report)
         _validate_timestamp_order(report)
@@ -1010,8 +1412,12 @@ def verify(
 
     if mode not in {"consistency", "release"}:
         raise EvidenceValidationError("unsupported verification mode")
-    evidence_path = evidence_path.resolve()
-    report_header = load_json_strict(evidence_path)
+    report_payload = _snapshot_regular_file(
+        evidence_path,
+        label="evidence report",
+        max_bytes=MAX_REPORT_BYTES,
+    )
+    report_header = _parse_json_strict(report_payload, evidence_path.name)
     schema_version = report_header.get("schema_version")
     if mode == "release" and schema_version == HISTORICAL_SCHEMA_VERSION:
         raise EvidenceValidationError(
@@ -1031,8 +1437,18 @@ def verify(
         if mode == "release" and schema_version == CURRENT_SCHEMA_VERSION
         else None
     )
+    repository_before: RepositoryState | None = None
+    if mode == "release" and schema_version == CURRENT_SCHEMA_VERSION:
+        if policy is None:
+            raise EvidenceValidationError(
+                "release mode requires an explicit release policy",
+                code="RELEASE_POLICY_MISSING",
+            )
+        repository_before = _observe_repository_state()
+        _require_repository_state_matches(repository_before, report_header, policy)
     report, _documents, build_inputs_current = _validate_common(
         evidence_path,
+        report_payload=report_payload,
         expect_stale_build_inputs=historical,
         require_current_build_inputs=mode == "release",
     )
@@ -1053,12 +1469,23 @@ def verify(
             release_eligible=False,
             status=status,
         )
+    if repository_before is not None:
+        repository_after = _observe_repository_state()
+        if not repository_after.working_tree_clean or repository_after != repository_before:
+            raise EvidenceValidationError(
+                "repository state changed during release validation",
+                code="BUILD_INPUT_MISMATCH",
+            )
     if report["schema_version"] != CURRENT_SCHEMA_VERSION:
         raise EvidenceValidationError(
             "release mode requires v1.2 evidence",
             code="HISTORICAL_SCHEMA_NOT_RELEASE_ELIGIBLE",
         )
-    assert policy is not None
+    if policy is None:
+        raise EvidenceValidationError(
+            "release mode requires an explicit release policy",
+            code="RELEASE_POLICY_MISSING",
+        )
     _validate_policy_binding(report, policy)
     _validate_release_freshness(report, policy, now=now)
     counts = report["summary"]["vulnerability_records"]

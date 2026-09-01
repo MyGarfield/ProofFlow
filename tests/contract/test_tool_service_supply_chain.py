@@ -1,7 +1,9 @@
 import importlib.util
 import json
+import os
 import shutil
 import subprocess
+import sys
 import warnings
 from copy import deepcopy
 from datetime import UTC, datetime, timedelta
@@ -170,6 +172,12 @@ def make_v1p2_evidence(tmp_path: Path) -> tuple[ModuleType, Path, dict[str, Any]
         "tree_sha": git_value("rev-parse", "HEAD^{tree}"),
         "working_tree_clean": True,
     }
+    source = report["source"]
+    source_commit = source["commit_sha"]
+    source_tree = source["tree_sha"]
+    validator._observe_repository_state = lambda: validator.RepositoryState(
+        source_commit, source_tree, b""
+    )
     provenance = report["build_input_provenance"]
     provenance["inputs"] = validator._expected_build_input_records()
     provenance["aggregate_sha256"] = validator._build_input_binding_sha256(provenance)
@@ -967,3 +975,458 @@ def test_backup_cleanup_failure_is_nonfatal_after_candidate_is_live(
     assert retained_backup.is_dir()
     assert (retained_backup / "previous.json").read_text() == "previous\n"
     assert (output / "candidate.json").read_text() == "candidate\n"
+
+
+@pytest.mark.parametrize("kind", ["terminal", "parent"])
+def test_validator_snapshot_rejects_symlink_chain(tmp_path: Path, kind: str) -> None:
+    validator = load_validator()
+    if kind == "terminal":
+        real = tmp_path / "real.json"
+        real.write_bytes(b"{}")
+        attacked = tmp_path / "link.json"
+        attacked.symlink_to(real)
+    else:
+        real_parent = tmp_path / "real-parent"
+        real_parent.mkdir()
+        (real_parent / "value.json").write_bytes(b"{}")
+        linked_parent = tmp_path / "linked-parent"
+        linked_parent.symlink_to(real_parent, target_is_directory=True)
+        attacked = linked_parent / "value.json"
+
+    with pytest.raises(validator.EvidenceValidationError) as caught:
+        validator._snapshot_regular_file(
+            attacked,
+            label="synthetic artifact",
+            max_bytes=1024,
+            error_code="ARTIFACT_SET_MISMATCH",
+        )
+    assert caught.value.code == "ARTIFACT_SET_MISMATCH"
+    assert str(tmp_path) not in str(caught.value)
+
+
+def test_validator_snapshot_rejects_fifo_without_blocking(tmp_path: Path) -> None:
+    fifo = tmp_path / "evidence.fifo"
+    if not hasattr(os, "mkfifo"):
+        pytest.skip("FIFO is not supported on this platform")
+    os.mkfifo(fifo)
+    script = "\n".join(
+        (
+            "import importlib.util, pathlib, sys",
+            "spec=importlib.util.spec_from_file_location('v', sys.argv[1])",
+            "v=importlib.util.module_from_spec(spec); spec.loader.exec_module(v)",
+            "try:",
+            "    v._snapshot_regular_file(pathlib.Path(sys.argv[2]), label='fifo', max_bytes=1024)",
+            "except v.EvidenceValidationError as exc:",
+            "    assert str(exc) == 'fifo is unavailable or unsafe'; raise SystemExit(0)",
+            "raise SystemExit(1)",
+        )
+    )
+    completed = subprocess.run(
+        [sys.executable, "-c", script, str(VALIDATOR_PATH), str(fifo)],
+        check=False,
+        capture_output=True,
+        timeout=2,
+        text=True,
+    )
+    assert completed.returncode == 0
+    assert completed.stderr == ""
+
+
+def test_validator_snapshot_rejects_device_and_oversize(tmp_path: Path) -> None:
+    validator = load_validator()
+    device = Path("/dev/null")
+    if device.exists():
+        with pytest.raises(validator.EvidenceValidationError) as caught:
+            validator._snapshot_regular_file(
+                device,
+                label="device",
+                max_bytes=1024,
+                error_code="EVIDENCE_CONTRACT_INVALID",
+            )
+        assert caught.value.code == "EVIDENCE_CONTRACT_INVALID"
+
+    oversized = tmp_path / "oversized.json"
+    oversized.write_bytes(b"x" * 1025)
+    with pytest.raises(validator.EvidenceValidationError) as caught:
+        validator._snapshot_regular_file(
+            oversized,
+            label="oversized",
+            max_bytes=1024,
+            error_code="EVIDENCE_CONTRACT_INVALID",
+        )
+    assert caught.value.code == "EVIDENCE_CONTRACT_INVALID"
+
+
+def test_validator_snapshot_rejects_same_inode_mutation_during_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    validator = load_validator()
+    target = tmp_path / "same-inode.json"
+    target.write_bytes(b"{}")
+    original_read = validator.os.read
+    mutated = False
+
+    def read_then_mutate(fd: int, size: int) -> bytes:
+        nonlocal mutated
+        payload = original_read(fd, size)
+        if not mutated:
+            mutated = True
+            with target.open("r+b") as handle:
+                handle.seek(0)
+                handle.write(b"X}")
+                handle.flush()
+                os.fsync(handle.fileno())
+        return payload
+
+    monkeypatch.setattr(validator.os, "read", read_then_mutate)
+    with pytest.raises(validator.EvidenceValidationError, match="changed during snapshot"):
+        validator._snapshot_regular_file(
+            target,
+            label="same-inode",
+            max_bytes=1024,
+        )
+    assert mutated
+
+
+def test_validator_snapshot_survives_path_rename_without_mixing_bytes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    validator = load_validator()
+    target = tmp_path / "renamed.json"
+    replacement = tmp_path / "replacement.json"
+    original = b'{"source":"old"}'
+    target.write_bytes(original)
+    replacement.write_bytes(b'{"source":"new"}')
+    original_read = validator.os.read
+    renamed = False
+
+    def read_then_rename(fd: int, size: int) -> bytes:
+        nonlocal renamed
+        payload = original_read(fd, size)
+        if not renamed:
+            renamed = True
+            target.rename(tmp_path / "old-name.json")
+            replacement.rename(target)
+        return payload
+
+    monkeypatch.setattr(validator.os, "read", read_then_rename)
+    with pytest.raises(validator.EvidenceValidationError, match="changed during snapshot"):
+        validator._snapshot_regular_file(target, label="rename", max_bytes=1024)
+    assert renamed
+
+
+def test_validator_reuses_report_snapshot_after_parse_path_replacement(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    validator = load_validator()
+    evidence = copy_evidence(tmp_path)
+    report_path = evidence / REPORT_NAME
+    original_parse = validator._parse_json_strict
+    replaced = False
+
+    def parse_then_replace(payload: bytes, label: str) -> dict[str, Any]:
+        nonlocal replaced
+        document = original_parse(payload, label)
+        if label == REPORT_NAME and not replaced:
+            replaced = True
+            report_path.write_bytes(b"/Users/attacker")
+        return document
+
+    monkeypatch.setattr(validator, "_parse_json_strict", parse_then_replace)
+    validator.validate(report_path, expect_stale_build_inputs=True)
+    assert replaced
+
+
+def test_validator_reuses_artifact_snapshot_after_hash_path_replacement(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    validator = load_validator()
+    evidence = copy_evidence(tmp_path)
+    artifact = evidence / "sbom.cyclonedx.json"
+    original_payload = artifact.read_bytes()
+    original_sha256 = validator._sha256
+    replaced = False
+
+    def hash_then_replace(payload: bytes) -> str:
+        nonlocal replaced
+        digest = original_sha256(payload)
+        if payload == original_payload and not replaced:
+            replaced = True
+            artifact.write_bytes(b"/Users/attacker")
+        return digest
+
+    monkeypatch.setattr(validator, "_sha256", hash_then_replace)
+    validator.validate(evidence / REPORT_NAME, expect_stale_build_inputs=True)
+    assert replaced
+
+
+def test_validator_reuses_artifact_snapshot_after_parse_path_replacement(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    validator = load_validator()
+    evidence = copy_evidence(tmp_path)
+    artifact = evidence / "sbom.cyclonedx.json"
+    original_parse = validator._parse_json_strict
+    replaced = False
+
+    def parse_then_replace(payload: bytes, label: str) -> dict[str, Any]:
+        nonlocal replaced
+        document = original_parse(payload, label)
+        if label == artifact.name and not replaced:
+            replaced = True
+            artifact.write_bytes(b"/Users/attacker")
+        return document
+
+    monkeypatch.setattr(validator, "_parse_json_strict", parse_then_replace)
+    validator.validate(evidence / REPORT_NAME, expect_stale_build_inputs=True)
+    assert replaced
+
+
+def test_validator_reuses_external_policy_snapshot_after_hash_replacement(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    validator, evidence, _report, policy = make_v1p2_evidence(tmp_path / "evidence")
+    policy_path = tmp_path / "approved-policy.json"
+    write_json(policy_path, policy)
+    original_payload = policy_path.read_bytes()
+    policy_sha256 = f"sha256:{sha256(original_payload).hexdigest()}"
+    attacked_policy = deepcopy(policy)
+    attacked_policy["expected_evidence_set_id"] = "sha256:" + "f" * 64
+    original_sha256 = validator._sha256
+    replaced = False
+
+    def hash_then_replace(payload: bytes) -> str:
+        nonlocal replaced
+        digest = original_sha256(payload)
+        if payload == original_payload and not replaced:
+            replaced = True
+            write_json(policy_path, attacked_policy)
+        return digest
+
+    monkeypatch.setattr(validator, "_sha256", hash_then_replace)
+    result = validator.verify(
+        evidence / REPORT_NAME,
+        mode="release",
+        release_policy=policy_path,
+        release_policy_sha256=policy_sha256,
+        now=BASE_NOW,
+    )
+    assert result.release_eligible is True
+    assert replaced
+
+
+def _make_minimal_build_input_tree(tmp_path: Path) -> Path:
+    source = tmp_path / "src" / "proofflow"
+    source.mkdir(parents=True)
+    (source / "module.py").write_text("VALUE = 1\n")
+    return tmp_path
+
+
+def test_validator_build_input_directory_rejects_symlink_unexpected_and_nonregular(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    validator = load_validator()
+    root = _make_minimal_build_input_tree(tmp_path)
+    monkeypatch.setattr(validator, "ROOT", root)
+
+    symlink = root / "src" / "proofflow" / "link.py"
+    symlink.symlink_to(root / "src" / "proofflow" / "module.py")
+    with pytest.raises(validator.EvidenceValidationError) as caught:
+        validator._snapshot_directory_input("src")
+    assert caught.value.code == "BUILD_INPUT_MISMATCH"
+    assert str(root) not in str(caught.value)
+
+    symlink.unlink()
+    (root / "src" / "proofflow" / "unexpected.txt").write_text("unexpected\n")
+    with pytest.raises(validator.EvidenceValidationError) as caught:
+        validator._snapshot_directory_input("src")
+    assert caught.value.code == "BUILD_INPUT_MISMATCH"
+    assert str(root) not in str(caught.value)
+
+    (root / "src" / "proofflow" / "unexpected.txt").unlink()
+    fifo = root / "src" / "proofflow" / "device.py"
+    if hasattr(os, "mkfifo"):
+        os.mkfifo(fifo)
+        with pytest.raises(validator.EvidenceValidationError) as caught:
+            validator._snapshot_directory_input("src")
+        assert caught.value.code == "BUILD_INPUT_MISMATCH"
+        assert str(root) not in str(caught.value)
+
+
+@pytest.mark.parametrize("failure", [OSError, TypeError, NotImplementedError])
+def test_validator_build_input_directory_maps_enumeration_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: type[Exception]
+) -> None:
+    validator = load_validator()
+    root = _make_minimal_build_input_tree(tmp_path)
+    monkeypatch.setattr(validator, "ROOT", root)
+
+    def fail_scandir(_directory_fd: int) -> Any:
+        raise failure("synthetic enumeration failure")
+
+    monkeypatch.setattr(validator.os, "scandir", fail_scandir)
+    with pytest.raises(validator.EvidenceValidationError) as caught:
+        validator._snapshot_directory_input("src")
+    assert caught.value.code == "BUILD_INPUT_MISMATCH"
+    assert str(root) not in str(caught.value)
+    assert "synthetic enumeration failure" not in str(caught.value)
+
+
+@pytest.mark.parametrize("mutation", ["add", "delete", "replace"])
+def test_validator_build_input_directory_detects_member_races(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mutation: str
+) -> None:
+    validator = load_validator()
+    root = _make_minimal_build_input_tree(tmp_path)
+    monkeypatch.setattr(validator, "ROOT", root)
+    target = root / "src" / "proofflow" / "module.py"
+    original_entries = validator._directory_entries
+    calls = 0
+
+    def list_then_mutate(
+        directory_fd: int, relative_directory: str
+    ) -> list[tuple[str, tuple[int, int, int, int, int, int, int]]]:
+        nonlocal calls
+        entries = original_entries(directory_fd, relative_directory)
+        calls += 1
+        if calls == 1:
+            if mutation == "add":
+                (root / "src" / "late.py").write_text("LATE = 1\n")
+            elif mutation == "delete":
+                target.unlink()
+            else:
+                target.rename(root / "src" / "proofflow" / "old.py")
+                target.write_text("VALUE = 2\n")
+        return entries
+
+    monkeypatch.setattr(validator, "_directory_entries", list_then_mutate)
+    with pytest.raises(validator.EvidenceValidationError) as caught:
+        validator._snapshot_directory_input("src")
+    assert caught.value.code == "BUILD_INPUT_MISMATCH"
+    assert str(root) not in str(caught.value)
+
+
+def test_release_rejects_observed_tracked_dirty_state(tmp_path: Path) -> None:
+    validator, evidence, report, policy = make_v1p2_evidence(tmp_path)
+    validator._observe_repository_state = lambda: validator.RepositoryState(
+        report["source"]["commit_sha"], report["source"]["tree_sha"], b" M tracked.py\n"
+    )
+    with pytest.raises(validator.EvidenceValidationError) as caught:
+        validator.verify(
+            evidence / REPORT_NAME, mode="release", release_policy=policy, now=BASE_NOW
+        )
+    assert caught.value.code == "SOURCE_REVISION_MISMATCH"
+    assert "tracked.py" not in str(caught.value)
+    assert str(tmp_path) not in str(caught.value)
+
+
+def test_release_rejects_observed_untracked_dirty_state(tmp_path: Path) -> None:
+    validator, evidence, report, policy = make_v1p2_evidence(tmp_path)
+    validator._observe_repository_state = lambda: validator.RepositoryState(
+        report["source"]["commit_sha"], report["source"]["tree_sha"], b"?? untracked.tmp\n"
+    )
+    with pytest.raises(validator.EvidenceValidationError) as caught:
+        validator.verify(
+            evidence / REPORT_NAME, mode="release", release_policy=policy, now=BASE_NOW
+        )
+    assert caught.value.code == "SOURCE_REVISION_MISMATCH"
+    assert "untracked.tmp" not in str(caught.value)
+    assert str(tmp_path) not in str(caught.value)
+
+
+@pytest.mark.parametrize("field", ["commit_sha", "tree_sha"])
+def test_release_rejects_observed_revision_switch(tmp_path: Path, field: str) -> None:
+    validator, evidence, report, policy = make_v1p2_evidence(tmp_path)
+    commit = report["source"]["commit_sha"]
+    tree = report["source"]["tree_sha"]
+    if field == "commit_sha":
+        commit = "f" * 40
+    else:
+        tree = "f" * 40
+    validator._observe_repository_state = lambda: validator.RepositoryState(commit, tree, b"")
+    with pytest.raises(validator.EvidenceValidationError) as caught:
+        validator.verify(
+            evidence / REPORT_NAME, mode="release", release_policy=policy, now=BASE_NOW
+        )
+    assert caught.value.code == "SOURCE_REVISION_MISMATCH"
+    assert "f" * 40 not in str(caught.value)
+
+
+def test_release_rejects_state_change_between_bounded_observations(tmp_path: Path) -> None:
+    validator, evidence, report, policy = make_v1p2_evidence(tmp_path)
+    clean = validator.RepositoryState(
+        report["source"]["commit_sha"], report["source"]["tree_sha"], b""
+    )
+    dirty = validator.RepositoryState(
+        report["source"]["commit_sha"], report["source"]["tree_sha"], b" M during-validation.py\n"
+    )
+    observations = iter((clean, dirty))
+    validator._observe_repository_state = lambda: next(observations)
+    with pytest.raises(validator.EvidenceValidationError) as caught:
+        validator.verify(
+            evidence / REPORT_NAME, mode="release", release_policy=policy, now=BASE_NOW
+        )
+    assert caught.value.code == "BUILD_INPUT_MISMATCH"
+    assert "during-validation.py" not in str(caught.value)
+
+
+@pytest.mark.parametrize("failure", ["returncode", "invalid-utf8"])
+def test_repository_observation_maps_git_failures_without_output(
+    monkeypatch: pytest.MonkeyPatch, failure: str
+) -> None:
+    validator = load_validator()
+    if failure == "returncode":
+
+        def fake_run(*_args: Any, **_kwargs: Any) -> subprocess.CompletedProcess[bytes]:
+            return subprocess.CompletedProcess([], 1, b"", b"private git error")
+    else:
+        calls = 0
+
+        def fake_run(*_args: Any, **_kwargs: Any) -> subprocess.CompletedProcess[bytes]:
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                return subprocess.CompletedProcess([], 0, b"a" * 40 + b"\n", b"")
+            if calls == 2:
+                return subprocess.CompletedProcess([], 0, b"b" * 40 + b"\n", b"")
+            return subprocess.CompletedProcess([], 0, b"\xff", b"")
+
+    monkeypatch.setattr(validator.subprocess, "run", fake_run)
+    with pytest.raises(validator.EvidenceValidationError) as caught:
+        validator._observe_repository_state()
+    assert caught.value.code == "SOURCE_REVISION_MISMATCH"
+    assert "private git error" not in str(caught.value)
+
+
+def test_repository_observation_reads_real_worktree_revision_without_mock() -> None:
+    validator = load_validator()
+    observed = validator._observe_repository_state()
+    commit = subprocess.run(
+        ["git", "rev-parse", "--verify", "HEAD^{commit}"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    tree = subprocess.run(
+        ["git", "rev-parse", "--verify", "HEAD^{tree}"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    assert observed.commit_sha == commit
+    assert observed.tree_sha == tree
+    assert isinstance(observed.status_bytes, bytes)
+
+
+def test_consistency_does_not_require_clean_repository_observation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    validator = load_validator()
+
+    def unexpected_observation() -> Any:
+        raise AssertionError("consistency mode must not observe release Git state")
+
+    monkeypatch.setattr(validator, "_observe_repository_state", unexpected_observation)
+    validator.validate(EVIDENCE / REPORT_NAME, expect_stale_build_inputs=True)
