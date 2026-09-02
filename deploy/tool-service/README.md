@@ -8,7 +8,9 @@ installation to reduce final-image attack surface.
 Build from the repository root:
 
 ```bash
-docker build -f deploy/tool-service/Dockerfile -t proofflow-tool-service:0.1.0a0 .
+docker build --platform linux/amd64 \
+  -f deploy/tool-service/Dockerfile \
+  -t proofflow-tool-service:0.1.0a1 .
 ```
 
 For the AgentTeams embedded runtime, attach the container to `agentteams-net`. Supply a strong
@@ -26,7 +28,7 @@ docker run -d --name proofflow-tool-service \
   --memory 256m \
   --cpus 1 \
   --env-file /absolute/private/path/proofflow-tool-api.env \
-  proofflow-tool-service:0.1.0a0
+  proofflow-tool-service:0.1.0a1
 ```
 
 The service is reference infrastructure, not a production perimeter. It has no TLS termination,

@@ -122,8 +122,9 @@ uv run --frozen python scripts/build_installable_distribution.py \
 ```
 
 builder release 缺少任一显式输入，或 validator 拒绝 v1.1/stale evidence、错误 policy pin、HIGH/CRITICAL
-finding 时，流程 fail closed 且不创建 output 目录。`--evidence` 是 evidence 参数的兼容别名；包版本
-`0.1.0a0`、版本/tag 与 registry 发布仍是独立门禁，不由此 release gate 自动满足。成功构建的
+finding 时，流程 fail closed 且不创建 output 目录。`--evidence` 是 evidence 参数的兼容别名；当前
+候选包版本 `0.1.0a1`、版本/tag 与 registry 发布仍是独立门禁，不由此 release gate 自动满足。上文
+2026-08-20 历史 evidence 继续精确绑定旧 `0.1.0a0` 镜像，不会随候选版本改写。成功构建的
 `artifact-manifest.json` 只在 `supply_chain_release_gate_receipt` 中记录 validator 返回的
 `evidence_file_sha256`、`evidence_set_id`、`evidence_schema_version=1.2.0`、`mode=release` 和外部
 `release_policy_sha256`，不写 evidence/policy 本机路径。builder 在 validator 前后通过 no-follow

@@ -20,7 +20,7 @@ import pytest
 
 ROOT = Path(__file__).parents[2]
 BUILD_SCRIPT = ROOT / "scripts/build_installable_distribution.py"
-VERSION = "0.1.0a0"
+VERSION = "0.1.0a1"
 
 
 def _clean_environment() -> dict[str, str]:
@@ -176,7 +176,7 @@ def _attacked_sdist_payload(sdist: Path, attack: str) -> bytes:
             b"Name: forged-package\n",
         ),
         "pkg-info-version": (
-            b"Version: 0.1.0a0\n",
+            b"Version: 0.1.0a1\n",
             b"Version: 9.9.9\n",
         ),
         "pkg-info-dependency": (
