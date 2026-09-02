@@ -135,7 +135,7 @@ uv run --frozen python scripts/build_installable_distribution.py \
 
 `--evidence` 是 `--supply-chain-evidence` 的兼容别名；省略任一 release 输入、使用 v1.1/stale
 evidence、错误的外部 policy pin、重新计算出的 HIGH/CRITICAL finding 或 validator 未知参数都会
-fail closed，并且不会创建 `--output` 目录。`0.1.0a0` 是当前包版本；版本/tag、发布批准和 registry
+fail closed，并且不会创建 `--output` 目录。`0.1.0a1` 是当前候选包版本；版本/tag、发布批准和 registry
 发布是独立门禁，不会因 builder 的 release gate 通过而自动满足。output 目录会通过持有的
 no-follow directory FD 创建/打开，产物以 `O_CREAT|O_EXCL|O_NOFOLLOW` 发布并在完成前复核路径 inode
 与精确成员闭集；rename、symlink、sentinel 或覆盖竞态会以 `BUILD_OUTPUT_RACE_DETECTED` 拒绝。若 gate 成功，
@@ -151,7 +151,7 @@ regular-file FD 稳定读取；validator subprocess 有 300 秒 timeout 和 16 K
 
 ```bash
 python -m venv .venv
-.venv/bin/python -m pip install /path/to/veriagent_proofflow-0.1.0a0-py3-none-any.whl
+.venv/bin/python -m pip install /path/to/veriagent_proofflow-0.1.0a1-py3-none-any.whl
 .venv/bin/proofflow --version
 .venv/bin/proofflow init-demo --output proof-demo
 cd proof-demo

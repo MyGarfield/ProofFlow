@@ -4,6 +4,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tomllib
 import warnings
 from copy import deepcopy
 from datetime import UTC, datetime, timedelta
@@ -14,6 +15,8 @@ from typing import Any
 
 import pytest
 from jsonschema import Draft202012Validator, FormatChecker
+
+from proofflow import __version__
 
 ROOT = Path(__file__).parents[2]
 EVIDENCE = ROOT / "deploy/tool-service/evidence"
@@ -64,6 +67,19 @@ def load_collector() -> ModuleType:
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def test_current_collector_tag_tracks_the_candidate_package_version() -> None:
+    collector = load_collector()
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    version = project["version"]
+
+    assert version == "0.1.0a1"
+    assert version == __version__
+    assert f"proofflow-tool-service:{version}" == collector.TARGET_TAG
+    assert "docker build --platform linux/amd64" in (
+        ROOT / "deploy/tool-service/README.md"
+    ).read_text(encoding="utf-8")
 
 
 def load_json(path: Path) -> dict[str, Any]:

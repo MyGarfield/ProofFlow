@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "veriagent-proofflow"
-version = "0.1.0a0"
+version = "0.1.0a1"
 description = "Evidence-native control plane for auditable high-risk multi-agent decisions"
 readme = "README.md"
 requires-python = ">=3.12,<3.15"
