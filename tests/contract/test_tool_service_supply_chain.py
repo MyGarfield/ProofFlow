@@ -24,6 +24,12 @@ VALIDATOR_PATH = ROOT / "deploy/tool-service/scripts/validate_supply_chain_evide
 COLLECTOR_PATH = ROOT / "deploy/tool-service/scripts/collect_supply_chain_evidence.py"
 REPORT_NAME = "supply-chain-evidence.json"
 REPOSITORY_URL = "https://github.com/MyGarfield/ProofFlow"
+HISTORICAL_BASE_IMAGE_REFERENCE = (
+    "python:3.12-alpine@sha256:285a71327884a4d50efbea30104473b0fa43ecefa499458899670ca30dae76e5"
+)
+CURRENT_BASE_IMAGE_REFERENCE = (
+    "python:3.12-alpine@sha256:78e98729f8fc4099e53cffb3fe59fd15b18dfa4ace8c914dee0cefa5320068eb"
+)
 BASE_NOW = datetime(2026, 8, 29, 12, 0, tzinfo=UTC)
 
 
@@ -77,9 +83,7 @@ def test_current_collector_tag_tracks_the_candidate_package_version() -> None:
     assert version == "0.1.0a1"
     assert version == __version__
     assert f"proofflow-tool-service:{version}" == collector.TARGET_TAG
-    assert collector.BASE_IMAGE_REFERENCE == (
-        "python:3.12-alpine@sha256:78e98729f8fc4099e53cffb3fe59fd15b18dfa4ace8c914dee0cefa5320068eb"
-    )
+    assert collector.BASE_IMAGE_REFERENCE == CURRENT_BASE_IMAGE_REFERENCE
     assert "docker build --platform linux/amd64" in (
         ROOT / "deploy/tool-service/README.md"
     ).read_text(encoding="utf-8")
@@ -284,6 +288,34 @@ def test_public_supply_chain_evidence_is_valid_historical_but_stale_for_release(
         "data/rules",
     ]
     assert "proof that no vulnerability exists" in report["limitations"][-1]
+
+
+def test_base_image_binding_is_version_specific_and_history_remains_valid(
+    tmp_path: Path,
+) -> None:
+    validator = load_validator()
+    historical = copy_evidence(tmp_path / "historical")
+    historical_report = load_json(historical / REPORT_NAME)
+    assert historical_report["scope"]["base_image"] == HISTORICAL_BASE_IMAGE_REFERENCE
+    assert (
+        validator.verify(
+            historical / REPORT_NAME,
+            mode="consistency",
+        ).status
+        == "HISTORICAL_CONSISTENT_STALE"
+    )
+
+    historical_report["scope"]["base_image"] = CURRENT_BASE_IMAGE_REFERENCE
+    write_json(historical / REPORT_NAME, historical_report)
+    with pytest.raises(validator.EvidenceValidationError, match="schema validation failed"):
+        validator.verify(historical / REPORT_NAME, mode="consistency")
+
+    validator, current, report, _policy = make_v1p2_evidence(tmp_path / "current")
+    assert report["scope"]["base_image"] == CURRENT_BASE_IMAGE_REFERENCE
+    report["scope"]["base_image"] = HISTORICAL_BASE_IMAGE_REFERENCE
+    write_json(current / REPORT_NAME, report)
+    with pytest.raises(validator.EvidenceValidationError, match="schema validation failed"):
+        validator.verify(current / REPORT_NAME, mode="consistency")
 
 
 @pytest.mark.parametrize(

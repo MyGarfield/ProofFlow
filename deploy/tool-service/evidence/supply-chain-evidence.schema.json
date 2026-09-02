@@ -72,6 +72,13 @@
           },
           "vulnerability_database": {
             "properties": { "refresh": false }
+          },
+          "scope": {
+            "properties": {
+              "base_image": {
+                "const": "python:3.12-alpine@sha256:285a71327884a4d50efbea30104473b0fa43ecefa499458899670ca30dae76e5"
+              }
+            }
           }
         }
       },
@@ -85,7 +92,14 @@
         ],
         "properties": {
           "build_input_provenance": { "required": ["aggregate_sha256"] },
-          "vulnerability_database": { "required": ["refresh"] }
+          "vulnerability_database": { "required": ["refresh"] },
+          "scope": {
+            "properties": {
+              "base_image": {
+                "const": "python:3.12-alpine@sha256:78e98729f8fc4099e53cffb3fe59fd15b18dfa4ace8c914dee0cefa5320068eb"
+              }
+            }
+          }
         }
       }
     }
