@@ -4,13 +4,14 @@ This file covers only the Python distributions currently pinned in
 `deploy/tool-service/requirements.lock`. The names, versions, SPDX license expressions,
 license-file declarations, and source links below were verified from the installed Core
 Metadata for those exact locked versions. The original dependency set was checked on
-2026-08-20; the three ActionCertificate additions were checked on 2026-08-29.
+2026-08-20; the three ActionCertificate additions on 2026-08-29; and the cryptography
+remediation on 2026-09-02.
 
 | Distribution | Version | License expression | Declared license file | Source |
 |---|---:|---|---|---|
 | `annotated-types` | `0.8.0` | `MIT` | `LICENSE` | https://github.com/annotated-types/annotated-types |
 | `cffi` | `2.1.1` | `MIT-0` | `LICENSE` | https://github.com/python-cffi/cffi |
-| `cryptography` | `46.0.7` | `Apache-2.0 OR BSD-3-Clause` | `LICENSE`, `LICENSE.APACHE`, `LICENSE.BSD` | https://github.com/pyca/cryptography |
+| `cryptography` | `50.0.1` | `Apache-2.0 OR BSD-3-Clause` | `LICENSE`, `LICENSE.APACHE`, `LICENSE.BSD` | https://github.com/pyca/cryptography |
 | `pycparser` | `3.0` | `BSD-3-Clause` | `LICENSE` | https://github.com/eliben/pycparser |
 | `pydantic` | `2.13.4` | `MIT` | `LICENSE` | https://github.com/pydantic/pydantic |
 | `pydantic-core` | `2.46.4` | `MIT` | `LICENSE` | https://github.com/pydantic/pydantic/tree/main/pydantic-core |

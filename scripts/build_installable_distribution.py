@@ -631,7 +631,7 @@ def _metadata_contract(
         or project.get("description")
         != "Evidence-native control plane for auditable high-risk multi-agent decisions"
         or project.get("requires-python") != ">=3.12,<3.15"
-        or project.get("dependencies") != ["cryptography>=46,<47", "pydantic>=2.11,<3"]
+        or project.get("dependencies") != ["cryptography>=50.0.1,<51", "pydantic>=2.11,<3"]
         or project.get("readme") != "README.md"
         or not isinstance(authors, list)
         or len(authors) != 1
@@ -655,7 +655,7 @@ def _metadata_contract(
         "License": ["Apache-2.0"],
         "License-File": ["LICENSE", "NOTICE"],
         "Requires-Python": ["<3.15,>=3.12"],
-        "Requires-Dist": ["cryptography<47,>=46", "pydantic<3,>=2.11"],
+        "Requires-Dist": ["cryptography<51,>=50.0.1", "pydantic<3,>=2.11"],
         "Description-Content-Type": ["text/markdown"],
     }
 

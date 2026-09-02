@@ -51,11 +51,11 @@ jobs:
         include:
           - python-version: "3.12"
             dependencies: minimum
-            cryptography-version: "46.0.0"
+            cryptography-version: "50.0.1"
             pydantic-version: "2.11.0"
           - python-version: "3.14"
             dependencies: maximum
-            cryptography-version: "46.0.7"
+            cryptography-version: "50.0.1"
             pydantic-version: "2.13.4"
     steps:
       - uses: actions/checkout@v4

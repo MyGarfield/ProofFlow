@@ -180,7 +180,7 @@ def _attacked_sdist_payload(sdist: Path, attack: str) -> bytes:
             b"Version: 9.9.9\n",
         ),
         "pkg-info-dependency": (
-            b"Requires-Dist: cryptography<47,>=46\n",
+            b"Requires-Dist: cryptography<51,>=50.0.1\n",
             b"Requires-Dist: attacker-package==1.0\n",
         ),
         "pkg-info-extra-header": (

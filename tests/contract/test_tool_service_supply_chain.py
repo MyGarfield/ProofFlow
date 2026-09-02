@@ -77,6 +77,9 @@ def test_current_collector_tag_tracks_the_candidate_package_version() -> None:
     assert version == "0.1.0a1"
     assert version == __version__
     assert f"proofflow-tool-service:{version}" == collector.TARGET_TAG
+    assert collector.BASE_IMAGE_REFERENCE == (
+        "python:3.12-alpine@sha256:78e98729f8fc4099e53cffb3fe59fd15b18dfa4ace8c914dee0cefa5320068eb"
+    )
     assert "docker build --platform linux/amd64" in (
         ROOT / "deploy/tool-service/README.md"
     ).read_text(encoding="utf-8")
@@ -174,9 +177,11 @@ def replace_trivy_vulnerabilities(
 
 def make_v1p2_evidence(tmp_path: Path) -> tuple[ModuleType, Path, dict[str, Any], dict[str, Any]]:
     validator = load_validator()
+    collector = load_collector()
     evidence = copy_evidence(tmp_path)
     report = load_json(evidence / REPORT_NAME)
     report["schema_version"] = "1.2.0"
+    report["scope"]["base_image"] = collector.BASE_IMAGE_REFERENCE
     report["collected_at"] = BASE_NOW.isoformat().replace("+00:00", "Z")
     report["scan"] = {
         "started_at": (BASE_NOW - timedelta(minutes=10)).isoformat().replace("+00:00", "Z"),
