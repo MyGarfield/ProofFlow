@@ -381,7 +381,7 @@ def test_tool_service_image_is_pinned_locked_and_non_root() -> None:
 
     assert dockerfile.startswith(
         "FROM python:3.12-alpine@sha256:"
-        "285a71327884a4d50efbea30104473b0fa43ecefa499458899670ca30dae76e5\n"
+        "78e98729f8fc4099e53cffb3fe59fd15b18dfa4ace8c914dee0cefa5320068eb\n"
     )
     assert "--require-hashes" in dockerfile
     assert "python -m pip uninstall --yes pip" in dockerfile
@@ -450,7 +450,7 @@ def test_tool_service_image_excludes_secrets_and_carries_license_notices() -> No
         "annotated-types": ("0.8.0", "MIT", ("LICENSE",)),
         "cffi": ("2.1.1", "MIT-0", ("LICENSE",)),
         "cryptography": (
-            "46.0.7",
+            "50.0.1",
             "Apache-2.0 OR BSD-3-Clause",
             ("LICENSE", "LICENSE.APACHE", "LICENSE.BSD"),
         ),

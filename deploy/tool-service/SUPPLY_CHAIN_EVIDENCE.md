@@ -9,6 +9,29 @@
 
 Document status: `HISTORICAL_POINT_IN_TIME_PACKAGE_SCAN / UNSIGNED_INPUT_HASHES`
 
+## Unscanned remediation candidate on this branch
+
+This branch carries the smallest dependency and base-image changes needed to address the fresh
+Trivy HIGH findings; it does not change the historical evidence files below and it is not release
+evidence. The application dependency is now fixed at `cryptography==50.0.1`, the first version that
+clears all three fresh HIGH fixed-version thresholds reported for the old 46.0.7 package. The pyca
+changelog records the 50.0.1 release and its updated Linux wheels compiled with OpenSSL 4.0.2:
+
+- [pyca/cryptography changelog, 50.0.1](https://cryptography.io/en/latest/changelog/)
+- [cryptography 50.0.1 on PyPI](https://pypi.org/project/cryptography/50.0.1/)
+
+The Dockerfile now pins the `linux/amd64` child manifest of the current official
+`python:3.12.14-alpine3.24` image:
+
+`python:3.12-alpine@sha256:78e98729f8fc4099e53cffb3fe59fd15b18dfa4ace8c914dee0cefa5320068eb`
+
+The corresponding official multi-platform index is
+`sha256:b64631e04e4920160c50fbe8d8df828f7f35f06f425cb44aa09bca53e708a35a`. A local inspection of
+the child manifest observed Alpine `3.24.1`, `libcrypto3==3.5.8-r0`, and `libssl3==3.5.8-r0`.
+The [Docker Official Image manifest](https://hub.docker.com/_/python/tags?name=alpine) is the source
+for the immutable image binding. A fresh exact-source image build, SBOM, vulnerability database
+refresh, and independent policy binding are still required before any current PASS or release claim.
+
 ## Point-in-time result
 
 The published evidence set covers the `linux/amd64` image observed on 2026-08-20,

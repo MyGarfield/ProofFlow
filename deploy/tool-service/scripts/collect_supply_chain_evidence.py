@@ -34,7 +34,7 @@ LOGGER = logging.getLogger(__name__)
 
 TARGET_TAG = "proofflow-tool-service:0.1.0a1"
 BASE_IMAGE_REFERENCE = (
-    "python:3.12-alpine@sha256:285a71327884a4d50efbea30104473b0fa43ecefa499458899670ca30dae76e5"
+    "python:3.12-alpine@sha256:78e98729f8fc4099e53cffb3fe59fd15b18dfa4ace8c914dee0cefa5320068eb"
 )
 
 SYFT_VERSION = "1.51.0"
