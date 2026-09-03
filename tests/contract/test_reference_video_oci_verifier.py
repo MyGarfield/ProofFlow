@@ -169,6 +169,12 @@ def test_fake_tools_and_host_path_lookup_are_rejected() -> None:
         validate_tool_paths({**INTERNAL_PATHS, "tesseract": "/tmp/fake-tesseract"})
 
 
+@pytest.mark.skipif(not Path("/usr/bin/git").is_file(), reason="fixed Git path is unavailable")
+def test_git_tool_version_uses_double_dash_version() -> None:
+    version = runner.tool_version("git", "/usr/bin/git")
+    assert version.startswith("git version ")
+
+
 @pytest.mark.parametrize(
     ("name", "value"),
     [

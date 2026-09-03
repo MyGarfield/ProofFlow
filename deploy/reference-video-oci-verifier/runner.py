@@ -191,7 +191,7 @@ def required_env() -> dict[str, str]:
 def tool_version(name: str, path: str) -> str:
     if name == "python":
         return platform.python_version()
-    args = [path, "--version" if name == "tesseract" else "-version"]
+    args = [path, "--version" if name in {"git", "tesseract"} else "-version"]
     completed = bounded_run(args, timeout=10, max_bytes=MAX_ERROR_OUTPUT_BYTES)
     if completed["status"] != "PASS" or not completed["stdout"]:
         raise RunnerFailure("TOOL_VERSION_UNAVAILABLE")
