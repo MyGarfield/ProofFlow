@@ -241,3 +241,16 @@ def test_receipt_install_is_no_overwrite_and_no_symlink(tmp_path: Path) -> None:
     symlink.symlink_to(linked_target)
     with pytest.raises(FileExistsError):
         write_receipt.install(source, symlink)
+
+
+def test_committed_blocked_build_receipt_is_explicitly_non_passing() -> None:
+    receipt_path = OCI / "blocked-build-receipt.json"
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    schema = json.loads((OCI / "receipt.schema.json").read_text(encoding="utf-8"))
+    Draft202012Validator(schema).validate(receipt)
+    assert receipt["error_code"] == "BLOCKED_BY_IMAGE_BUILD"
+    assert receipt["overall_status"] == "FAIL"
+    assert receipt["checks"] == [
+        {"code": "BLOCKED_BY_IMAGE_BUILD", "id": "runner", "status": "FAIL"}
+    ]
+    assert runner.verify_receipt(receipt)

@@ -85,6 +85,11 @@ has a canonical payload integrity digest. It contains no host paths. A changed
 receipt fails integrity verification. The command exits zero only for an
 independently schema-valid `PASS`; `FAIL` and `UNKNOWN` both exit non-zero.
 
+`blocked-build-receipt.json` is a committed contract fixture for the current
+unavailable-image state. Its zero pins are intentional, its status is `FAIL`,
+and its only check is `BLOCKED_BY_IMAGE_BUILD`; it is not a media or supply
+chain result.
+
 The runner independently recomputes ffprobe metadata and both full framemd5
 streams. It executes fixed-path Tesseract with `eng+chi_sim`, but the macOS
 manifest has no comparable OCR-output digest, so OCR parity remains
