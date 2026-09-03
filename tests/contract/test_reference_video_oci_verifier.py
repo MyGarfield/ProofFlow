@@ -151,6 +151,32 @@ def test_fake_tools_and_host_path_lookup_are_rejected() -> None:
         validate_tool_paths({**INTERNAL_PATHS, "tesseract": "/tmp/fake-tesseract"})
 
 
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [
+        ("PROOFFLOW_EXPECTED_ARTIFACT_COMMIT", "f" * 39 + "g"),
+        ("PROOFFLOW_EXPECTED_SCHEMA_SHA256", "sha256:" + "g" * 64),
+        ("PROOFFLOW_EXPECTED_VALIDATOR_SHA256", "sha256:" + "g" * 64),
+    ],
+)
+def test_wrong_commit_schema_or_validator_pin_is_rejected(
+    monkeypatch: pytest.MonkeyPatch, name: str, value: str
+) -> None:
+    values = {
+        "PROOFFLOW_EXPECTED_ARTIFACT_COMMIT": "a" * 40,
+        "PROOFFLOW_EXPECTED_MANIFEST_SHA256": "sha256:" + "b" * 64,
+        "PROOFFLOW_EXPECTED_SCHEMA_SHA256": "sha256:" + "c" * 64,
+        "PROOFFLOW_EXPECTED_VALIDATOR_SHA256": "sha256:" + "d" * 64,
+        "PROOFFLOW_EXPECTED_IMAGE_DIGEST": "sha256:" + "e" * 64,
+        "PROOFFLOW_EXPECTED_IMAGE_CONFIG_DIGEST": "sha256:" + "f" * 64,
+    }
+    for key, expected in values.items():
+        monkeypatch.setenv(key, expected)
+    monkeypatch.setenv(name, value)
+    with pytest.raises(runner.RunnerFailure, match="EXPECTED_PIN_INVALID"):
+        runner.required_env()
+
+
 def test_bounded_runner_kills_timeout_and_output_exhaustion() -> None:
     timeout = runner.bounded_run(
         [sys.executable, "-c", "import time; time.sleep(5)"], timeout=1, max_bytes=1024
