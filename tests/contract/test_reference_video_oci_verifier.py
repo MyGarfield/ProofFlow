@@ -17,6 +17,9 @@ import build_identity  # noqa: E402
 import inspect_oci_archive  # noqa: E402
 import runner  # noqa: E402
 import write_receipt  # noqa: E402
+
+EVIDENCE = Path(__file__).parents[2] / "reference-video/evidence"
+sys.path.insert(0, str(EVIDENCE))
 from policy import (  # noqa: E402
     CGROUP_LIMITS,
     FIXED_PATH,
@@ -161,6 +164,40 @@ def test_root_caps_nnp_network_and_resource_drift_are_rejected() -> None:
         changed = {**kwargs, field: value}
         with pytest.raises(ValueError):
             validate_runtime_contract(**changed)
+
+
+def test_capability_masks_accept_leading_zero_hex_values_only_when_numeric_zero() -> None:
+    assert runner.capability_mask_is_zero("0000000000000000")
+    assert runner.capability_mask_is_zero("0000000000000001") is False
+    assert runner.capability_mask_is_zero("not-hex") is False
+
+
+def test_validator_requires_external_identity_and_digest_as_a_pair() -> None:
+    command = [
+        sys.executable,
+        str(EVIDENCE / "validate_manifest.py"),
+        "--expected-schema-sha256",
+        "sha256:" + "a" * 64,
+        "--expected-validator-sha256",
+        "sha256:" + "b" * 64,
+        "--expected-artifact-commit",
+        "a" * 40,
+        "--trusted-git-root",
+        "/tmp",
+        "--git-binary",
+        "/usr/bin/git",
+        "--ffprobe",
+        "/usr/bin/ffprobe",
+        "--ffmpeg",
+        "/usr/bin/ffmpeg",
+        "--tesseract",
+        "/usr/bin/tesseract",
+        "--verification-toolchain-identity",
+        "/tmp/toolchain.json",
+    ]
+    result = __import__("subprocess").run(command, capture_output=True, text=True)
+    assert result.returncode != 0
+    assert "must be provided together" in result.stderr
 
 
 def test_fake_tools_and_host_path_lookup_are_rejected() -> None:

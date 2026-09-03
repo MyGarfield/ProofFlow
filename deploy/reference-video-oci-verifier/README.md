@@ -30,6 +30,13 @@ There is no Docker socket, environment-file, host `PATH` tool lookup, or
 network-capable Docker option. The in-image runner repeats the identity,
 mount, capability, seccomp, network-route and cgroup checks.
 
+The manifest's `tooling` object is retained as
+`CAPTURE_TOOLING_PROVENANCE` (the original macOS capture tools). In OCI mode
+the trusted validator receives a separate, externally pinned
+`/etc/proofflow/toolchain.json`; it verifies fixed Linux tool paths, versions,
+binary hashes, locale, Tesseract data and fonts before decoding. The legacy
+validator invocation without that identity remains capture-exact.
+
 ## Build
 
 Build from the repository root with the exact Dockerfile and platform:
@@ -102,9 +109,11 @@ chain result.
 
 The runner independently recomputes ffprobe metadata and both full framemd5
 streams. It executes fixed-path Tesseract with `eng+chi_sim`, but the macOS
-manifest has no comparable OCR-output digest, so OCR parity remains
-`UNKNOWN`. Any Linux frame/audio mismatch is `FAIL`; no threshold or video
-mutation is permitted.
+manifest has no comparable OCR-output digest, so `observed.ocr_parity` remains
+`UNKNOWN`; the check itself is `PASS / OCR_EXECUTION_OBSERVED` when the fixed
+Linux OCR actually runs. Forbidden-claim scanning remains the trusted
+validator's live OCR responsibility. Any Linux frame/audio mismatch is
+`FAIL`; no threshold or video mutation is permitted.
 
 ## Draft boundary
 

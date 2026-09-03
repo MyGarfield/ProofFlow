@@ -10,9 +10,11 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.metadata
 import json
 import math
 import os
+import platform
 import pwd
 import re
 import stat
@@ -132,6 +134,28 @@ FRAME_SEGMENTS = (
         "snapshot": SNAPSHOT_PATHS[6],
     },
 )
+VERIFICATION_IDENTITY_SCHEMA = "proofflow.reference-runtime-oci-verifier.image-identity.v1"
+VERIFICATION_BASE_CHILD_DIGEST = (
+    "sha256:78e98729f8fc4099e53cffb3fe59fd15b18dfa4ace8c914dee0cefa5320068eb"
+)
+VERIFICATION_TOOL_PATHS = {
+    "git": "/usr/bin/git",
+    "python": "/usr/local/bin/python3.12",
+    "ffmpeg": "/usr/bin/ffmpeg",
+    "ffprobe": "/usr/bin/ffprobe",
+    "tesseract": "/usr/bin/tesseract",
+}
+VERIFICATION_TESSDATA_PATHS = (
+    "/usr/share/tessdata/eng.traineddata",
+    "/usr/share/tessdata/chi_sim.traineddata",
+)
+VERIFICATION_FONT_ROOT = "/usr/share/fonts/noto"
+VERIFICATION_FONT_NAMES = {
+    "NotoSansCJK-Bold.ttc",
+    "NotoSansCJK-Regular.ttc",
+    "NotoSerifCJK-Bold.ttc",
+    "NotoSerifCJK-Regular.ttc",
+}
 ARTIFACT_PATHS = (
     "DESIGN.md",
     "SCRIPT.md",
@@ -259,6 +283,20 @@ GIT_SAFE_ENV = {
     "LANG": "C",
     "LC_ALL": "C",
     "PATH": "/usr/bin:/bin",
+    "GIT_CONFIG_NOSYSTEM": "1",
+    "GIT_OPTIONAL_LOCKS": "0",
+    "GIT_TERMINAL_PROMPT": "0",
+    "GIT_NO_REPLACE_OBJECTS": "1",
+    "GIT_NO_GRAFTS": "1",
+}
+VERIFICATION_SAFE_ENV = {
+    "HOME": "/nonexistent",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "PATH": "/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin",
+    "PYTHONNOUSERSITE": "1",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "TZ": "UTC",
     "GIT_CONFIG_NOSYSTEM": "1",
     "GIT_OPTIONAL_LOCKS": "0",
     "GIT_TERMINAL_PROMPT": "0",
@@ -455,7 +493,7 @@ def aggregate_hash(entries: dict[str, str]) -> str:
     return "sha256:" + hashlib.sha256(payload).hexdigest()
 
 
-def strict_load(path: Path):
+def strict_load_bytes(raw: bytes):
     def reject_duplicates(pairs):
         result = {}
         for key, value in pairs:
@@ -474,11 +512,15 @@ def strict_load(path: Path):
         return number
 
     return json.loads(
-        stable_read_text(path),
+        raw.decode("utf-8"),
         object_pairs_hook=reject_duplicates,
         parse_constant=reject_constant,
         parse_float=parse_float,
     )
+
+
+def strict_load(path: Path):
+    return strict_load_bytes(stable_read_bytes(path))
 
 
 def safe_path(root: Path, relative: str) -> Path:
@@ -852,6 +894,215 @@ def inspect_tool(name: str, path: Path) -> dict[str, str]:
 def inspect_tooling(tool_paths: dict[str, Path]) -> dict[str, dict[str, str]]:
     fail(set(tool_paths) == set(TOOL_NAMES), "tool path set drifted")
     return {name: inspect_tool(name, tool_paths[name]) for name in TOOL_NAMES}
+
+
+def verification_tool_version(name: str, path: Path) -> str:
+    fail(name in VERIFICATION_TOOL_PATHS, f"unknown verification tool: {name}")
+    if name == "python":
+        return platform.python_version()
+    flag = "--version" if name in {"git", "tesseract"} else "-version"
+    completed = subprocess.run(
+        [str(path), flag],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=VERIFICATION_SAFE_ENV,
+        cwd="/tmp",
+    )
+    fail(completed.returncode == 0, f"verification tool failed: {name}")
+    first = next((line.strip() for line in completed.stdout.splitlines() if line.strip()), "")
+    fail(first != "", f"verification tool has no version: {name}")
+    return first
+
+
+def _stable_tree_digest(root: Path, expected_names: set[str]) -> dict[str, object]:
+    root = _absolute_lexical(root)
+    root_stat = os.lstat(root)
+    fail(
+        stat.S_ISDIR(root_stat.st_mode) and not stat.S_ISLNK(root_stat.st_mode),
+        "font root is not a directory",
+    )
+    entries: list[tuple[str, str]] = []
+    for entry in sorted(os.scandir(root), key=lambda item: item.name):
+        fail(not entry.is_symlink(), f"verification font is a symlink: {entry.name}")
+        entry_stat = entry.stat(follow_symlinks=False)
+        fail(stat.S_ISREG(entry_stat.st_mode), f"verification font is not regular: {entry.name}")
+        fail(entry_stat.st_nlink == 1, f"verification font is a hardlink: {entry.name}")
+        entries.append(
+            (
+                entry.name,
+                "sha256:" + hashlib.sha256(stable_read_bytes(Path(entry.path))).hexdigest(),
+            )
+        )
+    fail(
+        {name for name, _digest in entries} == expected_names, "verification font inventory drifted"
+    )
+    payload = json.dumps(
+        entries, ensure_ascii=False, separators=(",", ":"), sort_keys=False
+    ).encode()
+    return {
+        "root": str(root),
+        "file_count": len(entries),
+        "sha256": "sha256:" + hashlib.sha256(payload).hexdigest(),
+    }
+
+
+def validate_verification_toolchain_identity(
+    identity_path: Path,
+    expected_identity_sha256: str,
+    manifest_path: Path,
+    expected_schema_sha256: str,
+    expected_validator_sha256: str,
+    expected_artifact_commit: str,
+    trusted_git_root: Path,
+) -> dict[str, object]:
+    """Verify the fixed image toolchain before any media or OCR execution."""
+    identity_path = _absolute_lexical(identity_path)
+    expected_identity_sha256 = normalize_sha(expected_identity_sha256)
+    identity_bytes = stable_read_bytes(identity_path)
+    fail(
+        "sha256:" + hashlib.sha256(identity_bytes).hexdigest() == expected_identity_sha256,
+        "verification toolchain identity is not externally pinned",
+    )
+    identity = strict_load_bytes(identity_bytes)
+    fail(isinstance(identity, dict), "verification toolchain identity is not an object")
+    expected_keys = {
+        "schema",
+        "platform",
+        "base_image",
+        "build_inputs",
+        "tools",
+        "jsonschema_version",
+        "apk_installed_closure",
+        "locale",
+        "locale_inventory_sha256",
+        "tessdata",
+        "font_inventory",
+    }
+    fail(set(identity) == expected_keys, "verification toolchain identity key set drifted")
+    fail(identity["schema"] == VERIFICATION_IDENTITY_SCHEMA, "verification identity schema drifted")
+    fail(identity["platform"] == "linux/amd64", "verification identity platform drifted")
+    base_image = identity["base_image"]
+    fail(
+        isinstance(base_image, dict)
+        and set(base_image) == {"ref", "child_digest"}
+        and base_image["ref"] == "python:3.12-alpine"
+        and base_image["child_digest"] == VERIFICATION_BASE_CHILD_DIGEST,
+        "verification base image drifted",
+    )
+    build_inputs = identity["build_inputs"]
+    fail(isinstance(build_inputs, dict), "verification build inputs are not an object")
+    fail(
+        set(build_inputs)
+        == {
+            "artifact_commit",
+            "manifest_sha256",
+            "schema_sha256",
+            "validator_sha256",
+            "alpine_packages_lock_sha256",
+            "python_requirements_lock_sha256",
+        },
+        "verification build input keys drifted",
+    )
+    fail(
+        build_inputs["artifact_commit"] == expected_artifact_commit,
+        "verification artifact commit drifted",
+    )
+    fail(
+        build_inputs["manifest_sha256"] == digest(manifest_path),
+        "verification manifest digest drifted",
+    )
+    fail(
+        build_inputs["schema_sha256"] == expected_schema_sha256,
+        "verification schema digest drifted",
+    )
+    fail(
+        build_inputs["validator_sha256"] == expected_validator_sha256,
+        "verification validator digest drifted",
+    )
+    for key in ("alpine_packages_lock_sha256", "python_requirements_lock_sha256"):
+        fail(
+            SHA256_PATTERN.fullmatch(build_inputs[key]) is not None,
+            f"verification lock digest invalid: {key}",
+        )
+
+    tools = identity["tools"]
+    fail(
+        isinstance(tools, dict) and set(tools) == set(VERIFICATION_TOOL_PATHS),
+        "verification tool set drifted",
+    )
+    for name, expected_path in VERIFICATION_TOOL_PATHS.items():
+        declaration = tools[name]
+        fail(
+            isinstance(declaration, dict) and set(declaration) == {"path", "sha256", "version"},
+            "verification tool declaration drifted",
+        )
+        path = Path(declaration["path"])
+        fail(declaration["path"] == expected_path, f"verification tool path drifted: {name}")
+        fail(not path.is_symlink(), f"verification tool is a symlink: {name}")
+        fail(digest(path) == declaration["sha256"], f"verification tool digest drifted: {name}")
+        fail(
+            verification_tool_version(name, path) == declaration["version"],
+            f"verification tool version drifted: {name}",
+        )
+
+    fail(
+        identity["jsonschema_version"] == importlib.metadata.version("jsonschema"),
+        "verification jsonschema version drifted",
+    )
+    locale = identity["locale"]
+    fail(
+        isinstance(locale, dict) and locale == {"name": "C.UTF-8", "available": True},
+        "verification locale drifted",
+    )
+    locale_output = subprocess.check_output(
+        ["/usr/bin/locale", "-a"], text=True, env=VERIFICATION_SAFE_ENV, cwd="/tmp"
+    )
+    fail(
+        "sha256:" + hashlib.sha256(locale_output.encode()).hexdigest()
+        == identity["locale_inventory_sha256"],
+        "verification locale inventory drifted",
+    )
+
+    tessdata = identity["tessdata"]
+    fail(
+        isinstance(tessdata, list) and len(tessdata) == 2, "verification tessdata inventory drifted"
+    )
+    for declaration, expected_path in zip(tessdata, VERIFICATION_TESSDATA_PATHS, strict=True):
+        fail(
+            isinstance(declaration, dict) and set(declaration) == {"path", "sha256"},
+            "verification tessdata declaration drifted",
+        )
+        path = Path(declaration["path"])
+        fail(
+            declaration["path"] == expected_path and digest(path) == declaration["sha256"],
+            "verification tessdata digest drifted",
+        )
+
+    fonts = identity["font_inventory"]
+    fail(isinstance(fonts, dict), "verification font inventory is not an object")
+    actual_fonts = _stable_tree_digest(Path(VERIFICATION_FONT_ROOT), VERIFICATION_FONT_NAMES)
+    fail(fonts == actual_fonts, "verification font inventory digest drifted")
+    closure = identity["apk_installed_closure"]
+    fail(isinstance(closure, dict), "verification APK closure is not an object")
+    fail(
+        set(closure) == {"db_path", "db_sha256", "packages"},
+        "verification APK closure keys drifted",
+    )
+    fail(closure["db_path"] == "/lib/apk/db/installed", "verification APK DB path drifted")
+    fail(
+        SHA256_PATTERN.fullmatch(closure["db_sha256"]) is not None,
+        "verification APK DB digest invalid",
+    )
+    fail(
+        isinstance(closure["packages"], list) and len(closure["packages"]) > 0,
+        "verification APK closure is empty",
+    )
+    fail(
+        all(isinstance(item, str) and "=" in item for item in closure["packages"]),
+        "verification APK package closure drifted",
+    )
+    return identity
 
 
 def parse_tool_json(raw: str):
@@ -1270,6 +1521,8 @@ def validate_manifest(
     ffprobe_path: Path,
     ffmpeg_path: Path,
     tesseract_path: Path,
+    verification_toolchain_identity: Path | None = None,
+    expected_verification_toolchain_sha256: str | None = None,
 ) -> None:
     """Validate an artifact from a private, stable no-follow snapshot."""
     video_root = _absolute_lexical(video_root)
@@ -1302,6 +1555,8 @@ def validate_manifest(
                 ffprobe_path,
                 ffmpeg_path,
                 tesseract_path,
+                verification_toolchain_identity,
+                expected_verification_toolchain_sha256,
             )
         finally:
             release_snapshot_for_cleanup(snapshot_root)
@@ -1318,6 +1573,8 @@ def _validate_manifest_snapshot(
     ffprobe_path: Path,
     ffmpeg_path: Path,
     tesseract_path: Path,
+    verification_toolchain_identity: Path | None = None,
+    expected_verification_toolchain_sha256: str | None = None,
 ) -> None:
     video_root = _absolute_lexical(video_root)
     manifest_path = _absolute_lexical(manifest_path)
@@ -1406,10 +1663,29 @@ def _validate_manifest_snapshot(
     tooling = inspect_tooling(
         {"ffprobe": ffprobe_path, "ffmpeg": ffmpeg_path, "tesseract": tesseract_path}
     )
+    external_identity = verification_toolchain_identity is not None
     fail(
-        manifest["tooling"] == tooling,
-        "manifest tool provenance does not match the independently inspected binaries",
+        external_identity == (expected_verification_toolchain_sha256 is not None),
+        "verification toolchain identity and digest must be provided together",
     )
+    if external_identity:
+        validate_verification_toolchain_identity(
+            verification_toolchain_identity,
+            expected_verification_toolchain_sha256,
+            video_root / MANIFEST_PATH,
+            expected_schema_sha256,
+            expected_validator_sha256,
+            expected_artifact_commit,
+            trusted_git_root,
+        )
+        # The packaged field is capture provenance (macOS in this package),
+        # not an assertion about the fixed verification image.
+        fail(isinstance(manifest["tooling"], dict), "capture tooling provenance is not an object")
+    else:
+        fail(
+            manifest["tooling"] == tooling,
+            "manifest tool provenance does not match the independently inspected binaries",
+        )
 
     artifact_hashes = manifest["artifact_hashes"]
     fail(set(artifact_hashes) == set(ARTIFACT_PATHS), "artifact hash key set drifted")
@@ -1818,7 +2094,23 @@ def main() -> None:
         required=True,
         help="absolute tesseract executable; PATH lookup is forbidden",
     )
+    parser.add_argument(
+        "--verification-toolchain-identity",
+        type=Path,
+        help="absolute fixed-image toolchain identity JSON",
+    )
+    parser.add_argument(
+        "--expected-verification-toolchain-sha256",
+        help="SHA-256 of the fixed-image toolchain identity JSON",
+    )
     args = parser.parse_args()
+    if (args.verification_toolchain_identity is None) != (
+        args.expected_verification_toolchain_sha256 is None
+    ):
+        parser.error(
+            "--verification-toolchain-identity and "
+            "--expected-verification-toolchain-sha256 must be provided together"
+        )
     try:
         validate_manifest(
             args.manifest,
@@ -1831,6 +2123,8 @@ def main() -> None:
             args.ffprobe,
             args.ffmpeg,
             args.tesseract,
+            args.verification_toolchain_identity,
+            args.expected_verification_toolchain_sha256,
         )
     except Exception as error:
         print(f"manifest validation FAILED: {error}", file=sys.stderr)

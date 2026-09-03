@@ -44,12 +44,13 @@
     "expectations": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["artifact_commit", "manifest_sha256", "schema_sha256", "validator_sha256"],
+      "required": ["artifact_commit", "manifest_sha256", "schema_sha256", "validator_sha256", "verification_toolchain_sha256"],
       "properties": {
         "artifact_commit": {"$ref": "#/$defs/commit"},
         "manifest_sha256": {"$ref": "#/$defs/sha256"},
         "schema_sha256": {"$ref": "#/$defs/sha256"},
-        "validator_sha256": {"$ref": "#/$defs/sha256"}
+        "validator_sha256": {"$ref": "#/$defs/sha256"},
+        "verification_toolchain_sha256": {"$ref": "#/$defs/sha256"}
       }
     },
     "toolchain": {
@@ -85,10 +86,11 @@
     "observed": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["manifest_sha256", "video_sha256", "ocr_sha256", "ocr_parity", "mounts", "resource_limits"],
+      "required": ["manifest_sha256", "video_sha256", "verification_toolchain_sha256", "ocr_sha256", "ocr_parity", "mounts", "resource_limits"],
       "properties": {
         "manifest_sha256": {"$ref": "#/$defs/sha256"},
         "video_sha256": {"$ref": "#/$defs/sha256"},
+        "verification_toolchain_sha256": {"$ref": "#/$defs/sha256"},
         "ocr_sha256": {"anyOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
         "ocr_parity": {"enum": ["PASS", "FAIL", "UNKNOWN"]},
         "mounts": {

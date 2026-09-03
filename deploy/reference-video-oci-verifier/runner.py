@@ -44,7 +44,7 @@ GIT_ROOT = Path("/input/repo")
 IDENTITY_PATH = Path("/etc/proofflow/toolchain.json")
 RUNNER_PATH = Path("/opt/proofflow/runner.py")
 RECEIPT_SCHEMA_PATH = Path("/opt/proofflow/receipt.schema.json")
-RECEIPT_SCHEMA_SHA256 = "sha256:5325b059b5a66d787b9fab69314f3b00009b3ae512000521c6f073de210c3ff6"
+RECEIPT_SCHEMA_SHA256 = "sha256:abb75dcd686275faff26a54dc7da8e0f5bfdc0a41b9547e109f21f7257307c7a"
 SCHEMA_PATH = ARTIFACT_ROOT / "evidence/manifest.schema.json"
 VALIDATOR_PATH = ARTIFACT_ROOT / "evidence/validate_manifest.py"
 MANIFEST_PATH = ARTIFACT_ROOT / "manifest.json"
@@ -97,6 +97,13 @@ def digest_file(path: Path) -> str:
     except (OSError, ValueError) as error:
         raise RunnerFailure("REQUIRED_INPUT_UNREADABLE") from error
     return "sha256:" + digest.hexdigest()
+
+
+def capability_mask_is_zero(value: str) -> bool:
+    try:
+        return int(value.strip(), 16) == 0
+    except ValueError:
+        return False
 
 
 def canonical_json(value: object) -> bytes:
@@ -351,7 +358,7 @@ def check_runtime() -> list[dict[str, str]]:
             for line in status.splitlines()
             if line.startswith("Seccomp:")
         )
-        cap_drop = cap_eff == "0" and cap_bnd == "0"
+        cap_drop = capability_mask_is_zero(cap_eff) and capability_mask_is_zero(cap_bnd)
         nnp = no_new_privs == "1"
     except (OSError, StopIteration):
         cap_drop = False
@@ -656,20 +663,20 @@ def ocr_check() -> tuple[dict[str, str], str | None]:
         if result["status"] != "PASS":
             return {
                 "id": "linux_ocr",
-                "status": "UNKNOWN",
-                "code": "OCR_EXECUTION_UNVERIFIED",
+                "status": "FAIL",
+                "code": "OCR_EXECUTION_FAILED",
             }, None
         outputs.append(str(result["stdout"]).encode("utf-8"))
-    # The macOS manifest does not carry an OCR output digest.  Therefore a
-    # successful Linux OCR run is observed but never promoted to parity.
+    # The macOS manifest does not carry an OCR output digest. Execution is
+    # observed, but cross-toolchain parity remains a separate UNKNOWN field.
     aggregate = hashlib.sha256()
     for output in outputs:
         aggregate.update(len(output).to_bytes(8, "big"))
         aggregate.update(output)
     return {
         "id": "linux_ocr",
-        "status": "UNKNOWN",
-        "code": "OCR_PARITY_UNVERIFIED_MAC_TOOLCHAIN",
+        "status": "PASS",
+        "code": "OCR_EXECUTION_OBSERVED",
     }, "sha256:" + aggregate.hexdigest()
 
 
@@ -679,6 +686,7 @@ def make_receipt(
     toolchain: dict[str, object],
     checks: list[dict[str, str]],
     *,
+    identity_digest: str,
     ocr_sha256: str | None,
     error_code: str | None = None,
 ) -> dict[str, object]:
@@ -707,15 +715,15 @@ def make_receipt(
             "manifest_sha256": pins["PROOFFLOW_EXPECTED_MANIFEST_SHA256"],
             "schema_sha256": pins["PROOFFLOW_EXPECTED_SCHEMA_SHA256"],
             "validator_sha256": pins["PROOFFLOW_EXPECTED_VALIDATOR_SHA256"],
+            "verification_toolchain_sha256": identity_digest,
         },
         "toolchain": toolchain,
         "observed": {
             "manifest_sha256": digest_file(MANIFEST_PATH),
             "video_sha256": digest_file(VIDEO_PATH),
+            "verification_toolchain_sha256": identity_digest,
             "ocr_sha256": ocr_sha256,
-            "ocr_parity": next(
-                (item["status"] for item in checks if item["id"] == "linux_ocr"), "UNKNOWN"
-            ),
+            "ocr_parity": "UNKNOWN",
             "mounts": {"artifact": "ro", "git": "ro", "rootfs": "ro"},
             "resource_limits": dict(CGROUP_LIMITS),
         },
@@ -761,6 +769,7 @@ def safe_failure_receipt(code: str) -> dict[str, object]:
             "manifest_sha256": zeros,
             "schema_sha256": zeros,
             "validator_sha256": zeros,
+            "verification_toolchain_sha256": zeros,
         },
         "toolchain": {
             "git": {"path": "/usr/bin/git", "sha256": zeros, "version": "unavailable"},
@@ -787,6 +796,7 @@ def safe_failure_receipt(code: str) -> dict[str, object]:
         "observed": {
             "manifest_sha256": zeros,
             "video_sha256": zeros,
+            "verification_toolchain_sha256": zeros,
             "ocr_sha256": None,
             "ocr_parity": "UNKNOWN",
             "mounts": {"artifact": "ro", "git": "ro", "rootfs": "ro"},
@@ -829,6 +839,7 @@ def run() -> dict[str, object]:
         or GIT_ROOT.is_symlink()
     ):
         raise RunnerFailure("MOUNT_ROOT_INVALID")
+    identity_digest = digest_file(IDENTITY_PATH)
     identity = strict_json(IDENTITY_PATH)
     if not isinstance(identity, dict) or identity.get("platform") != "linux/amd64":
         raise RunnerFailure("IMAGE_IDENTITY_INVALID")
@@ -885,6 +896,10 @@ def run() -> dict[str, object]:
             INTERNAL_PATHS["ffmpeg"],
             "--tesseract",
             INTERNAL_PATHS["tesseract"],
+            "--verification-toolchain-identity",
+            str(IDENTITY_PATH),
+            "--expected-verification-toolchain-sha256",
+            identity_digest,
         ],
         timeout=TIMEOUT_SECONDS,
         max_bytes=MAX_ERROR_OUTPUT_BYTES,
@@ -898,7 +913,14 @@ def run() -> dict[str, object]:
             else "VALIDATOR_PASS",
         }
     )
-    return make_receipt(pins, identity, toolchain, checks, ocr_sha256=ocr_sha256)
+    return make_receipt(
+        pins,
+        identity,
+        toolchain,
+        checks,
+        identity_digest=identity_digest,
+        ocr_sha256=ocr_sha256,
+    )
 
 
 def main() -> None:
