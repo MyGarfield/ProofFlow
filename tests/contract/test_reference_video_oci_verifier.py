@@ -38,6 +38,8 @@ def test_dockerfile_pins_current_amd64_child_and_build_inputs() -> None:
     assert "USER 65532:65532" in dockerfile
     assert 'ENTRYPOINT ["/usr/local/bin/python3.12", "/opt/proofflow/runner.py"]' in dockerfile
     assert "COPY deploy/reference-video-oci-verifier/receipt.schema.json" in dockerfile
+    assert r"printf '%s\n%s\n'" in dockerfile
+    assert "printf '%s\\\\n%s\\\\n'" not in dockerfile
 
 
 def test_launcher_has_all_fail_closed_docker_options() -> None:

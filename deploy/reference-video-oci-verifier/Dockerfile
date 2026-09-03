@@ -36,7 +36,7 @@ COPY deploy/reference-video-oci-verifier/ALPINE_PACKAGES.lock /opt/proofflow/ALP
 # build instead of silently selecting another package set.
 RUN set -eux; \
     apk_arch="$(apk --print-arch)"; test "$apk_arch" = "x86_64"; \
-    printf '%s\\n%s\\n' \
+    printf '%s\n%s\n' \
       https://dl-cdn.alpinelinux.org/alpine/v3.24/main \
       https://dl-cdn.alpinelinux.org/alpine/v3.24/community \
       > /etc/apk/repositories; \
