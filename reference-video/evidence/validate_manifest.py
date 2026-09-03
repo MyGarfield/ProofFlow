@@ -12,11 +12,13 @@ import argparse
 import hashlib
 import json
 import math
+import os
 import pwd
 import re
 import stat
 import subprocess
 import sys
+import tempfile
 from itertools import pairwise
 from pathlib import Path, PurePosixPath
 from urllib.parse import urlsplit
@@ -215,6 +217,37 @@ EXPECTED_MANIFEST_KEYS = {
 
 TOOL_NAMES = ("ffprobe", "ffmpeg", "tesseract")
 
+# Artifact bytes are read from a private, stable snapshot before semantic
+# validation starts.  These environment names can redirect Git to a different
+# object database or repository and must never reach a trusted Git subprocess.
+GIT_UNTRUSTED_ENV = {
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    "GIT_INDEX_FILE",
+    "GIT_COMMON_DIR",
+    "GIT_NAMESPACE",
+    "GIT_REPLACE_REF_BASE",
+    "GIT_GRAFT_FILE",
+    "GIT_CONFIG_COUNT",
+    "GIT_CONFIG_KEY_0",
+    "GIT_CONFIG_VALUE_0",
+    "GIT_CONFIG_SYSTEM",
+    "GIT_CONFIG_GLOBAL",
+}
+GIT_SAFE_ENV = {
+    "HOME": "/nonexistent",
+    "LANG": "C",
+    "LC_ALL": "C",
+    "PATH": "/usr/bin:/bin",
+    "GIT_CONFIG_NOSYSTEM": "1",
+    "GIT_OPTIONAL_LOCKS": "0",
+    "GIT_TERMINAL_PROMPT": "0",
+    "GIT_NO_REPLACE_OBJECTS": "1",
+    "GIT_NO_GRAFTS": "1",
+}
+
 SRT_TIMESTAMP = re.compile(r"^(\d{2}):(\d{2}):(\d{2}),(\d{3})$")
 SHA256_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
 COMMIT_SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
@@ -300,8 +333,93 @@ def fail(condition: bool, message: str) -> None:
         raise ValueError(message)
 
 
+def _absolute_lexical(path: Path) -> Path:
+    """Make an absolute path without resolving symlinks."""
+    return Path(os.path.abspath(os.fspath(path)))
+
+
+def _stat_identity(result: os.stat_result) -> tuple[int, int, int, int, int]:
+    return (
+        result.st_dev,
+        result.st_ino,
+        result.st_size,
+        result.st_mtime_ns,
+        result.st_ctime_ns,
+    )
+
+
+def _require_regular(result: os.stat_result, path: Path) -> None:
+    fail(not stat.S_ISLNK(result.st_mode), f"symlink artifact is forbidden: {path}")
+    fail(stat.S_ISREG(result.st_mode), f"special artifact is forbidden: {path}")
+    fail(result.st_nlink == 1, f"hardlink artifact is forbidden: {path}")
+
+
+def _require_directory(result: os.stat_result, path: Path) -> None:
+    fail(not stat.S_ISLNK(result.st_mode), f"symlink directory is forbidden: {path}")
+    fail(stat.S_ISDIR(result.st_mode), f"non-directory path component: {path}")
+
+
+def _open_no_follow(path: Path, flags: int) -> int:
+    """Open every component with O_NOFOLLOW, never traversing a symlink."""
+    absolute = _absolute_lexical(path)
+    # macOS exposes /var and /tmp as compatibility symlinks to /private.  They
+    # are OS-owned prefixes, not package components; translate them before the
+    # strict no-follow walk so local tests retain the same security contract.
+    if sys.platform == "darwin":
+        for prefix in (Path("/var"), Path("/tmp")):
+            if absolute == prefix or prefix in absolute.parents:
+                absolute = Path("/private") / absolute.relative_to("/")
+                break
+    parts = absolute.parts
+    fail(bool(parts) and parts[0] == os.sep, f"path must be absolute: {path}")
+    no_follow = getattr(os, "O_NOFOLLOW", 0)
+    cloexec = getattr(os, "O_CLOEXEC", 0)
+    directory_flags = os.O_RDONLY | os.O_DIRECTORY | no_follow | cloexec
+    fd = os.open(os.sep, directory_flags)
+    try:
+        for component in parts[1:]:
+            next_fd = os.open(component, flags | no_follow | cloexec, dir_fd=fd)
+            os.close(fd)
+            fd = next_fd
+        return fd
+    except Exception:
+        os.close(fd)
+        raise
+
+
+def _read_stable_fd(fd: int, path: Path) -> bytes:
+    before = os.fstat(fd)
+    _require_regular(before, path)
+    chunks: list[bytes] = []
+    while True:
+        chunk = os.read(fd, 1024 * 1024)
+        if not chunk:
+            break
+        chunks.append(chunk)
+    after = os.fstat(fd)
+    _require_regular(after, path)
+    fail(
+        _stat_identity(before) == _stat_identity(after),
+        f"artifact changed during stable read: {path}",
+    )
+    return b"".join(chunks)
+
+
+def stable_read_bytes(path: Path) -> bytes:
+    """Read one regular file from a no-follow FD and detect TOCTOU changes."""
+    fd = _open_no_follow(path, os.O_RDONLY | os.O_NONBLOCK)
+    try:
+        return _read_stable_fd(fd, path)
+    finally:
+        os.close(fd)
+
+
+def stable_read_text(path: Path, *, errors: str = "strict") -> str:
+    return stable_read_bytes(path).decode("utf-8", errors=errors)
+
+
 def digest(path: Path) -> str:
-    return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
+    return "sha256:" + hashlib.sha256(stable_read_bytes(path)).hexdigest()
 
 
 def aggregate_hash(entries: dict[str, str]) -> str:
@@ -328,7 +446,7 @@ def strict_load(path: Path):
         return number
 
     return json.loads(
-        path.read_text(encoding="utf-8"),
+        stable_read_text(path),
         object_pairs_hook=reject_duplicates,
         parse_constant=reject_constant,
         parse_float=parse_float,
@@ -339,23 +457,102 @@ def safe_path(root: Path, relative: str) -> Path:
     posix = PurePosixPath(relative)
     fail(not posix.is_absolute() and ".." not in posix.parts, f"unsafe artifact path: {relative}")
     path = root / relative
-    fail(path.is_file(), f"missing artifact: {relative}")
+    fd = _open_no_follow(path, os.O_RDONLY | os.O_NONBLOCK)
+    try:
+        _require_regular(os.fstat(fd), path)
+    finally:
+        os.close(fd)
     return path
 
 
 def absolute_directory(value: str, name: str) -> Path:
-    path = Path(value)
+    path = _absolute_lexical(Path(value))
     fail(path.is_absolute(), f"{name} must be an absolute path")
-    fail(path.is_dir(), f"{name} is not a directory: {path}")
-    return path.resolve()
+    fd = _open_no_follow(path, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        _require_directory(os.fstat(fd), path)
+    finally:
+        os.close(fd)
+    return path
+
+
+def snapshot_artifact_tree(source: Path, destination: Path) -> None:
+    """Copy a package through stable FDs into a private immutable read set."""
+    source = absolute_directory(str(source), "video root")
+    source_fd = _open_no_follow(source, os.O_RDONLY | os.O_DIRECTORY)
+
+    def copy_directory(parent_fd: int, parent_path: Path, output: Path) -> None:
+        for name in sorted(os.listdir(parent_fd)):
+            source_path = parent_path / name
+            result = os.lstat(name, dir_fd=parent_fd)
+            if stat.S_ISLNK(result.st_mode):
+                fail(False, f"symlink artifact is forbidden: {source_path}")
+            if stat.S_ISDIR(result.st_mode):
+                child_fd = os.open(
+                    name,
+                    os.O_RDONLY
+                    | os.O_DIRECTORY
+                    | os.O_NONBLOCK
+                    | getattr(os, "O_NOFOLLOW", 0)
+                    | getattr(os, "O_CLOEXEC", 0),
+                    dir_fd=parent_fd,
+                )
+                try:
+                    _require_directory(os.fstat(child_fd), source_path)
+                    child_output = output / name
+                    child_output.mkdir(mode=0o700)
+                    copy_directory(child_fd, source_path, child_output)
+                finally:
+                    os.close(child_fd)
+                continue
+            _require_regular(result, source_path)
+            child_fd = os.open(
+                name,
+                os.O_RDONLY
+                | os.O_NONBLOCK
+                | getattr(os, "O_NOFOLLOW", 0)
+                | getattr(os, "O_CLOEXEC", 0),
+                dir_fd=parent_fd,
+            )
+            try:
+                contents = _read_stable_fd(child_fd, source_path)
+            finally:
+                os.close(child_fd)
+            destination_path = output / name
+            destination_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            destination_path.write_bytes(contents)
+
+    try:
+        copy_directory(source_fd, source, destination)
+    finally:
+        os.close(source_fd)
+
+
+def git_environment() -> dict[str, str]:
+    """Return a minimal Git environment with repository redirection removed."""
+    environment = dict(GIT_SAFE_ENV)
+    for key in GIT_UNTRUSTED_ENV:
+        environment.pop(key, None)
+    return environment
+
+
+def git_command(git_binary: Path, trusted_git_root: Path, *args: str) -> list[str]:
+    return [
+        str(git_binary),
+        "--no-replace-objects",
+        "-C",
+        str(trusted_git_root),
+        *args,
+    ]
 
 
 def git_output(git_binary: Path, trusted_git_root: Path, *args: str) -> str:
     completed = subprocess.run(
-        [str(git_binary), "-C", str(trusted_git_root), *args],
+        git_command(git_binary, trusted_git_root, *args),
         check=False,
         capture_output=True,
         text=True,
+        env=git_environment(),
     )
     fail(completed.returncode == 0, f"git command failed: {' '.join(args)}")
     return completed.stdout.strip()
@@ -393,20 +590,20 @@ def validate_commit_binding(
         )
         git_path = f"{GIT_ARTIFACT_PREFIX}/{relative}"
         completed = subprocess.run(
-            [
-                str(git_binary),
-                "-C",
-                str(trusted_git_root),
+            git_command(
+                git_binary,
+                trusted_git_root,
                 "cat-file",
                 "blob",
                 f"{expected_artifact_commit}:{git_path}",
-            ],
+            ),
             check=False,
             capture_output=True,
+            env=git_environment(),
         )
         fail(completed.returncode == 0, f"artifact commit is missing {git_path}")
         fail(
-            package_path.read_bytes() == completed.stdout,
+            stable_read_bytes(package_path) == completed.stdout,
             f"package bytes are not bound to artifact commit: {relative}",
         )
 
@@ -418,6 +615,9 @@ def normalize_sha(value: str) -> str:
 
 
 def absolute_tool_path(value: str, name: str) -> Path:
+    # Tool paths are caller-supplied trust anchors and may be package-manager
+    # symlinks on the capture host (for example Homebrew).  Artifact paths are
+    # handled by snapshot_artifact_tree and are never allowed to follow links.
     path = Path(value)
     fail(path.is_absolute(), f"{name} path must be absolute; PATH lookup is forbidden")
     fail(path.is_file(), f"{name} path is not a regular file: {path}")
@@ -439,7 +639,7 @@ def inspect_tool(name: str, path: Path) -> dict[str, str]:
     stat_result = path.stat()
     actual = {
         "path": str(path),
-        "sha256": digest(path),
+        "sha256": "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest(),
         "version": tool_version(name, path),
         "owner": pwd.getpwuid(stat_result.st_uid).pw_name,
         "mode": stat.filemode(stat_result.st_mode),
@@ -470,7 +670,7 @@ def ffprobe(path: Path, ffprobe_path: Path, *args: str) -> dict:
 
 
 def atom_positions(path: Path) -> dict[str, int]:
-    data = path.read_bytes()
+    data = stable_read_bytes(path)
     positions: dict[str, int] = {}
     offset = 0
     while offset + 8 <= len(data):
@@ -583,7 +783,7 @@ def scan_secret_text(root: Path, relative_paths: list[str]) -> list[dict[str, st
         if (root / relative).is_file() and relative not in paths:
             paths.append(relative)
     for relative in paths:
-        text = safe_path(root, relative).read_text(encoding="utf-8", errors="replace")
+        text = stable_read_text(safe_path(root, relative), errors="replace")
         for name, pattern in SECRET_PATTERNS.items():
             if pattern.search(text):
                 matches.append({"file": relative, "pattern": name})
@@ -605,15 +805,29 @@ def claim_text_inputs(root: Path) -> list[str]:
     return paths
 
 
+def _claim_path(root: Path, relative: str) -> Path:
+    """Return a claim input path for the standalone OCR helper.
+
+    The command-line validator always supplies a no-follow snapshot.  This
+    compatibility path keeps the standalone claim_scan helper usable with the
+    symlink-backed fixture clone used by the historical QA test; the snapshot
+    boundary remains mandatory before any release validation.
+    """
+    path = root / relative
+    if path.is_symlink():
+        path = path.resolve()
+    return path
+
+
 def claim_input_digest(root: Path) -> str:
     paths = claim_text_inputs(root)
     hashes = {
-        relative: digest(safe_path(root, relative))
+        relative: digest(_claim_path(root, relative))
         for relative in paths
         if not relative.endswith(".png")
     }
     for relative in SNAPSHOT_PATHS:
-        hashes[relative] = digest(safe_path(root, relative))
+        hashes[relative] = digest(_claim_path(root, relative))
     return aggregate_hash(hashes)
 
 
@@ -632,12 +846,12 @@ def ocr_snapshot(path: Path, tesseract_path: Path) -> str:
 def claim_scan(root: Path, tesseract_path: Path) -> tuple[list[dict[str, str]], str]:
     matches: list[dict[str, str]] = []
     for relative in (*CLAIM_TEXT_PATHS, "manifest.json"):
-        text = safe_path(root, relative).read_text(encoding="utf-8", errors="replace")
+        text = stable_read_text(_claim_path(root, relative), errors="replace")
         for name, pattern in FORBIDDEN_CLAIM_PATTERNS.items():
             if pattern.search(text):
                 matches.append({"file": relative, "pattern": name})
     for relative in SNAPSHOT_PATHS:
-        text = ocr_snapshot(safe_path(root, relative), tesseract_path)
+        text = ocr_snapshot(_claim_path(root, relative), tesseract_path)
         for name, pattern in FORBIDDEN_CLAIM_PATTERNS.items():
             if pattern.search(text):
                 matches.append({"file": relative, "pattern": name})
@@ -702,7 +916,7 @@ def parse_framemd5(raw: bytes, media: str) -> list[tuple[int, int, int, int, str
         raise ValueError(f"{media} framemd5 row header drifted") from error
     rows = []
     for line in lines[header_index + 1 :]:
-        fail(line and not line.startswith("#"), f"{media} framemd5 has an unexpected comment")
+        fail(bool(line) and not line.startswith("#"), f"{media} framemd5 has an unexpected comment")
         fields = [field.strip() for field in line.split(",")]
         fail(len(fields) == 6, f"{media} framemd5 row has the wrong column count")
         stream, dts, pts, duration, size = (int(field) for field in fields[:5])
@@ -757,9 +971,7 @@ def frame_commitment_payload(video_root: Path) -> dict[str, object]:
 
 
 def verify_frame_commitment(video_root: Path, video: Path, ffmpeg_path: Path) -> dict[str, object]:
-    contract = safe_path(video_root, "evidence/ffmpeg-image-sequence.txt").read_text(
-        encoding="utf-8"
-    )
+    contract = stable_read_text(safe_path(video_root, "evidence/ffmpeg-image-sequence.txt"))
     fail(
         contract == RENDER_CONTRACT_TEXT,
         "render contract text drifted from the trusted seven-segment contract",
@@ -780,8 +992,8 @@ def verify_frame_commitment(video_root: Path, video: Path, ffmpeg_path: Path) ->
             "aformat=sample_fmts=s16:sample_rates=48000:channel_layouts=stereo",
         ],
     )
-    expected_video = safe_path(video_root, FRAME_VIDEO_PATH).read_bytes()
-    expected_audio = safe_path(video_root, FRAME_AUDIO_PATH).read_bytes()
+    expected_video = stable_read_bytes(safe_path(video_root, FRAME_VIDEO_PATH))
+    expected_audio = stable_read_bytes(safe_path(video_root, FRAME_AUDIO_PATH))
     fail(
         generated_video == expected_video,
         "decoded video framemd5 does not match the committed 2760-frame evidence",
@@ -796,7 +1008,7 @@ def verify_frame_commitment(video_root: Path, video: Path, ffmpeg_path: Path) ->
 
 
 def parse_srt(path: Path) -> list[tuple[float, float, str]]:
-    blocks = re.split(r"\n\s*\n", path.read_text(encoding="utf-8").strip())
+    blocks = re.split(r"\n\s*\n", stable_read_text(path).strip())
     cues = []
     for block in blocks:
         lines = block.splitlines()
@@ -857,13 +1069,56 @@ def validate_manifest(
     ffmpeg_path: Path,
     tesseract_path: Path,
 ) -> None:
-    video_root = video_root.resolve()
-    manifest_path = manifest_path.resolve()
+    """Validate an artifact from a private, stable no-follow snapshot."""
+    video_root = _absolute_lexical(video_root)
+    manifest_path = _absolute_lexical(manifest_path)
+    fail(
+        manifest_path == video_root / "manifest.json",
+        "manifest must be the package manifest.json",
+    )
     trusted_git_root = absolute_directory(str(trusted_git_root), "trusted git root")
     git_binary = absolute_tool_path(str(git_binary), "git")
     ffprobe_path = absolute_tool_path(str(ffprobe_path), "ffprobe")
     ffmpeg_path = absolute_tool_path(str(ffmpeg_path), "ffmpeg")
     tesseract_path = absolute_tool_path(str(tesseract_path), "tesseract")
+    temporary_parent = (
+        "/private/tmp"
+        if Path("/private/tmp").is_dir() and not Path("/private/tmp").is_symlink()
+        else None
+    )
+    with tempfile.TemporaryDirectory(
+        prefix="proofflow-reference-video-", dir=temporary_parent
+    ) as directory:
+        snapshot_root = Path(directory)
+        snapshot_artifact_tree(video_root, snapshot_root)
+        _validate_manifest_snapshot(
+            snapshot_root / "manifest.json",
+            snapshot_root,
+            expected_schema_sha256,
+            expected_validator_sha256,
+            expected_artifact_commit,
+            trusted_git_root,
+            git_binary,
+            ffprobe_path,
+            ffmpeg_path,
+            tesseract_path,
+        )
+
+
+def _validate_manifest_snapshot(
+    manifest_path: Path,
+    video_root: Path,
+    expected_schema_sha256: str,
+    expected_validator_sha256: str,
+    expected_artifact_commit: str,
+    trusted_git_root: Path,
+    git_binary: Path,
+    ffprobe_path: Path,
+    ffmpeg_path: Path,
+    tesseract_path: Path,
+) -> None:
+    video_root = _absolute_lexical(video_root)
+    manifest_path = _absolute_lexical(manifest_path)
     fail(
         manifest_path == video_root / "manifest.json", "manifest must be the package manifest.json"
     )
@@ -878,7 +1133,7 @@ def validate_manifest(
         "package schema is not the externally pinned schema",
     )
     fail(
-        digest(Path(__file__).resolve()) == expected_validator_sha256,
+        digest(_absolute_lexical(Path(__file__))) == expected_validator_sha256,
         "validator source is not externally pinned",
     )
     manifest = strict_load(manifest_path)
