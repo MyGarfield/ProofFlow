@@ -69,6 +69,7 @@ for digest in "$EXPECTED_MANIFEST_SHA256" "$EXPECTED_SCHEMA_SHA256" "$EXPECTED_V
     digest_hex="${digest#sha256:}"
     case "$digest_hex" in *[!0-9a-f]*) die "EXPECTED_DIGEST_INVALID" ;; esac
 done
+[ "$EXPECTED_IMAGE_DIGEST" != "$EXPECTED_IMAGE_CONFIG_DIGEST" ] || die "IMAGE_DIGEST_CONFIG_COLLISION"
 case "$REPO_ROOT" in /*) ;; *) die "REPO_ROOT_MUST_BE_ABSOLUTE" ;; esac
 case "$ARTIFACT_ROOT" in /*) ;; *) die "ARTIFACT_ROOT_MUST_BE_ABSOLUTE" ;; esac
 if [ ! -d "$REPO_ROOT" ] || [ -L "$REPO_ROOT" ] || [ ! -d "$ARTIFACT_ROOT" ] || [ -L "$ARTIFACT_ROOT" ]; then

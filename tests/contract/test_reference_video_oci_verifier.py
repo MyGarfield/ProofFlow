@@ -97,6 +97,13 @@ def test_wrong_child_architecture_and_local_image_without_repo_digest_fail() -> 
             expected_image_digest="sha256:" + "a" * 64,
             expected_config_digest="sha256:" + "b" * 64,
         )
+    with pytest.raises(ValueError, match="separate"):
+        validate_image_metadata(
+            {**metadata, "RepoDigests": ["ghcr.io/mygarfield/proofflow@sha256:" + "a" * 64]},
+            image_ref="ghcr.io/mygarfield/proofflow@sha256:" + "a" * 64,
+            expected_image_digest="sha256:" + "a" * 64,
+            expected_config_digest="sha256:" + "a" * 64,
+        )
 
 
 def _mountinfo(*, writable: bool = False) -> str:

@@ -180,6 +180,11 @@ def required_env() -> dict[str, str]:
             require_sha256(values[name], name)
     except ValueError as error:
         raise RunnerFailure("EXPECTED_PIN_INVALID") from error
+    if (
+        values["PROOFFLOW_EXPECTED_IMAGE_DIGEST"]
+        == values["PROOFFLOW_EXPECTED_IMAGE_CONFIG_DIGEST"]
+    ):
+        raise RunnerFailure("IMAGE_DIGEST_CONFIG_COLLISION")
     return values
 
 

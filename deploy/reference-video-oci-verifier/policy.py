@@ -81,6 +81,8 @@ def validate_image_metadata(
     _, ref_digest = parse_image_reference(image_ref)
     require_sha256(expected_image_digest, "expected image digest")
     require_sha256(expected_config_digest, "expected image config digest")
+    if expected_image_digest == expected_config_digest:
+        raise ValueError("image child and config digests must remain separate")
     if ref_digest != expected_image_digest:
         raise ValueError("image digest differs from expected child digest")
     if metadata.get("Architecture") != PLATFORM["architecture"]:
