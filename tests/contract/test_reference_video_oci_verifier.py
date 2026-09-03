@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import sys
+import tarfile
 from pathlib import Path
 
 import pytest
@@ -11,6 +13,7 @@ from jsonschema import Draft202012Validator, ValidationError
 OCI = Path(__file__).parents[2] / "deploy/reference-video-oci-verifier"
 sys.path.insert(0, str(OCI))
 
+import inspect_oci_archive  # noqa: E402
 import runner  # noqa: E402
 import write_receipt  # noqa: E402
 from policy import (  # noqa: E402
@@ -40,6 +43,9 @@ def test_dockerfile_pins_current_amd64_child_and_build_inputs() -> None:
     assert "COPY deploy/reference-video-oci-verifier/receipt.schema.json" in dockerfile
     assert r"printf '%s\n%s\n'" in dockerfile
     assert "printf '%s\\\\n%s\\\\n'" not in dockerfile
+    launcher = (OCI / "run.sh").read_text(encoding="utf-8")
+    assert "{{.Descriptor.digest}}" in launcher
+    assert "save --platform linux/amd64" in launcher
 
 
 def test_launcher_has_all_fail_closed_docker_options() -> None:
@@ -79,7 +85,8 @@ def test_wrong_child_architecture_and_local_image_without_repo_digest_fail() -> 
     metadata = {
         "Architecture": "arm64",
         "Os": "linux",
-        "Id": "sha256:" + "b" * 64,
+        "Id": "sha256:" + "a" * 64,
+        "Descriptor.digest": "sha256:" + "a" * 64,
         "Config.User": "65532:65532",
         "RepoDigests": ["ghcr.io/mygarfield/proofflow@sha256:" + "a" * 64],
     }
@@ -256,3 +263,107 @@ def test_committed_blocked_build_receipt_is_explicitly_non_passing() -> None:
         {"code": "BLOCKED_BY_IMAGE_BUILD", "id": "runner", "status": "FAIL"}
     ]
     assert runner.verify_receipt(receipt)
+
+
+def _oci_archive(
+    path: Path,
+    *,
+    include_manifest: bool = True,
+    include_config: bool = True,
+    duplicate_index: bool = False,
+    traversal_name: str | None = None,
+    oversized: bool = False,
+) -> tuple[str, str]:
+    config_bytes = json.dumps(
+        {"architecture": "amd64", "os": "linux", "config": {"User": "65532:65532"}},
+        separators=(",", ":"),
+    ).encode()
+    config_digest = "sha256:" + hashlib.sha256(config_bytes).hexdigest()
+    manifest_bytes = json.dumps(
+        {
+            "schemaVersion": 2,
+            "mediaType": inspect_oci_archive.OCI_MANIFEST_MEDIA_TYPE,
+            "config": {
+                "mediaType": inspect_oci_archive.OCI_CONFIG_MEDIA_TYPE,
+                "digest": config_digest,
+                "size": len(config_bytes),
+            },
+            "layers": [],
+        },
+        separators=(",", ":"),
+    ).encode()
+    child_digest = "sha256:" + hashlib.sha256(manifest_bytes).hexdigest()
+    index_bytes = json.dumps(
+        {
+            "schemaVersion": 2,
+            "manifests": [
+                {
+                    "mediaType": inspect_oci_archive.OCI_MANIFEST_MEDIA_TYPE,
+                    "digest": child_digest,
+                    "size": len(manifest_bytes),
+                    "platform": {"architecture": "amd64", "os": "linux"},
+                }
+            ],
+        },
+        separators=(",", ":"),
+    ).encode()
+    entries: list[tuple[str, bytes]] = [
+        ("oci-layout", b'{"imageLayoutVersion":"1.0.0"}'),
+        ("index.json", index_bytes),
+    ]
+    if include_manifest:
+        entries.append((f"blobs/sha256/{child_digest[7:]}", manifest_bytes))
+    if include_config:
+        entries.append((f"blobs/sha256/{config_digest[7:]}", config_bytes))
+    if duplicate_index:
+        entries.append(("index.json", index_bytes))
+    if traversal_name is not None:
+        entries.append((traversal_name, b"escape"))
+    with tarfile.open(path, "w") as archive:
+        for name, payload in entries:
+            info = tarfile.TarInfo(name)
+            info.size = len(payload)
+            archive.addfile(info, io.BytesIO(payload))
+        if oversized:
+            info = tarfile.TarInfo("blobs/sha256/oversized")
+            info.size = inspect_oci_archive.MAX_MEMBER_BYTES + 1
+            archive.addfile(info)
+    return child_digest, config_digest
+
+
+def test_oci_archive_inspector_binds_child_manifest_and_config(tmp_path: Path) -> None:
+    archive = tmp_path / "image.tar"
+    child, config = _oci_archive(archive)
+    receipt = inspect_oci_archive.inspect_archive(archive, child, config)
+    assert receipt["status"] == "PASS"
+    assert receipt["observed_child_digest"] == child
+    assert receipt["observed_config_digest"] == config
+    assert inspect_oci_archive._is_digest(receipt["observed_config_digest"])
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "code"),
+    [
+        ({"include_manifest": False}, "OCI_MANIFEST_BLOB_MISSING"),
+        ({"include_config": False}, "OCI_CONFIG_BLOB_MISSING"),
+        ({"duplicate_index": True}, "ARCHIVE_DUPLICATE_MEMBER"),
+        ({"traversal_name": "../escape"}, "ARCHIVE_PATH_TRAVERSAL"),
+        ({"oversized": True}, "ARCHIVE_MEMBER_OVERSIZE"),
+    ],
+)
+def test_oci_archive_attacks_fail_closed(
+    tmp_path: Path, kwargs: dict[str, object], code: str
+) -> None:
+    archive = tmp_path / "attacker.tar"
+    child, config = _oci_archive(archive, **kwargs)
+    with pytest.raises(inspect_oci_archive.InspectionFailure, match=code):
+        inspect_oci_archive.inspect_archive(archive, child, config)
+
+
+def test_oci_archive_wrong_child_or_config_digest_fails_closed(tmp_path: Path) -> None:
+    archive = tmp_path / "image.tar"
+    child, config = _oci_archive(archive)
+    with pytest.raises(inspect_oci_archive.InspectionFailure, match="CHILD_DIGEST"):
+        inspect_oci_archive.inspect_archive(archive, "sha256:" + "a" * 64, config)
+    with pytest.raises(inspect_oci_archive.InspectionFailure, match="CONFIG_DIGEST"):
+        inspect_oci_archive.inspect_archive(archive, child, "sha256:" + "b" * 64)

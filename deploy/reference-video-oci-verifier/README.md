@@ -7,7 +7,15 @@ renderer and not proof of AgentTeams Worker or LLM execution.
 ## Security contract
 
 `run.sh` rejects mutable tags and requires a registry-resolved child digest and
-the separately observed image config digest. It uses Docker with:
+the separately observed image config digest. It checks both Docker
+`Descriptor.digest` and `RepoDigests`, then sends `docker save --platform
+linux/amd64` through `inspect_oci_archive.py`. The inspector reads the OCI
+archive without extraction and verifies `oci-layout`, `index.json`, the
+expected child manifest blob/media type, the config descriptor, and the config
+blob SHA-256/size/platform/user. It uses only Python's standard library and
+does not depend on `jq`.
+
+It uses Docker with:
 
 - `linux/amd64`, `--pull=never`, `--network none`, read-only rootfs;
 - `65532:65532`, dropped capabilities, default seccomp and
@@ -55,8 +63,10 @@ The image identity records the base child, artifact/schema/validator pins,
 package-lock digests, platform, fixed tool paths, binary SHA-256 and versions,
 JSON Schema version, locale inventory, Tesseract language data and font
 inventory. The image config digest is deliberately not guessed during the
-build: obtain it from an exact post-build `docker image inspect .Id` and keep
-it separate from the registry child manifest digest.
+build. Docker 29 may report the child manifest digest for both `.Id` and
+`.Descriptor.digest`; obtain the config digest from the saved OCI manifest's
+`config.digest` (the inspector does this) and keep it separate from the
+registry child manifest digest.
 
 ## Run and receipt
 

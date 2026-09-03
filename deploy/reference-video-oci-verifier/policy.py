@@ -89,8 +89,10 @@ def validate_image_metadata(
         raise ValueError("image child architecture is not amd64")
     if metadata.get("Os") != PLATFORM["os"]:
         raise ValueError("image child operating system is not linux")
-    if metadata.get("Id") != expected_config_digest:
-        raise ValueError("image config digest differs from expected digest")
+    if metadata.get("Descriptor.digest") != expected_image_digest:
+        raise ValueError("image descriptor digest differs from expected child digest")
+    if metadata.get("Id") != expected_image_digest:
+        raise ValueError("image ID is not the expected child digest")
     if metadata.get("Config.User") not in {"65532", "65532:65532"}:
         raise ValueError("image user is not the fixed non-root identity")
     repo_digests = metadata.get("RepoDigests")

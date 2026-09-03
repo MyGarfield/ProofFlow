@@ -99,12 +99,27 @@ IMAGE_ID="$(inspect '{{.Id}}')"
 IMAGE_ARCH="$(inspect '{{.Architecture}}')"
 IMAGE_OS="$(inspect '{{.Os}}')"
 IMAGE_USER="$(inspect '{{.Config.User}}')"
+IMAGE_DESCRIPTOR="$(inspect '{{.Descriptor.digest}}')"
 IMAGE_REPO_DIGESTS="$(inspect '{{join .RepoDigests "\n"}}')"
-[ "$IMAGE_ID" = "$EXPECTED_IMAGE_CONFIG_DIGEST" ] || die "IMAGE_CONFIG_DIGEST_MISMATCH"
+[ "$IMAGE_ID" = "$EXPECTED_IMAGE_DIGEST" ] || die "IMAGE_CHILD_DIGEST_MISMATCH"
+[ "$IMAGE_DESCRIPTOR" = "$EXPECTED_IMAGE_DIGEST" ] || die "IMAGE_DESCRIPTOR_DIGEST_MISMATCH"
 [ "$IMAGE_ARCH" = "amd64" ] || die "IMAGE_CHILD_ARCHITECTURE_MISMATCH"
 [ "$IMAGE_OS" = "linux" ] || die "IMAGE_CHILD_OS_MISMATCH"
 [ "$IMAGE_USER" = "65532:65532" ] || die "IMAGE_USER_MISMATCH"
 case "$IMAGE_REPO_DIGESTS" in *"$IMAGE_REF"*) ;; *) die "IMAGE_REPO_DIGEST_NOT_CONFIRMED" ;; esac
+
+IMAGE_ARCHIVE="$TMP_ROOT/image.oci.tar"
+if ! "$DOCKER_BIN" save --platform linux/amd64 --output "$IMAGE_ARCHIVE" "$IMAGE_REF" 2>"$TMP_ROOT/save.err"; then
+    die "IMAGE_ARCHIVE_EXPORT_FAILED"
+fi
+[ "$(/usr/bin/wc -c <"$IMAGE_ARCHIVE")" -le 1073741824 ] || die "IMAGE_ARCHIVE_OUTPUT_LIMIT_EXCEEDED"
+if ! "$HOST_PYTHON_BIN" "$SCRIPT_DIR/inspect_oci_archive.py" \
+    --archive "$IMAGE_ARCHIVE" \
+    --expected-child-digest "$EXPECTED_IMAGE_DIGEST" \
+    --expected-config-digest "$EXPECTED_IMAGE_CONFIG_DIGEST" \
+    >"$TMP_ROOT/archive-inspection.json" 2>"$TMP_ROOT/archive-inspection.err"; then
+    die "IMAGE_ARCHIVE_PIN_MISMATCH"
+fi
 
 set +e
 "$DOCKER_BIN" run --rm --pull=never \
