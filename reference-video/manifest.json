@@ -28,7 +28,7 @@
     "evidence/run_final_lint.py": "sha256:9fe3ece8d70f3c2582274f68477dbb92172c364a1aceb012a07fb82d0267fc34",
     "evidence/run_privacy_scan.py": "sha256:f22fad5d6c9ab66b7e179a6469cfec959725b0eebecfa8f0855475af3164e085",
     "evidence/test_manifest_validator.py": "sha256:6d07b2614dac40c8ccae545f5c1550976acaeeb453998f00a9a9b61c20a48ea8",
-    "evidence/validate_manifest.py": "sha256:759b57258662b6e2e7e612a1235b650f70d65f107903e77a78dd0f51a7cd3654",
+    "evidence/validate_manifest.py": "sha256:349f1dace7c1f703f58057108a0a1d1ffe1db2ea90e98b41c41df221b7e8a339",
     "evidence/video-frames.framemd5": "sha256:d7f1593cc4acccf2c630a878384952e547f281a508129c31c170450c6f13c1c0",
     "index.html": "sha256:c7d1032d17805c33f4d5515dffc28c56eb0a31f227a5a3c5590d8d69e52827af",
     "narration.txt": "sha256:22932db9ec806ad33e05ab8311d8afc89be24beca20b26953f287b1d7478a252",
@@ -67,7 +67,7 @@
       "snapshots/frame-06-at-84s.png"
     ],
     "scanner": "trusted-validator-live+tesseract",
-    "scanner_sha256": "sha256:759b57258662b6e2e7e612a1235b650f70d65f107903e77a78dd0f51a7cd3654"
+    "scanner_sha256": "sha256:349f1dace7c1f703f58057108a0a1d1ffe1db2ea90e98b41c41df221b7e8a339"
   },
   "claims": {
     "benchmark_11_of_11": "STRUCTURE_COMPLETE_ONLY",
@@ -324,7 +324,7 @@
       "evidence/privacy-scan.json",
       "manifest.json"
     ],
-    "input_digest": "sha256:373f95c7181006fdb5826f12af6a4f8d8b296c324b2fa8d1e33b01a12b7d80eb",
+    "input_digest": "sha256:f8472f07069b25b94fca587dde01f867114b95ea642858cbd6edb1f1e9f48dd9",
     "input_paths": [
       "DESIGN.md",
       "SCRIPT.md",
@@ -357,7 +357,7 @@
     ],
     "matches": [],
     "scanner": "trusted-validator-live",
-    "scanner_sha256": "sha256:759b57258662b6e2e7e612a1235b650f70d65f107903e77a78dd0f51a7cd3654"
+    "scanner_sha256": "sha256:349f1dace7c1f703f58057108a0a1d1ffe1db2ea90e98b41c41df221b7e8a339"
   },
   "readyWorkers": 0,
   "recorded_source_commit": "b63eeb60d1072c73d2d0d1d6061b3c8f800487a4",
@@ -411,7 +411,7 @@
       "version": "5.5.2"
     }
   },
-  "validator_sha256": "sha256:759b57258662b6e2e7e612a1235b650f70d65f107903e77a78dd0f51a7cd3654",
+  "validator_sha256": "sha256:349f1dace7c1f703f58057108a0a1d1ffe1db2ea90e98b41c41df221b7e8a339",
   "video": "renders/reference-runtime-evidence.mp4",
   "voiceover_status": "UNAVAILABLE_LOCAL_TTS",
   "workers": "Stopped"
