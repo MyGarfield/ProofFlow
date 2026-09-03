@@ -1,0 +1,193 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "proofflow.reference-runtime-oci-verifier.receipt.v1",
+  "title": "ProofFlow fixed OCI verifier receipt",
+  "description": "Closed, path-sanitized receipt for one linux/amd64 verification attempt.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "verifier",
+    "image",
+    "expectations",
+    "toolchain",
+    "observed",
+    "constraints",
+    "checks",
+    "overall_status",
+    "error_code",
+    "integrity"
+  ],
+  "properties": {
+    "schema": {"const": "proofflow.reference-runtime-oci-verifier.receipt.v1"},
+    "verifier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "source_sha256", "platform", "receipt_schema_sha256"],
+      "properties": {
+        "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+        "source_sha256": {"$ref": "#/$defs/sha256"},
+        "platform": {"const": "linux/amd64"},
+        "receipt_schema_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["child_digest", "config_digest", "platform"],
+      "properties": {
+        "child_digest": {"$ref": "#/$defs/sha256"},
+        "config_digest": {"$ref": "#/$defs/sha256"},
+        "platform": {"const": "linux/amd64"}
+      }
+    },
+    "expectations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_commit", "manifest_sha256", "schema_sha256", "validator_sha256"],
+      "properties": {
+        "artifact_commit": {"$ref": "#/$defs/commit"},
+        "manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "schema_sha256": {"$ref": "#/$defs/sha256"},
+        "validator_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "toolchain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["git", "python", "ffmpeg", "ffprobe", "tesseract", "jsonschema", "locale", "tessdata", "fonts"],
+      "properties": {
+        "git": {"$ref": "#/$defs/tool"},
+        "python": {"$ref": "#/$defs/tool"},
+        "ffmpeg": {"$ref": "#/$defs/tool"},
+        "ffprobe": {"$ref": "#/$defs/tool"},
+        "tesseract": {"$ref": "#/$defs/tool"},
+        "jsonschema": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+        "locale": {"const": "C.UTF-8"},
+        "tessdata": {"type": "array", "minItems": 2, "items": {"$ref": "#/$defs/path_digest"}},
+        "fonts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["root", "file_count", "sha256"],
+          "properties": {
+            "root": {"const": "/usr/share/fonts/noto-cjk"},
+            "file_count": {"type": "integer", "minimum": 0},
+            "sha256": {"$ref": "#/$defs/sha256"}
+          }
+        }
+      }
+    },
+    "observed": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["manifest_sha256", "video_sha256", "ocr_sha256", "ocr_parity", "mounts", "resource_limits"],
+      "properties": {
+        "manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "video_sha256": {"$ref": "#/$defs/sha256"},
+        "ocr_sha256": {"anyOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+        "ocr_parity": {"enum": ["PASS", "FAIL", "UNKNOWN"]},
+        "mounts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["artifact", "git", "rootfs"],
+          "properties": {
+            "artifact": {"const": "ro"},
+            "git": {"const": "ro"},
+            "rootfs": {"const": "ro"}
+          }
+        },
+        "resource_limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["cpus", "memory", "memory_swap", "pids", "nofile", "tmpfs"],
+          "properties": {
+            "cpus": {"const": "100000 100000"},
+            "memory": {"const": "536870912"},
+            "memory_swap": {"const": "0"},
+            "pids": {"const": "128"},
+            "nofile": {"const": "1024:1024"},
+            "tmpfs": {"const": "/tmp:rw,noexec,nosuid,nodev,size=64m"}
+          }
+        }
+      }
+    },
+    "constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "uid",
+        "gid",
+        "network",
+        "rootfs",
+        "artifact_mount",
+        "git_mount",
+        "docker_socket",
+        "capabilities",
+        "no_new_privileges",
+        "seccomp",
+        "path_source"
+      ],
+      "properties": {
+        "uid": {"const": 65532},
+        "gid": {"const": 65532},
+        "network": {"const": "none"},
+        "rootfs": {"const": "read-only"},
+        "artifact_mount": {"const": "read-only"},
+        "git_mount": {"const": "read-only"},
+        "docker_socket": {"const": false},
+        "capabilities": {"const": "drop-all"},
+        "no_new_privileges": {"const": true},
+        "seccomp": {"const": "default"},
+        "path_source": {"const": "image-fixed-absolute"}
+      }
+    },
+    "checks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status", "code"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+          "status": {"enum": ["PASS", "FAIL", "UNKNOWN", "SKIP"]},
+          "code": {"type": "string", "pattern": "^[A-Z0-9_]+$"}
+        }
+      }
+    },
+    "overall_status": {"enum": ["PASS", "FAIL", "UNKNOWN"]},
+    "error_code": {"type": ["null", "string"], "pattern": "^[A-Z0-9_]+$"},
+    "integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "payload_sha256"],
+      "properties": {
+        "algorithm": {"const": "sha256-canonical-json-excluding-integrity"},
+        "payload_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "version"],
+      "properties": {
+        "path": {"enum": ["/usr/bin/git", "/usr/local/bin/python3.12", "/usr/bin/ffmpeg", "/usr/bin/ffprobe", "/usr/bin/tesseract"]},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "version": {"type": "string", "minLength": 1}
+      }
+    },
+    "path_digest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^/usr/share/(tessdata|fonts)/[A-Za-z0-9_.+-/]+$"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}
