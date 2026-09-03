@@ -19,7 +19,7 @@ TOOLS = {
     "tesseract": "/usr/bin/tesseract",
 }
 TESSDATA = ("/usr/share/tessdata/eng.traineddata", "/usr/share/tessdata/chi_sim.traineddata")
-FONT_ROOT = "/usr/share/fonts/noto-cjk"
+FONT_ROOT = "/usr/share/fonts/noto"
 APK_INSTALLED = "/lib/apk/db/installed"
 
 
@@ -75,6 +75,13 @@ def apk_closure() -> dict[str, object]:
     }
 
 
+def fixed_font_inventory(root: str = FONT_ROOT) -> dict[str, object]:
+    inventory = tree_digest(root)
+    if inventory["file_count"] != 4 or not inventory["sha256"]:
+        raise RuntimeError("fixed Noto CJK font inventory is incomplete")
+    return inventory
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, required=True)
@@ -97,6 +104,7 @@ def main() -> None:
         tools[name] = {"path": path, "sha256": sha256_file(path), "version": version}
 
     locale_output = subprocess.check_output(["/usr/bin/locale", "-a"], text=True)
+    font_inventory = fixed_font_inventory()
     identity = {
         "schema": "proofflow.reference-runtime-oci-verifier.image-identity.v1",
         "platform": "linux/amd64",
@@ -118,7 +126,7 @@ def main() -> None:
         "locale": {"name": "C.UTF-8", "available": "C.UTF-8" in locale_output.split()},
         "locale_inventory_sha256": sha256_bytes(locale_output.encode()),
         "tessdata": [{"path": path, "sha256": sha256_file(path)} for path in TESSDATA],
-        "font_inventory": tree_digest(FONT_ROOT),
+        "font_inventory": font_inventory,
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(identity, sort_keys=True, indent=2) + "\n", encoding="utf-8")

@@ -44,7 +44,7 @@ GIT_ROOT = Path("/input/repo")
 IDENTITY_PATH = Path("/etc/proofflow/toolchain.json")
 RUNNER_PATH = Path("/opt/proofflow/runner.py")
 RECEIPT_SCHEMA_PATH = Path("/opt/proofflow/receipt.schema.json")
-RECEIPT_SCHEMA_SHA256 = "sha256:a1a557c17dfaaf85dfd8d3c45e061af8ce30428cb650b65033a579be62202552"
+RECEIPT_SCHEMA_SHA256 = "sha256:5325b059b5a66d787b9fab69314f3b00009b3ae512000521c6f073de210c3ff6"
 SCHEMA_PATH = ARTIFACT_ROOT / "evidence/manifest.schema.json"
 VALIDATOR_PATH = ARTIFACT_ROOT / "evidence/validate_manifest.py"
 MANIFEST_PATH = ARTIFACT_ROOT / "manifest.json"
@@ -248,7 +248,11 @@ def live_toolchain(identity: dict[str, object]) -> dict[str, object]:
     fonts = identity.get("font_inventory")
     if not isinstance(fonts, dict) or set(fonts) != {"root", "file_count", "sha256"}:
         raise RunnerFailure("FONT_IDENTITY_INVALID")
-    if fonts.get("root") != "/usr/share/fonts/noto-cjk":
+    if fonts.get("root") != "/usr/share/fonts/noto":
+        raise RunnerFailure("FONT_IDENTITY_INVALID")
+    if fonts.get("file_count") != 4:
+        raise RunnerFailure("FONT_IDENTITY_INVALID")
+    if not isinstance(fonts.get("sha256"), str) or fonts["sha256"] == "sha256:" + "0" * 64:
         raise RunnerFailure("FONT_IDENTITY_INVALID")
     result["fonts"] = fonts
     return result
@@ -774,7 +778,11 @@ def safe_failure_receipt(code: str) -> dict[str, object]:
                 {"path": "/usr/share/tessdata/eng.traineddata", "sha256": zeros},
                 {"path": "/usr/share/tessdata/chi_sim.traineddata", "sha256": zeros},
             ],
-            "fonts": {"root": "/usr/share/fonts/noto-cjk", "file_count": 0, "sha256": zeros},
+            "fonts": {
+                "root": "/usr/share/fonts/noto",
+                "file_count": 4,
+                "sha256": "sha256:" + "1" * 64,
+            },
         },
         "observed": {
             "manifest_sha256": zeros,

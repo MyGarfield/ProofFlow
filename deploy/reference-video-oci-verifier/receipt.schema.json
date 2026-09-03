@@ -70,9 +70,14 @@
           "additionalProperties": false,
           "required": ["root", "file_count", "sha256"],
           "properties": {
-            "root": {"const": "/usr/share/fonts/noto-cjk"},
-            "file_count": {"type": "integer", "minimum": 0},
-            "sha256": {"$ref": "#/$defs/sha256"}
+            "root": {"const": "/usr/share/fonts/noto"},
+            "file_count": {"const": 4},
+            "sha256": {
+              "allOf": [
+                {"$ref": "#/$defs/sha256"},
+                {"not": {"const": "sha256:0000000000000000000000000000000000000000000000000000000000000000"}}
+              ]
+            }
           }
         }
       }

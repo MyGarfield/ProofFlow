@@ -13,6 +13,7 @@ from jsonschema import Draft202012Validator, ValidationError
 OCI = Path(__file__).parents[2] / "deploy/reference-video-oci-verifier"
 sys.path.insert(0, str(OCI))
 
+import build_identity  # noqa: E402
 import inspect_oci_archive  # noqa: E402
 import runner  # noqa: E402
 import write_receipt  # noqa: E402
@@ -242,6 +243,25 @@ def test_receipt_has_no_host_paths(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "/Users/" not in serialized
     assert "/home/" not in serialized
     assert "docker.sock" not in serialized
+
+
+def test_font_identity_fixture_requires_exact_four_nonempty_files(tmp_path: Path) -> None:
+    font_root = tmp_path / "noto"
+    font_root.mkdir()
+    for name in (
+        "NotoSansCJK-Bold.ttc",
+        "NotoSansCJK-Regular.ttc",
+        "NotoSerifCJK-Bold.ttc",
+        "NotoSerifCJK-Regular.ttc",
+    ):
+        (font_root / name).write_bytes(name.encode())
+    inventory = build_identity.fixed_font_inventory(str(font_root))
+    assert inventory["root"] == str(font_root)
+    assert inventory["file_count"] == 4
+    assert inventory["sha256"] != "sha256:" + "0" * 64
+    (font_root / "unexpected.ttc").write_bytes(b"drift")
+    with pytest.raises(RuntimeError, match="font inventory"):
+        build_identity.fixed_font_inventory(str(font_root))
 
 
 def test_receipt_install_is_no_overwrite_and_no_symlink(tmp_path: Path) -> None:
