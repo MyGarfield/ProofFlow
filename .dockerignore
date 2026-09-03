@@ -36,7 +36,6 @@ secrets/
 **/secrets/
 
 submission/private
-reference-video
 tests
 benchmarks
 docs

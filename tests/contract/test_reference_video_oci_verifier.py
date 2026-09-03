@@ -37,8 +37,6 @@ def test_dockerfile_pins_current_amd64_child_and_build_inputs() -> None:
     assert "MAIN_APKINDEX_SHA256" in dockerfile
     assert "USER 65532:65532" in dockerfile
     assert 'ENTRYPOINT ["/usr/local/bin/python3.12", "/opt/proofflow/runner.py"]' in dockerfile
-    dockerignore = (Path(__file__).parents[2] / ".dockerignore").read_text(encoding="utf-8")
-    assert "reference-video" in dockerignore
     assert "COPY deploy/reference-video-oci-verifier/receipt.schema.json" in dockerfile
 
 
