@@ -22,6 +22,7 @@ ARTIFACT_PATHS = (
     "SCRIPT.md",
     "STORYBOARD.md",
     "index.html",
+    "narration.txt",
     "subtitles.srt",
     "silent-aac.m4a",
     "renders/reference-runtime-evidence.mp4",

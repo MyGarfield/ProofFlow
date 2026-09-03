@@ -15,8 +15,11 @@ sys.path.insert(0, str(EVIDENCE))
 
 from validate_manifest import (  # noqa: E402
     GIT_UNTRUSTED_ENV,
+    MAX_OBSERVED_TREE_ENTRIES,
+    MAX_SINGLE_ARTIFACT_BYTES,
     git_command,
     git_environment,
+    release_snapshot_for_cleanup,
     snapshot_artifact_tree,
     stable_read_bytes,
 )
@@ -68,13 +71,13 @@ def current_artifact_commit() -> str:
     ).strip()
 
 
-def expect_boundary_error(tmp_path: Path, setup) -> None:
+def expect_boundary_error(tmp_path: Path, setup, match: str = "artifact") -> None:
     source = tmp_path / "package"
     source.mkdir()
     setup(source)
     destination = tmp_path / "snapshot"
     destination.mkdir()
-    with pytest.raises(ValueError, match=r"(?:symlink|hardlink|special) artifact"):
+    with pytest.raises((ValueError, OSError), match=match):
         snapshot_artifact_tree(source, destination)
 
 
@@ -83,19 +86,28 @@ def test_current_reference_package_can_be_snapshotted_without_following_links(
 ) -> None:
     destination = tmp_path / "snapshot"
     destination.mkdir()
-    snapshot_artifact_tree(VIDEO_ROOT, destination)
-    for relative in (
-        "manifest.json",
-        "evidence/manifest.schema.json",
-        "evidence/validate_manifest.py",
-        "renders/reference-runtime-evidence.mp4",
-    ):
-        original = VIDEO_ROOT / relative
-        copied = destination / relative
-        assert copied.is_file()
-        assert copied.read_bytes() == original.read_bytes()
-        assert not copied.is_symlink()
-        assert copied.stat().st_nlink == 1
+    try:
+        snapshot_artifact_tree(VIDEO_ROOT, destination)
+        for relative in (
+            "manifest.json",
+            "evidence/manifest.schema.json",
+            "evidence/validate_manifest.py",
+            "narration.txt",
+            "renders/reference-runtime-evidence.mp4",
+        ):
+            original = VIDEO_ROOT / relative
+            copied = destination / relative
+            assert copied.is_file()
+            assert copied.read_bytes() == original.read_bytes()
+            assert not copied.is_symlink()
+            assert copied.stat().st_nlink == 1
+        assert not any("__pycache__" in path.parts for path in destination.rglob("*"))
+        assert destination.stat().st_mode & 0o777 == 0o500
+        for path in destination.rglob("*"):
+            expected_mode = 0o500 if path.is_dir() else 0o400
+            assert path.stat().st_mode & 0o777 == expected_mode
+    finally:
+        release_snapshot_for_cleanup(destination)
 
 
 def test_package_artifact_symlink_is_rejected(tmp_path: Path) -> None:
@@ -126,6 +138,121 @@ def test_package_special_file_is_rejected(tmp_path: Path) -> None:
         os.mkfifo(source / "fifo")
 
     expect_boundary_error(tmp_path, setup)
+
+
+def test_extra_binary_is_rejected_before_read(tmp_path: Path) -> None:
+    expect_boundary_error(
+        tmp_path,
+        lambda source: (source / "extra.bin").write_bytes(b"unbound"),
+        match="unknown artifact file",
+    )
+
+
+def test_unknown_text_is_rejected_before_read(tmp_path: Path) -> None:
+    expect_boundary_error(
+        tmp_path,
+        lambda source: (source / "notes.txt").write_text("unbound", encoding="utf-8"),
+        match="unknown artifact file",
+    )
+
+
+def test_extra_directory_is_rejected_even_when_empty(tmp_path: Path) -> None:
+    expect_boundary_error(
+        tmp_path,
+        lambda source: (source / "unknown").mkdir(),
+        match="unknown artifact directory",
+    )
+
+
+def test_single_file_size_limit_is_checked_before_read(tmp_path: Path) -> None:
+    expect_boundary_error(
+        tmp_path,
+        lambda source: (source / "manifest.json").write_bytes(
+            b"x" * (MAX_SINGLE_ARTIFACT_BYTES + 1)
+        ),
+        match="single artifact size",
+    )
+
+
+def test_total_tree_size_limit_is_checked_before_read(tmp_path: Path) -> None:
+    def setup(source: Path) -> None:
+        for relative in ("DESIGN.md", "SCRIPT.md", "STORYBOARD.md"):
+            (source / relative).write_bytes(b"x" * MAX_SINGLE_ARTIFACT_BYTES)
+
+    expect_boundary_error(tmp_path, setup, match="artifact tree size")
+
+
+def test_observed_entry_count_limit_is_checked_before_read(tmp_path: Path) -> None:
+    def setup(source: Path) -> None:
+        for index in range(MAX_OBSERVED_TREE_ENTRIES + 1):
+            (source / f"extra-{index}.txt").write_text("unbound", encoding="utf-8")
+
+    expect_boundary_error(tmp_path, setup, match="entry count")
+
+
+def test_directory_depth_limit_is_checked_before_descent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import validate_manifest
+
+    source = tmp_path / "package"
+    source.mkdir()
+    (source / "too-deep").mkdir()
+    destination = tmp_path / "snapshot"
+    destination.mkdir()
+    monkeypatch.setattr(validate_manifest, "MAX_ARTIFACT_DIRECTORY_DEPTH", 0)
+    with pytest.raises(ValueError, match="directory depth"):
+        snapshot_artifact_tree(source, destination)
+
+
+def test_source_rename_substitution_is_rejected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import validate_manifest
+
+    source = tmp_path / "package"
+    source.mkdir()
+    source_file = source / "manifest.json"
+    source_file.write_bytes(b"original")
+    destination = tmp_path / "snapshot"
+    destination.mkdir()
+    original_open = os.open
+    renamed = False
+
+    def rename_before_open(path, flags, mode=0o777, *, dir_fd=None):
+        nonlocal renamed
+        if path == "manifest.json" and dir_fd is not None and not renamed:
+            renamed = True
+            source_file.rename(source / "moved")
+            source_file.write_bytes(b"replacement")
+        return original_open(path, flags, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(validate_manifest.os, "open", rename_before_open)
+    with pytest.raises(ValueError, match="source file changed before stable read"):
+        snapshot_artifact_tree(source, destination)
+
+
+def test_destination_symlink_is_rejected(tmp_path: Path) -> None:
+    source = tmp_path / "package"
+    source.mkdir()
+    (source / "manifest.json").write_bytes(b"{}")
+    target = tmp_path / "destination-target"
+    target.mkdir()
+    destination = tmp_path / "snapshot"
+    destination.symlink_to(target, target_is_directory=True)
+    with pytest.raises((ValueError, OSError)):
+        snapshot_artifact_tree(source, destination)
+
+
+def test_destination_must_be_empty(tmp_path: Path) -> None:
+    source = tmp_path / "package"
+    source.mkdir()
+    (source / "manifest.json").write_bytes(b"{}")
+    destination = tmp_path / "snapshot"
+    destination.mkdir()
+    (destination / "preexisting").write_bytes(b"attacker")
+    with pytest.raises(ValueError, match="destination must be empty"):
+        snapshot_artifact_tree(source, destination)
 
 
 def test_stable_read_rejects_content_replacement_during_read(

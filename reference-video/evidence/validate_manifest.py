@@ -137,6 +137,7 @@ ARTIFACT_PATHS = (
     "SCRIPT.md",
     "STORYBOARD.md",
     "index.html",
+    "narration.txt",
     "subtitles.srt",
     "silent-aac.m4a",
     "renders/reference-runtime-evidence.mp4",
@@ -168,6 +169,23 @@ ARTIFACT_PATHS = (
     "evidence/test_manifest_validator.py",
     *SNAPSHOT_PATHS,
 )
+MANIFEST_PATH = "manifest.json"
+ALLOWED_ARTIFACT_FILES = frozenset((MANIFEST_PATH, *ARTIFACT_PATHS))
+ALLOWED_ARTIFACT_DIRECTORIES = frozenset(
+    {"."}
+    | {
+        PurePosixPath(relative).parent.as_posix()
+        for relative in ALLOWED_ARTIFACT_FILES
+        if PurePosixPath(relative).parent.as_posix() != "."
+    }
+)
+IGNORED_CACHE_DIRECTORY = "__pycache__"
+IGNORED_CACHE_SUFFIX = ".pyc"
+MAX_SINGLE_ARTIFACT_BYTES = 4 * 1024 * 1024
+MAX_TOTAL_ARTIFACT_BYTES = 8 * 1024 * 1024
+MAX_ARTIFACT_FILE_COUNT = len(ALLOWED_ARTIFACT_FILES)
+MAX_OBSERVED_TREE_ENTRIES = MAX_ARTIFACT_FILE_COUNT + 16
+MAX_ARTIFACT_DIRECTORY_DEPTH = 4
 EXPECTED_MANIFEST_KEYS = {
     "actual_duration_seconds",
     "artifact_hashes",
@@ -348,6 +366,16 @@ def _stat_identity(result: os.stat_result) -> tuple[int, int, int, int, int]:
     )
 
 
+def _node_identity(result: os.stat_result) -> tuple[int, int, int, int, int]:
+    return (
+        result.st_dev,
+        result.st_ino,
+        stat.S_IFMT(result.st_mode),
+        result.st_mode,
+        result.st_nlink,
+    )
+
+
 def _require_regular(result: os.stat_result, path: Path) -> None:
     fail(not stat.S_ISLNK(result.st_mode), f"symlink artifact is forbidden: {path}")
     fail(stat.S_ISREG(result.st_mode), f"special artifact is forbidden: {path}")
@@ -476,56 +504,230 @@ def absolute_directory(value: str, name: str) -> Path:
     return path
 
 
-def snapshot_artifact_tree(source: Path, destination: Path) -> None:
-    """Copy a package through stable FDs into a private immutable read set."""
-    source = absolute_directory(str(source), "video root")
-    source_fd = _open_no_follow(source, os.O_RDONLY | os.O_DIRECTORY)
+def _snapshot_relative(parent: str, name: str) -> str:
+    return name if parent == "." else f"{parent}/{name}"
 
-    def copy_directory(parent_fd: int, parent_path: Path, output: Path) -> None:
-        for name in sorted(os.listdir(parent_fd)):
-            source_path = parent_path / name
-            result = os.lstat(name, dir_fd=parent_fd)
-            if stat.S_ISLNK(result.st_mode):
-                fail(False, f"symlink artifact is forbidden: {source_path}")
-            if stat.S_ISDIR(result.st_mode):
+
+def _snapshot_budget_entry(budget: dict[str, int], path: Path) -> None:
+    budget["observed_entries"] += 1
+    fail(
+        budget["observed_entries"] <= MAX_OBSERVED_TREE_ENTRIES,
+        f"artifact tree entry count exceeds {MAX_OBSERVED_TREE_ENTRIES}: {path}",
+    )
+
+
+def _bounded_names(parent_fd: int, parent_path: Path) -> list[str]:
+    """Enumerate at most the configured entry budget before allocating names."""
+    names: list[str] = []
+    with os.scandir(parent_fd) as entries:
+        for entry in entries:
+            if len(names) >= MAX_OBSERVED_TREE_ENTRIES:
+                fail(
+                    False,
+                    f"directory entry count exceeds {MAX_OBSERVED_TREE_ENTRIES}: {parent_path}",
+                )
+            names.append(entry.name)
+    return sorted(names)
+
+
+def _snapshot_reserve_file(
+    budget: dict[str, int], relative: str, result: os.stat_result, path: Path
+) -> None:
+    _require_regular(result, path)
+    fail(relative in ALLOWED_ARTIFACT_FILES, f"unknown artifact file: {relative}")
+    fail(
+        result.st_size <= MAX_SINGLE_ARTIFACT_BYTES,
+        f"single artifact size exceeds {MAX_SINGLE_ARTIFACT_BYTES}: {relative}",
+    )
+    budget["files"] += 1
+    fail(
+        budget["files"] <= MAX_ARTIFACT_FILE_COUNT,
+        f"artifact file count exceeds {MAX_ARTIFACT_FILE_COUNT}: {relative}",
+    )
+    budget["bytes"] += result.st_size
+    fail(
+        budget["bytes"] <= MAX_TOTAL_ARTIFACT_BYTES,
+        f"artifact tree size exceeds {MAX_TOTAL_ARTIFACT_BYTES}: {relative}",
+    )
+
+
+def _snapshot_cache_directory(parent_fd: int, parent_path: Path, budget: dict[str, int]) -> None:
+    names = _bounded_names(parent_fd, parent_path)
+    for name in names:
+        path = parent_path / name
+        relative = _snapshot_relative("__pycache__", name)
+        _snapshot_budget_entry(budget, path)
+        result = os.lstat(name, dir_fd=parent_fd)
+        if stat.S_ISLNK(result.st_mode):
+            fail(False, f"symlink artifact is forbidden: {path}")
+        fail(not stat.S_ISDIR(result.st_mode), f"unknown cache entry: {relative}")
+        _require_regular(result, path)
+        fail(name.endswith(IGNORED_CACHE_SUFFIX), f"unknown cache entry: {relative}")
+
+
+def _write_snapshot_file(parent_fd: int, name: str, contents: bytes, path: Path) -> None:
+    destination_fd = os.open(
+        name,
+        os.O_WRONLY
+        | os.O_CREAT
+        | os.O_EXCL
+        | getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_CLOEXEC", 0),
+        0o400,
+        dir_fd=parent_fd,
+    )
+    try:
+        offset = 0
+        while offset < len(contents):
+            written = os.write(destination_fd, contents[offset:])
+            fail(written > 0, f"snapshot write made no progress: {path}")
+            offset += written
+        os.fchmod(destination_fd, 0o400)
+    finally:
+        os.close(destination_fd)
+
+
+def snapshot_artifact_tree(source: Path, destination: Path) -> None:
+    """Copy only the declared artifact closure through stable, no-follow FDs."""
+    source = absolute_directory(str(source), "video root")
+    destination = absolute_directory(str(destination), "snapshot destination")
+    destination_fd = _open_no_follow(destination, os.O_RDONLY | os.O_DIRECTORY)
+    source_fd = -1
+    budget = {"observed_entries": 0, "files": 0, "bytes": 0}
+
+    try:
+        source_fd = _open_no_follow(source, os.O_RDONLY | os.O_DIRECTORY)
+        fail(not _bounded_names(destination_fd, destination), "snapshot destination must be empty")
+
+        def copy_directory(
+            parent_fd: int,
+            parent_path: Path,
+            output_fd: int,
+            output_path: Path,
+            parent_relative: str,
+        ) -> None:
+            names = _bounded_names(parent_fd, parent_path)
+            for name in names:
+                source_path = parent_path / name
+                relative = _snapshot_relative(parent_relative, name)
+                _snapshot_budget_entry(budget, source_path)
+                result = os.lstat(name, dir_fd=parent_fd)
+                if stat.S_ISLNK(result.st_mode):
+                    fail(False, f"symlink artifact is forbidden: {source_path}")
+                if stat.S_ISDIR(result.st_mode):
+                    depth = len(PurePosixPath(relative).parts)
+                    fail(
+                        depth <= MAX_ARTIFACT_DIRECTORY_DEPTH,
+                        "artifact directory depth exceeds "
+                        f"{MAX_ARTIFACT_DIRECTORY_DEPTH}: {relative}",
+                    )
+                    if name == IGNORED_CACHE_DIRECTORY:
+                        cache_fd = os.open(
+                            name,
+                            os.O_RDONLY
+                            | os.O_DIRECTORY
+                            | os.O_NONBLOCK
+                            | getattr(os, "O_NOFOLLOW", 0)
+                            | getattr(os, "O_CLOEXEC", 0),
+                            dir_fd=parent_fd,
+                        )
+                        try:
+                            opened = os.fstat(cache_fd)
+                            _require_directory(opened, source_path)
+                            fail(
+                                _node_identity(result) == _node_identity(opened),
+                                f"source directory changed before stable read: {relative}",
+                            )
+                            _snapshot_cache_directory(cache_fd, source_path, budget)
+                        finally:
+                            os.close(cache_fd)
+                        continue
+                    fail(
+                        relative in ALLOWED_ARTIFACT_DIRECTORIES,
+                        f"unknown artifact directory: {relative}",
+                    )
+                    child_fd = os.open(
+                        name,
+                        os.O_RDONLY
+                        | os.O_DIRECTORY
+                        | os.O_NONBLOCK
+                        | getattr(os, "O_NOFOLLOW", 0)
+                        | getattr(os, "O_CLOEXEC", 0),
+                        dir_fd=parent_fd,
+                    )
+                    try:
+                        opened = os.fstat(child_fd)
+                        _require_directory(opened, source_path)
+                        fail(
+                            _node_identity(result) == _node_identity(opened),
+                            f"source directory changed before stable read: {relative}",
+                        )
+                        os.mkdir(name, 0o700, dir_fd=output_fd)
+                        child_output_fd = os.open(
+                            name,
+                            os.O_RDONLY
+                            | os.O_DIRECTORY
+                            | os.O_NONBLOCK
+                            | getattr(os, "O_NOFOLLOW", 0)
+                            | getattr(os, "O_CLOEXEC", 0),
+                            dir_fd=output_fd,
+                        )
+                        try:
+                            os.fchmod(child_output_fd, 0o700)
+                            copy_directory(
+                                child_fd,
+                                source_path,
+                                child_output_fd,
+                                output_path / name,
+                                relative,
+                            )
+                            os.fchmod(child_output_fd, 0o500)
+                        finally:
+                            os.close(child_output_fd)
+                    finally:
+                        os.close(child_fd)
+                    continue
+                _snapshot_reserve_file(budget, relative, result, source_path)
                 child_fd = os.open(
                     name,
                     os.O_RDONLY
-                    | os.O_DIRECTORY
                     | os.O_NONBLOCK
                     | getattr(os, "O_NOFOLLOW", 0)
                     | getattr(os, "O_CLOEXEC", 0),
                     dir_fd=parent_fd,
                 )
                 try:
-                    _require_directory(os.fstat(child_fd), source_path)
-                    child_output = output / name
-                    child_output.mkdir(mode=0o700)
-                    copy_directory(child_fd, source_path, child_output)
+                    opened = os.fstat(child_fd)
+                    _require_regular(opened, source_path)
+                    fail(
+                        _node_identity(result) == _node_identity(opened),
+                        f"source file changed before stable read: {relative}",
+                    )
+                    fail(
+                        opened.st_size == result.st_size,
+                        f"source file size changed before stable read: {relative}",
+                    )
+                    contents = _read_stable_fd(child_fd, source_path)
                 finally:
                     os.close(child_fd)
-                continue
-            _require_regular(result, source_path)
-            child_fd = os.open(
-                name,
-                os.O_RDONLY
-                | os.O_NONBLOCK
-                | getattr(os, "O_NOFOLLOW", 0)
-                | getattr(os, "O_CLOEXEC", 0),
-                dir_fd=parent_fd,
-            )
-            try:
-                contents = _read_stable_fd(child_fd, source_path)
-            finally:
-                os.close(child_fd)
-            destination_path = output / name
-            destination_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-            destination_path.write_bytes(contents)
+                _write_snapshot_file(output_fd, name, contents, output_path / name)
 
-    try:
-        copy_directory(source_fd, source, destination)
+        copy_directory(source_fd, source, destination_fd, destination, ".")
+        os.fchmod(destination_fd, 0o500)
     finally:
-        os.close(source_fd)
+        if source_fd >= 0:
+            os.close(source_fd)
+        os.close(destination_fd)
+
+
+def release_snapshot_for_cleanup(root: Path) -> None:
+    """Restore private snapshot permissions so its temporary directory can be removed."""
+    for path in sorted(root.rglob("*"), key=lambda value: len(value.parts), reverse=True):
+        if path.is_dir():
+            os.chmod(path, 0o700)
+        else:
+            os.chmod(path, 0o600)
+    os.chmod(root, 0o700)
 
 
 def git_environment() -> dict[str, str]:
@@ -1087,19 +1289,22 @@ def validate_manifest(
         prefix="proofflow-reference-video-", dir=temporary_parent
     ) as directory:
         snapshot_root = Path(directory)
-        snapshot_artifact_tree(video_root, snapshot_root)
-        _validate_manifest_snapshot(
-            snapshot_root / "manifest.json",
-            snapshot_root,
-            expected_schema_sha256,
-            expected_validator_sha256,
-            expected_artifact_commit,
-            trusted_git_root,
-            git_binary,
-            ffprobe_path,
-            ffmpeg_path,
-            tesseract_path,
-        )
+        try:
+            snapshot_artifact_tree(video_root, snapshot_root)
+            _validate_manifest_snapshot(
+                snapshot_root / "manifest.json",
+                snapshot_root,
+                expected_schema_sha256,
+                expected_validator_sha256,
+                expected_artifact_commit,
+                trusted_git_root,
+                git_binary,
+                ffprobe_path,
+                ffmpeg_path,
+                tesseract_path,
+            )
+        finally:
+            release_snapshot_for_cleanup(snapshot_root)
 
 
 def _validate_manifest_snapshot(
