@@ -83,7 +83,7 @@ SCRIPT_DIR="$(/usr/bin/dirname "$0")"
 SCRIPT_DIR="$(CDPATH= cd -- "$SCRIPT_DIR" && pwd)" || die "LAUNCHER_DIRECTORY_UNAVAILABLE"
 
 TMP_ROOT="$(/usr/bin/mktemp -d /tmp/proofflow-oci-run.XXXXXX)" || die "TEMPORARY_DIRECTORY_FAILED"
-trap '/usr/bin/rm -rf "$TMP_ROOT"' EXIT HUP INT TERM
+trap '/bin/rm -rf "$TMP_ROOT"' EXIT HUP INT TERM
 INSPECT_ERR="$TMP_ROOT/inspect.err"
 RUN_OUTPUT="$TMP_ROOT/receipt.json"
 
@@ -128,7 +128,6 @@ set +e
     --read-only \
     --cap-drop ALL \
     --security-opt no-new-privileges:true \
-    --security-opt seccomp=default \
     --user 65532:65532 \
     --cpus 1 \
     --memory 536870912 \
@@ -163,5 +162,5 @@ if [ -n "$RECEIPT_OUTPUT" ]; then
         die "RECEIPT_OUTPUT_WRITE_FAILED"
     fi
 fi
-/usr/bin/cat "$RUN_OUTPUT"
+/bin/cat "$RUN_OUTPUT"
 exit "$DOCKER_STATUS"

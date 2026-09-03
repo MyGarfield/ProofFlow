@@ -56,7 +56,6 @@ def test_launcher_has_all_fail_closed_docker_options() -> None:
         "--read-only",
         "--cap-drop ALL",
         "--security-opt no-new-privileges:true",
-        "--security-opt seccomp=default",
         "--user 65532:65532",
         "--cpus 1",
         "--memory 536870912",
@@ -70,6 +69,9 @@ def test_launcher_has_all_fail_closed_docker_options() -> None:
         assert option in launcher
     assert "docker.sock" not in launcher
     assert "--privileged" not in launcher
+    assert "--security-opt seccomp=default" not in launcher
+    assert "/bin/rm -rf" in launcher
+    assert "/bin/cat" in launcher
 
 
 def test_mutable_tag_is_not_an_image_reference() -> None:

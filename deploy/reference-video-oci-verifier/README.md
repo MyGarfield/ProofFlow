@@ -18,8 +18,8 @@ does not depend on `jq`.
 It uses Docker with:
 
 - `linux/amd64`, `--pull=never`, `--network none`, read-only rootfs;
-- `65532:65532`, dropped capabilities, default seccomp and
-  `no-new-privileges`;
+- `65532:65532`, dropped capabilities, Docker's default seccomp profile and
+  `no-new-privileges` (the launcher does not pass a host profile path);
 - `--cpus 1`, `--memory 536870912`, no swap, `--pids-limit 128`, and
   `nofile=1024:1024`;
 - a 64 MiB `tmpfs` at `/tmp` with `noexec,nosuid,nodev`;
