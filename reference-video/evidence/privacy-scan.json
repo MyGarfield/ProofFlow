@@ -35,7 +35,7 @@
     "manifest.json",
     "evidence/privacy-scan.json"
   ],
-  "input_digest": "sha256:373f95c7181006fdb5826f12af6a4f8d8b296c324b2fa8d1e33b01a12b7d80eb",
+  "input_digest": "sha256:f8472f07069b25b94fca587dde01f867114b95ea642858cbd6edb1f1e9f48dd9",
   "input_paths": [
     "DESIGN.md",
     "SCRIPT.md",

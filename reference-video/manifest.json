@@ -24,7 +24,7 @@
     "evidence/lint-summary.json": "sha256:2de33e6b316e0173ff4d86ea75011a0acbd2537fa17a644db2ffde6677675743",
     "evidence/manifest.schema.json": "sha256:3af014e66ce304a5f205e5cb9b2900157d6469b72ff5601e1c7a1d447224c104",
     "evidence/network-ledger.json": "sha256:0ea4696637b8308e90fa78ba1fbeeb87d51bc1081869619bbb9dcfb047643bdf",
-    "evidence/privacy-scan.json": "sha256:69f7d7cd2a89817aecdd9765db1fc18cabcab5f52b0821d4f814571381d4b355",
+    "evidence/privacy-scan.json": "sha256:d26f26dbb576db8352cb966cf0e560573e4dc46ddcb5a9939ff510064ce7235c",
     "evidence/run_final_lint.py": "sha256:9fe3ece8d70f3c2582274f68477dbb92172c364a1aceb012a07fb82d0267fc34",
     "evidence/run_privacy_scan.py": "sha256:f22fad5d6c9ab66b7e179a6469cfec959725b0eebecfa8f0855475af3164e085",
     "evidence/test_manifest_validator.py": "sha256:6d07b2614dac40c8ccae545f5c1550976acaeeb453998f00a9a9b61c20a48ea8",
