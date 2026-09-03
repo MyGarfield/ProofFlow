@@ -1081,11 +1081,8 @@ def validate_manifest(
     ffprobe_path = absolute_tool_path(str(ffprobe_path), "ffprobe")
     ffmpeg_path = absolute_tool_path(str(ffmpeg_path), "ffmpeg")
     tesseract_path = absolute_tool_path(str(tesseract_path), "tesseract")
-    temporary_parent = (
-        "/private/tmp"
-        if Path("/private/tmp").is_dir() and not Path("/private/tmp").is_symlink()
-        else None
-    )
+    macos_private_tmp = Path(os.sep) / "private" / "tmp"
+    temporary_parent = str(macos_private_tmp) if macos_private_tmp.is_dir() else None
     with tempfile.TemporaryDirectory(
         prefix="proofflow-reference-video-", dir=temporary_parent
     ) as directory:

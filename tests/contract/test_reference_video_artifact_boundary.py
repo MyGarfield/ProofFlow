@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -19,6 +22,50 @@ from validate_manifest import (  # noqa: E402
 )
 
 VIDEO_ROOT = EVIDENCE.parent
+MANIFEST = VIDEO_ROOT / "manifest.json"
+SCHEMA = EVIDENCE / "manifest.schema.json"
+VALIDATOR = EVIDENCE / "validate_manifest.py"
+GIT_BINARY = Path("/usr/bin/git")
+OLD_ARTIFACT_COMMIT = "34bbf914b0dcd35d5a3a25519623a234c708bfbc"
+OLD_VALIDATOR_SHA256 = "sha256:9286b832252ee59143c0de327fdc489b610c4a6de12fac202ac53c8c8548f642"
+
+
+def sha256(path: Path) -> str:
+    return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def validator_command(*, expected_validator: str, expected_commit: str) -> list[str]:
+    return [
+        sys.executable,
+        "-O",
+        str(VALIDATOR),
+        "--manifest",
+        str(MANIFEST),
+        "--video-root",
+        str(VIDEO_ROOT),
+        "--expected-schema-sha256",
+        sha256(SCHEMA),
+        "--expected-validator-sha256",
+        expected_validator,
+        "--expected-artifact-commit",
+        expected_commit,
+        "--trusted-git-root",
+        str(VIDEO_ROOT.parent),
+        "--git-binary",
+        str(GIT_BINARY),
+        "--ffprobe",
+        "/usr/local/bin/ffprobe",
+        "--ffmpeg",
+        "/usr/local/bin/ffmpeg",
+        "--tesseract",
+        "/usr/local/bin/tesseract",
+    ]
+
+
+def current_artifact_commit() -> str:
+    return subprocess.check_output(
+        [str(GIT_BINARY), "-C", str(VIDEO_ROOT.parent), "rev-parse", "HEAD"], text=True
+    ).strip()
 
 
 def expect_boundary_error(tmp_path: Path, setup) -> None:
@@ -150,3 +197,68 @@ def test_git_output_uses_minimal_environment_and_safe_options(
     assert result == "/repo"
     assert "--no-replace-objects" in captured["command"]
     assert not GIT_UNTRUSTED_ENV.intersection(captured["env"])
+
+
+def test_resealed_manifest_passes_with_current_external_pins() -> None:
+    result = subprocess.run(
+        validator_command(
+            expected_validator=sha256(VALIDATOR),
+            expected_commit=current_artifact_commit(),
+        ),
+        env={**os.environ, "PYTHONPATH": str(EVIDENCE)},
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_old_validator_pin_is_rejected_after_reseal() -> None:
+    result = subprocess.run(
+        validator_command(
+            expected_validator=OLD_VALIDATOR_SHA256,
+            expected_commit=current_artifact_commit(),
+        ),
+        env={**os.environ, "PYTHONPATH": str(EVIDENCE)},
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0
+    assert "validator source is not externally pinned" in result.stderr
+
+
+def test_old_artifact_commit_is_rejected_after_reseal() -> None:
+    result = subprocess.run(
+        validator_command(
+            expected_validator=sha256(VALIDATOR),
+            expected_commit=OLD_ARTIFACT_COMMIT,
+        ),
+        env={**os.environ, "PYTHONPATH": str(EVIDENCE)},
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0
+    assert "package bytes are not bound to artifact commit" in result.stderr
+
+
+def test_reseal_did_not_change_claim_or_media_contracts() -> None:
+    manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    assert manifest["recorded_source_commit"] == "b63eeb60d1072c73d2d0d1d6061b3c8f800487a4"
+    assert manifest["claims"] == {
+        "benchmark_11_of_11": "STRUCTURE_COMPLETE_ONLY",
+        "calculation_60000": "PUBLIC_SYNTHETIC_REFERENCE_VALUE_NOT_LEGAL_CONCLUSION",
+        "evaluation_scores": None,
+        "legal_accuracy": "UNKNOWN",
+        "worker_llm_evaluation": "UNKNOWN",
+    }
+    assert manifest["frame_commitment"]["video_framemd5_sha256"] == (
+        "sha256:d7f1593cc4acccf2c630a878384952e547f281a508129c31c170450c6f13c1c0"
+    )
+    assert manifest["frame_commitment"]["audio_framemd5_sha256"] == (
+        "sha256:8da4d8edd6db8e97691d40f33c7cf6bd71936b7545f36564484bca7d88dd23fb"
+    )
+    assert manifest["artifact_hashes"]["renders/reference-runtime-evidence.mp4"] == (
+        "sha256:9083e55e359d56a85c727d825545ad45a264b74f90b19dcff54a81348e4bf619"
+    )
+    assert manifest["artifact_hashes"]["silent-aac.m4a"] == (
+        "sha256:3908ad37b0207f786c47e344615be8a9012713b1797a90ce24e329257a2d6b42"
+    )
