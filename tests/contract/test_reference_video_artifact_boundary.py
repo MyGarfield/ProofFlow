@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -19,9 +20,11 @@ from validate_manifest import (  # noqa: E402
     MAX_SINGLE_ARTIFACT_BYTES,
     git_command,
     git_environment,
+    inspect_tool,
     release_snapshot_for_cleanup,
     snapshot_artifact_tree,
     stable_read_bytes,
+    strict_load,
 )
 
 VIDEO_ROOT = EVIDENCE.parent
@@ -31,6 +34,43 @@ VALIDATOR = EVIDENCE / "validate_manifest.py"
 GIT_BINARY = Path("/usr/bin/git")
 OLD_ARTIFACT_COMMIT = "34bbf914b0dcd35d5a3a25519623a234c708bfbc"
 OLD_VALIDATOR_SHA256 = "sha256:9286b832252ee59143c0de327fdc489b610c4a6de12fac202ac53c8c8548f642"
+RECORDED_TOOL_NAMES = ("ffprobe", "ffmpeg", "tesseract")
+RECORDED_TOOLCHAIN_SKIP_REASON = "RECORDED_TOOLCHAIN_NOT_AVAILABLE / portable verifier not executed"
+
+
+def _recorded_toolchain_available(manifest: dict[str, object]) -> bool:
+    tooling = manifest.get("tooling")
+    if not isinstance(tooling, dict):
+        return False
+    for name in RECORDED_TOOL_NAMES:
+        declaration = tooling.get(name)
+        if not isinstance(declaration, dict):
+            return False
+        value = declaration.get("path")
+        if not isinstance(value, str):
+            return False
+        path = Path(value)
+        if not path.is_absolute() or not path.is_file():
+            return False
+        try:
+            observed = inspect_tool(name, path)
+        except Exception:
+            return False
+        if (
+            not re.fullmatch(r"sha256:[0-9a-f]{64}", observed.get("sha256", ""))
+            or not isinstance(observed.get("version"), str)
+            or not observed["version"]
+        ):
+            return False
+    return True
+
+
+try:
+    RECORDED_MANIFEST = strict_load(MANIFEST)
+except Exception:
+    RECORDED_MANIFEST = {}
+RECORDED_TOOLING = RECORDED_MANIFEST.get("tooling", {})
+RECORDED_TOOLCHAIN_AVAILABLE = _recorded_toolchain_available(RECORDED_MANIFEST)
 
 
 def sha256(path: Path) -> str:
@@ -57,11 +97,11 @@ def validator_command(*, expected_validator: str, expected_commit: str) -> list[
         "--git-binary",
         str(GIT_BINARY),
         "--ffprobe",
-        "/usr/local/bin/ffprobe",
+        RECORDED_TOOLING["ffprobe"]["path"],
         "--ffmpeg",
-        "/usr/local/bin/ffmpeg",
+        RECORDED_TOOLING["ffmpeg"]["path"],
         "--tesseract",
-        "/usr/local/bin/tesseract",
+        RECORDED_TOOLING["tesseract"]["path"],
     ]
 
 
@@ -326,6 +366,44 @@ def test_git_output_uses_minimal_environment_and_safe_options(
     assert not GIT_UNTRUSTED_ENV.intersection(captured["env"])
 
 
+def test_recorded_toolchain_gate_reads_only_manifest_paths(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    paths = {name: tmp_path / name for name in RECORDED_TOOL_NAMES}
+    for path in paths.values():
+        path.write_bytes(b"tool")
+        path.chmod(0o755)
+    manifest = {"tooling": {name: {"path": str(path)} for name, path in paths.items()}}
+    observed_paths: list[Path] = []
+
+    def fake_inspect(name: str, path: Path) -> dict[str, str]:
+        observed_paths.append(path)
+        return {"sha256": "sha256:" + "a" * 64, "version": "1.2.3"}
+
+    monkeypatch.setattr(sys.modules[__name__], "inspect_tool", fake_inspect)
+    assert _recorded_toolchain_available(manifest)
+    assert observed_paths == [paths[name] for name in RECORDED_TOOL_NAMES]
+
+
+def test_recorded_toolchain_gate_rejects_relative_path_without_path_fallback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import validate_manifest
+
+    fallback = tmp_path / "ffprobe"
+    fallback.write_bytes(b"not a trusted tool")
+    fallback.chmod(0o755)
+    monkeypatch.setenv("PATH", str(tmp_path))
+    manifest = {"tooling": {name: {"path": name} for name in RECORDED_TOOL_NAMES}}
+    monkeypatch.setattr(
+        validate_manifest,
+        "inspect_tool",
+        lambda *_args: (_ for _ in ()).throw(AssertionError("PATH fallback used")),
+    )
+    assert not _recorded_toolchain_available(manifest)
+
+
+@pytest.mark.skipif(not RECORDED_TOOLCHAIN_AVAILABLE, reason=RECORDED_TOOLCHAIN_SKIP_REASON)
 def test_resealed_manifest_passes_with_current_external_pins() -> None:
     result = subprocess.run(
         validator_command(
@@ -339,6 +417,7 @@ def test_resealed_manifest_passes_with_current_external_pins() -> None:
     assert result.returncode == 0, result.stderr
 
 
+@pytest.mark.skipif(not RECORDED_TOOLCHAIN_AVAILABLE, reason=RECORDED_TOOLCHAIN_SKIP_REASON)
 def test_old_validator_pin_is_rejected_after_reseal() -> None:
     result = subprocess.run(
         validator_command(
@@ -353,6 +432,7 @@ def test_old_validator_pin_is_rejected_after_reseal() -> None:
     assert "validator source is not externally pinned" in result.stderr
 
 
+@pytest.mark.skipif(not RECORDED_TOOLCHAIN_AVAILABLE, reason=RECORDED_TOOLCHAIN_SKIP_REASON)
 def test_old_artifact_commit_is_rejected_after_reseal() -> None:
     result = subprocess.run(
         validator_command(
