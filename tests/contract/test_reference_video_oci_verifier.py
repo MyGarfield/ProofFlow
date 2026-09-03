@@ -8,10 +8,11 @@ from pathlib import Path
 import pytest
 from jsonschema import Draft202012Validator, ValidationError
 
-OCI = Path(__file__).parents[2] / "reference-video/oci-verifier"
+OCI = Path(__file__).parents[2] / "deploy/reference-video-oci-verifier"
 sys.path.insert(0, str(OCI))
 
 import runner  # noqa: E402
+import write_receipt  # noqa: E402
 from policy import (  # noqa: E402
     CGROUP_LIMITS,
     FIXED_PATH,
@@ -36,6 +37,9 @@ def test_dockerfile_pins_current_amd64_child_and_build_inputs() -> None:
     assert "MAIN_APKINDEX_SHA256" in dockerfile
     assert "USER 65532:65532" in dockerfile
     assert 'ENTRYPOINT ["/usr/local/bin/python3.12", "/opt/proofflow/runner.py"]' in dockerfile
+    dockerignore = (Path(__file__).parents[2] / ".dockerignore").read_text(encoding="utf-8")
+    assert "reference-video" in dockerignore
+    assert "COPY deploy/reference-video-oci-verifier/receipt.schema.json" in dockerfile
 
 
 def test_launcher_has_all_fail_closed_docker_options() -> None:
@@ -190,3 +194,19 @@ def test_receipt_has_no_host_paths(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "/Users/" not in serialized
     assert "/home/" not in serialized
     assert "docker.sock" not in serialized
+
+
+def test_receipt_install_is_no_overwrite_and_no_symlink(tmp_path: Path) -> None:
+    source = tmp_path / "source.json"
+    destination = tmp_path / "receipt.json"
+    source.write_bytes(b'{"overall_status":"FAIL"}\n')
+    write_receipt.install(source, destination)
+    assert destination.read_bytes() == source.read_bytes()
+    with pytest.raises(FileExistsError):
+        write_receipt.install(source, destination)
+    linked_target = tmp_path / "linked-target.json"
+    linked_target.write_bytes(b"attacker")
+    symlink = tmp_path / "symlink.json"
+    symlink.symlink_to(linked_target)
+    with pytest.raises(FileExistsError):
+        write_receipt.install(source, symlink)
