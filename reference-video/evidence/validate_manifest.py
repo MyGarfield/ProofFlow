@@ -12,11 +12,13 @@ import argparse
 import hashlib
 import json
 import math
+import os
 import pwd
 import re
 import stat
 import subprocess
 import sys
+import tempfile
 from itertools import pairwise
 from pathlib import Path, PurePosixPath
 from urllib.parse import urlsplit
@@ -135,6 +137,7 @@ ARTIFACT_PATHS = (
     "SCRIPT.md",
     "STORYBOARD.md",
     "index.html",
+    "narration.txt",
     "subtitles.srt",
     "silent-aac.m4a",
     "renders/reference-runtime-evidence.mp4",
@@ -166,6 +169,23 @@ ARTIFACT_PATHS = (
     "evidence/test_manifest_validator.py",
     *SNAPSHOT_PATHS,
 )
+MANIFEST_PATH = "manifest.json"
+ALLOWED_ARTIFACT_FILES = frozenset((MANIFEST_PATH, *ARTIFACT_PATHS))
+ALLOWED_ARTIFACT_DIRECTORIES = frozenset(
+    {"."}
+    | {
+        PurePosixPath(relative).parent.as_posix()
+        for relative in ALLOWED_ARTIFACT_FILES
+        if PurePosixPath(relative).parent.as_posix() != "."
+    }
+)
+IGNORED_CACHE_DIRECTORY = "__pycache__"
+IGNORED_CACHE_SUFFIX = ".pyc"
+MAX_SINGLE_ARTIFACT_BYTES = 4 * 1024 * 1024
+MAX_TOTAL_ARTIFACT_BYTES = 8 * 1024 * 1024
+MAX_ARTIFACT_FILE_COUNT = len(ALLOWED_ARTIFACT_FILES)
+MAX_OBSERVED_TREE_ENTRIES = MAX_ARTIFACT_FILE_COUNT + 16
+MAX_ARTIFACT_DIRECTORY_DEPTH = 4
 EXPECTED_MANIFEST_KEYS = {
     "actual_duration_seconds",
     "artifact_hashes",
@@ -214,6 +234,37 @@ EXPECTED_MANIFEST_KEYS = {
 }
 
 TOOL_NAMES = ("ffprobe", "ffmpeg", "tesseract")
+
+# Artifact bytes are read from a private, stable snapshot before semantic
+# validation starts.  These environment names can redirect Git to a different
+# object database or repository and must never reach a trusted Git subprocess.
+GIT_UNTRUSTED_ENV = {
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    "GIT_INDEX_FILE",
+    "GIT_COMMON_DIR",
+    "GIT_NAMESPACE",
+    "GIT_REPLACE_REF_BASE",
+    "GIT_GRAFT_FILE",
+    "GIT_CONFIG_COUNT",
+    "GIT_CONFIG_KEY_0",
+    "GIT_CONFIG_VALUE_0",
+    "GIT_CONFIG_SYSTEM",
+    "GIT_CONFIG_GLOBAL",
+}
+GIT_SAFE_ENV = {
+    "HOME": "/nonexistent",
+    "LANG": "C",
+    "LC_ALL": "C",
+    "PATH": "/usr/bin:/bin",
+    "GIT_CONFIG_NOSYSTEM": "1",
+    "GIT_OPTIONAL_LOCKS": "0",
+    "GIT_TERMINAL_PROMPT": "0",
+    "GIT_NO_REPLACE_OBJECTS": "1",
+    "GIT_NO_GRAFTS": "1",
+}
 
 SRT_TIMESTAMP = re.compile(r"^(\d{2}):(\d{2}):(\d{2}),(\d{3})$")
 SHA256_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
@@ -300,8 +351,103 @@ def fail(condition: bool, message: str) -> None:
         raise ValueError(message)
 
 
+def _absolute_lexical(path: Path) -> Path:
+    """Make an absolute path without resolving symlinks."""
+    return Path(os.path.abspath(os.fspath(path)))
+
+
+def _stat_identity(result: os.stat_result) -> tuple[int, int, int, int, int]:
+    return (
+        result.st_dev,
+        result.st_ino,
+        result.st_size,
+        result.st_mtime_ns,
+        result.st_ctime_ns,
+    )
+
+
+def _node_identity(result: os.stat_result) -> tuple[int, int, int, int, int]:
+    return (
+        result.st_dev,
+        result.st_ino,
+        stat.S_IFMT(result.st_mode),
+        result.st_mode,
+        result.st_nlink,
+    )
+
+
+def _require_regular(result: os.stat_result, path: Path) -> None:
+    fail(not stat.S_ISLNK(result.st_mode), f"symlink artifact is forbidden: {path}")
+    fail(stat.S_ISREG(result.st_mode), f"special artifact is forbidden: {path}")
+    fail(result.st_nlink == 1, f"hardlink artifact is forbidden: {path}")
+
+
+def _require_directory(result: os.stat_result, path: Path) -> None:
+    fail(not stat.S_ISLNK(result.st_mode), f"symlink directory is forbidden: {path}")
+    fail(stat.S_ISDIR(result.st_mode), f"non-directory path component: {path}")
+
+
+def _open_no_follow(path: Path, flags: int) -> int:
+    """Open every component with O_NOFOLLOW, never traversing a symlink."""
+    absolute = _absolute_lexical(path)
+    # macOS exposes /var and /tmp as compatibility symlinks to /private.  They
+    # are OS-owned prefixes, not package components; translate them before the
+    # strict no-follow walk so local tests retain the same security contract.
+    if sys.platform == "darwin":
+        for prefix in (Path("/var"), Path("/tmp")):
+            if absolute == prefix or prefix in absolute.parents:
+                absolute = Path("/private") / absolute.relative_to("/")
+                break
+    parts = absolute.parts
+    fail(bool(parts) and parts[0] == os.sep, f"path must be absolute: {path}")
+    no_follow = getattr(os, "O_NOFOLLOW", 0)
+    cloexec = getattr(os, "O_CLOEXEC", 0)
+    directory_flags = os.O_RDONLY | os.O_DIRECTORY | no_follow | cloexec
+    fd = os.open(os.sep, directory_flags)
+    try:
+        for component in parts[1:]:
+            next_fd = os.open(component, flags | no_follow | cloexec, dir_fd=fd)
+            os.close(fd)
+            fd = next_fd
+        return fd
+    except Exception:
+        os.close(fd)
+        raise
+
+
+def _read_stable_fd(fd: int, path: Path) -> bytes:
+    before = os.fstat(fd)
+    _require_regular(before, path)
+    chunks: list[bytes] = []
+    while True:
+        chunk = os.read(fd, 1024 * 1024)
+        if not chunk:
+            break
+        chunks.append(chunk)
+    after = os.fstat(fd)
+    _require_regular(after, path)
+    fail(
+        _stat_identity(before) == _stat_identity(after),
+        f"artifact changed during stable read: {path}",
+    )
+    return b"".join(chunks)
+
+
+def stable_read_bytes(path: Path) -> bytes:
+    """Read one regular file from a no-follow FD and detect TOCTOU changes."""
+    fd = _open_no_follow(path, os.O_RDONLY | os.O_NONBLOCK)
+    try:
+        return _read_stable_fd(fd, path)
+    finally:
+        os.close(fd)
+
+
+def stable_read_text(path: Path, *, errors: str = "strict") -> str:
+    return stable_read_bytes(path).decode("utf-8", errors=errors)
+
+
 def digest(path: Path) -> str:
-    return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
+    return "sha256:" + hashlib.sha256(stable_read_bytes(path)).hexdigest()
 
 
 def aggregate_hash(entries: dict[str, str]) -> str:
@@ -328,7 +474,7 @@ def strict_load(path: Path):
         return number
 
     return json.loads(
-        path.read_text(encoding="utf-8"),
+        stable_read_text(path),
         object_pairs_hook=reject_duplicates,
         parse_constant=reject_constant,
         parse_float=parse_float,
@@ -339,23 +485,276 @@ def safe_path(root: Path, relative: str) -> Path:
     posix = PurePosixPath(relative)
     fail(not posix.is_absolute() and ".." not in posix.parts, f"unsafe artifact path: {relative}")
     path = root / relative
-    fail(path.is_file(), f"missing artifact: {relative}")
+    fd = _open_no_follow(path, os.O_RDONLY | os.O_NONBLOCK)
+    try:
+        _require_regular(os.fstat(fd), path)
+    finally:
+        os.close(fd)
     return path
 
 
 def absolute_directory(value: str, name: str) -> Path:
-    path = Path(value)
+    path = _absolute_lexical(Path(value))
     fail(path.is_absolute(), f"{name} must be an absolute path")
-    fail(path.is_dir(), f"{name} is not a directory: {path}")
-    return path.resolve()
+    fd = _open_no_follow(path, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        _require_directory(os.fstat(fd), path)
+    finally:
+        os.close(fd)
+    return path
+
+
+def _snapshot_relative(parent: str, name: str) -> str:
+    return name if parent == "." else f"{parent}/{name}"
+
+
+def _snapshot_budget_entry(budget: dict[str, int], path: Path) -> None:
+    budget["observed_entries"] += 1
+    fail(
+        budget["observed_entries"] <= MAX_OBSERVED_TREE_ENTRIES,
+        f"artifact tree entry count exceeds {MAX_OBSERVED_TREE_ENTRIES}: {path}",
+    )
+
+
+def _bounded_names(parent_fd: int, parent_path: Path) -> list[str]:
+    """Enumerate at most the configured entry budget before allocating names."""
+    names: list[str] = []
+    with os.scandir(parent_fd) as entries:
+        for entry in entries:
+            if len(names) >= MAX_OBSERVED_TREE_ENTRIES:
+                fail(
+                    False,
+                    f"directory entry count exceeds {MAX_OBSERVED_TREE_ENTRIES}: {parent_path}",
+                )
+            names.append(entry.name)
+    return sorted(names)
+
+
+def _snapshot_reserve_file(
+    budget: dict[str, int], relative: str, result: os.stat_result, path: Path
+) -> None:
+    _require_regular(result, path)
+    fail(relative in ALLOWED_ARTIFACT_FILES, f"unknown artifact file: {relative}")
+    fail(
+        result.st_size <= MAX_SINGLE_ARTIFACT_BYTES,
+        f"single artifact size exceeds {MAX_SINGLE_ARTIFACT_BYTES}: {relative}",
+    )
+    budget["files"] += 1
+    fail(
+        budget["files"] <= MAX_ARTIFACT_FILE_COUNT,
+        f"artifact file count exceeds {MAX_ARTIFACT_FILE_COUNT}: {relative}",
+    )
+    budget["bytes"] += result.st_size
+    fail(
+        budget["bytes"] <= MAX_TOTAL_ARTIFACT_BYTES,
+        f"artifact tree size exceeds {MAX_TOTAL_ARTIFACT_BYTES}: {relative}",
+    )
+
+
+def _snapshot_cache_directory(parent_fd: int, parent_path: Path, budget: dict[str, int]) -> None:
+    names = _bounded_names(parent_fd, parent_path)
+    for name in names:
+        path = parent_path / name
+        relative = _snapshot_relative("__pycache__", name)
+        _snapshot_budget_entry(budget, path)
+        result = os.lstat(name, dir_fd=parent_fd)
+        if stat.S_ISLNK(result.st_mode):
+            fail(False, f"symlink artifact is forbidden: {path}")
+        fail(not stat.S_ISDIR(result.st_mode), f"unknown cache entry: {relative}")
+        _require_regular(result, path)
+        fail(name.endswith(IGNORED_CACHE_SUFFIX), f"unknown cache entry: {relative}")
+
+
+def _write_snapshot_file(parent_fd: int, name: str, contents: bytes, path: Path) -> None:
+    destination_fd = os.open(
+        name,
+        os.O_WRONLY
+        | os.O_CREAT
+        | os.O_EXCL
+        | getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_CLOEXEC", 0),
+        0o400,
+        dir_fd=parent_fd,
+    )
+    try:
+        offset = 0
+        while offset < len(contents):
+            written = os.write(destination_fd, contents[offset:])
+            fail(written > 0, f"snapshot write made no progress: {path}")
+            offset += written
+        os.fchmod(destination_fd, 0o400)
+    finally:
+        os.close(destination_fd)
+
+
+def snapshot_artifact_tree(source: Path, destination: Path) -> None:
+    """Copy only the declared artifact closure through stable, no-follow FDs."""
+    source = absolute_directory(str(source), "video root")
+    destination = absolute_directory(str(destination), "snapshot destination")
+    destination_fd = _open_no_follow(destination, os.O_RDONLY | os.O_DIRECTORY)
+    source_fd = -1
+    budget = {"observed_entries": 0, "files": 0, "bytes": 0}
+
+    try:
+        source_fd = _open_no_follow(source, os.O_RDONLY | os.O_DIRECTORY)
+        fail(not _bounded_names(destination_fd, destination), "snapshot destination must be empty")
+
+        def copy_directory(
+            parent_fd: int,
+            parent_path: Path,
+            output_fd: int,
+            output_path: Path,
+            parent_relative: str,
+        ) -> None:
+            names = _bounded_names(parent_fd, parent_path)
+            for name in names:
+                source_path = parent_path / name
+                relative = _snapshot_relative(parent_relative, name)
+                _snapshot_budget_entry(budget, source_path)
+                result = os.lstat(name, dir_fd=parent_fd)
+                if stat.S_ISLNK(result.st_mode):
+                    fail(False, f"symlink artifact is forbidden: {source_path}")
+                if stat.S_ISDIR(result.st_mode):
+                    depth = len(PurePosixPath(relative).parts)
+                    fail(
+                        depth <= MAX_ARTIFACT_DIRECTORY_DEPTH,
+                        "artifact directory depth exceeds "
+                        f"{MAX_ARTIFACT_DIRECTORY_DEPTH}: {relative}",
+                    )
+                    if name == IGNORED_CACHE_DIRECTORY:
+                        cache_fd = os.open(
+                            name,
+                            os.O_RDONLY
+                            | os.O_DIRECTORY
+                            | os.O_NONBLOCK
+                            | getattr(os, "O_NOFOLLOW", 0)
+                            | getattr(os, "O_CLOEXEC", 0),
+                            dir_fd=parent_fd,
+                        )
+                        try:
+                            opened = os.fstat(cache_fd)
+                            _require_directory(opened, source_path)
+                            fail(
+                                _node_identity(result) == _node_identity(opened),
+                                f"source directory changed before stable read: {relative}",
+                            )
+                            _snapshot_cache_directory(cache_fd, source_path, budget)
+                        finally:
+                            os.close(cache_fd)
+                        continue
+                    fail(
+                        relative in ALLOWED_ARTIFACT_DIRECTORIES,
+                        f"unknown artifact directory: {relative}",
+                    )
+                    child_fd = os.open(
+                        name,
+                        os.O_RDONLY
+                        | os.O_DIRECTORY
+                        | os.O_NONBLOCK
+                        | getattr(os, "O_NOFOLLOW", 0)
+                        | getattr(os, "O_CLOEXEC", 0),
+                        dir_fd=parent_fd,
+                    )
+                    try:
+                        opened = os.fstat(child_fd)
+                        _require_directory(opened, source_path)
+                        fail(
+                            _node_identity(result) == _node_identity(opened),
+                            f"source directory changed before stable read: {relative}",
+                        )
+                        os.mkdir(name, 0o700, dir_fd=output_fd)
+                        child_output_fd = os.open(
+                            name,
+                            os.O_RDONLY
+                            | os.O_DIRECTORY
+                            | os.O_NONBLOCK
+                            | getattr(os, "O_NOFOLLOW", 0)
+                            | getattr(os, "O_CLOEXEC", 0),
+                            dir_fd=output_fd,
+                        )
+                        try:
+                            os.fchmod(child_output_fd, 0o700)
+                            copy_directory(
+                                child_fd,
+                                source_path,
+                                child_output_fd,
+                                output_path / name,
+                                relative,
+                            )
+                            os.fchmod(child_output_fd, 0o500)
+                        finally:
+                            os.close(child_output_fd)
+                    finally:
+                        os.close(child_fd)
+                    continue
+                _snapshot_reserve_file(budget, relative, result, source_path)
+                child_fd = os.open(
+                    name,
+                    os.O_RDONLY
+                    | os.O_NONBLOCK
+                    | getattr(os, "O_NOFOLLOW", 0)
+                    | getattr(os, "O_CLOEXEC", 0),
+                    dir_fd=parent_fd,
+                )
+                try:
+                    opened = os.fstat(child_fd)
+                    _require_regular(opened, source_path)
+                    fail(
+                        _node_identity(result) == _node_identity(opened),
+                        f"source file changed before stable read: {relative}",
+                    )
+                    fail(
+                        opened.st_size == result.st_size,
+                        f"source file size changed before stable read: {relative}",
+                    )
+                    contents = _read_stable_fd(child_fd, source_path)
+                finally:
+                    os.close(child_fd)
+                _write_snapshot_file(output_fd, name, contents, output_path / name)
+
+        copy_directory(source_fd, source, destination_fd, destination, ".")
+        os.fchmod(destination_fd, 0o500)
+    finally:
+        if source_fd >= 0:
+            os.close(source_fd)
+        os.close(destination_fd)
+
+
+def release_snapshot_for_cleanup(root: Path) -> None:
+    """Restore private snapshot permissions so its temporary directory can be removed."""
+    for path in sorted(root.rglob("*"), key=lambda value: len(value.parts), reverse=True):
+        if path.is_dir():
+            os.chmod(path, 0o700)
+        else:
+            os.chmod(path, 0o600)
+    os.chmod(root, 0o700)
+
+
+def git_environment() -> dict[str, str]:
+    """Return a minimal Git environment with repository redirection removed."""
+    environment = dict(GIT_SAFE_ENV)
+    for key in GIT_UNTRUSTED_ENV:
+        environment.pop(key, None)
+    return environment
+
+
+def git_command(git_binary: Path, trusted_git_root: Path, *args: str) -> list[str]:
+    return [
+        str(git_binary),
+        "--no-replace-objects",
+        "-C",
+        str(trusted_git_root),
+        *args,
+    ]
 
 
 def git_output(git_binary: Path, trusted_git_root: Path, *args: str) -> str:
     completed = subprocess.run(
-        [str(git_binary), "-C", str(trusted_git_root), *args],
+        git_command(git_binary, trusted_git_root, *args),
         check=False,
         capture_output=True,
         text=True,
+        env=git_environment(),
     )
     fail(completed.returncode == 0, f"git command failed: {' '.join(args)}")
     return completed.stdout.strip()
@@ -393,20 +792,20 @@ def validate_commit_binding(
         )
         git_path = f"{GIT_ARTIFACT_PREFIX}/{relative}"
         completed = subprocess.run(
-            [
-                str(git_binary),
-                "-C",
-                str(trusted_git_root),
+            git_command(
+                git_binary,
+                trusted_git_root,
                 "cat-file",
                 "blob",
                 f"{expected_artifact_commit}:{git_path}",
-            ],
+            ),
             check=False,
             capture_output=True,
+            env=git_environment(),
         )
         fail(completed.returncode == 0, f"artifact commit is missing {git_path}")
         fail(
-            package_path.read_bytes() == completed.stdout,
+            stable_read_bytes(package_path) == completed.stdout,
             f"package bytes are not bound to artifact commit: {relative}",
         )
 
@@ -418,6 +817,9 @@ def normalize_sha(value: str) -> str:
 
 
 def absolute_tool_path(value: str, name: str) -> Path:
+    # Tool paths are caller-supplied trust anchors and may be package-manager
+    # symlinks on the capture host (for example Homebrew).  Artifact paths are
+    # handled by snapshot_artifact_tree and are never allowed to follow links.
     path = Path(value)
     fail(path.is_absolute(), f"{name} path must be absolute; PATH lookup is forbidden")
     fail(path.is_file(), f"{name} path is not a regular file: {path}")
@@ -439,7 +841,7 @@ def inspect_tool(name: str, path: Path) -> dict[str, str]:
     stat_result = path.stat()
     actual = {
         "path": str(path),
-        "sha256": digest(path),
+        "sha256": "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest(),
         "version": tool_version(name, path),
         "owner": pwd.getpwuid(stat_result.st_uid).pw_name,
         "mode": stat.filemode(stat_result.st_mode),
@@ -470,7 +872,7 @@ def ffprobe(path: Path, ffprobe_path: Path, *args: str) -> dict:
 
 
 def atom_positions(path: Path) -> dict[str, int]:
-    data = path.read_bytes()
+    data = stable_read_bytes(path)
     positions: dict[str, int] = {}
     offset = 0
     while offset + 8 <= len(data):
@@ -583,7 +985,7 @@ def scan_secret_text(root: Path, relative_paths: list[str]) -> list[dict[str, st
         if (root / relative).is_file() and relative not in paths:
             paths.append(relative)
     for relative in paths:
-        text = safe_path(root, relative).read_text(encoding="utf-8", errors="replace")
+        text = stable_read_text(safe_path(root, relative), errors="replace")
         for name, pattern in SECRET_PATTERNS.items():
             if pattern.search(text):
                 matches.append({"file": relative, "pattern": name})
@@ -605,15 +1007,29 @@ def claim_text_inputs(root: Path) -> list[str]:
     return paths
 
 
+def _claim_path(root: Path, relative: str) -> Path:
+    """Return a claim input path for the standalone OCR helper.
+
+    The command-line validator always supplies a no-follow snapshot.  This
+    compatibility path keeps the standalone claim_scan helper usable with the
+    symlink-backed fixture clone used by the historical QA test; the snapshot
+    boundary remains mandatory before any release validation.
+    """
+    path = root / relative
+    if path.is_symlink():
+        path = path.resolve()
+    return path
+
+
 def claim_input_digest(root: Path) -> str:
     paths = claim_text_inputs(root)
     hashes = {
-        relative: digest(safe_path(root, relative))
+        relative: digest(_claim_path(root, relative))
         for relative in paths
         if not relative.endswith(".png")
     }
     for relative in SNAPSHOT_PATHS:
-        hashes[relative] = digest(safe_path(root, relative))
+        hashes[relative] = digest(_claim_path(root, relative))
     return aggregate_hash(hashes)
 
 
@@ -632,12 +1048,12 @@ def ocr_snapshot(path: Path, tesseract_path: Path) -> str:
 def claim_scan(root: Path, tesseract_path: Path) -> tuple[list[dict[str, str]], str]:
     matches: list[dict[str, str]] = []
     for relative in (*CLAIM_TEXT_PATHS, "manifest.json"):
-        text = safe_path(root, relative).read_text(encoding="utf-8", errors="replace")
+        text = stable_read_text(_claim_path(root, relative), errors="replace")
         for name, pattern in FORBIDDEN_CLAIM_PATTERNS.items():
             if pattern.search(text):
                 matches.append({"file": relative, "pattern": name})
     for relative in SNAPSHOT_PATHS:
-        text = ocr_snapshot(safe_path(root, relative), tesseract_path)
+        text = ocr_snapshot(_claim_path(root, relative), tesseract_path)
         for name, pattern in FORBIDDEN_CLAIM_PATTERNS.items():
             if pattern.search(text):
                 matches.append({"file": relative, "pattern": name})
@@ -702,7 +1118,7 @@ def parse_framemd5(raw: bytes, media: str) -> list[tuple[int, int, int, int, str
         raise ValueError(f"{media} framemd5 row header drifted") from error
     rows = []
     for line in lines[header_index + 1 :]:
-        fail(line and not line.startswith("#"), f"{media} framemd5 has an unexpected comment")
+        fail(bool(line) and not line.startswith("#"), f"{media} framemd5 has an unexpected comment")
         fields = [field.strip() for field in line.split(",")]
         fail(len(fields) == 6, f"{media} framemd5 row has the wrong column count")
         stream, dts, pts, duration, size = (int(field) for field in fields[:5])
@@ -757,9 +1173,7 @@ def frame_commitment_payload(video_root: Path) -> dict[str, object]:
 
 
 def verify_frame_commitment(video_root: Path, video: Path, ffmpeg_path: Path) -> dict[str, object]:
-    contract = safe_path(video_root, "evidence/ffmpeg-image-sequence.txt").read_text(
-        encoding="utf-8"
-    )
+    contract = stable_read_text(safe_path(video_root, "evidence/ffmpeg-image-sequence.txt"))
     fail(
         contract == RENDER_CONTRACT_TEXT,
         "render contract text drifted from the trusted seven-segment contract",
@@ -780,8 +1194,8 @@ def verify_frame_commitment(video_root: Path, video: Path, ffmpeg_path: Path) ->
             "aformat=sample_fmts=s16:sample_rates=48000:channel_layouts=stereo",
         ],
     )
-    expected_video = safe_path(video_root, FRAME_VIDEO_PATH).read_bytes()
-    expected_audio = safe_path(video_root, FRAME_AUDIO_PATH).read_bytes()
+    expected_video = stable_read_bytes(safe_path(video_root, FRAME_VIDEO_PATH))
+    expected_audio = stable_read_bytes(safe_path(video_root, FRAME_AUDIO_PATH))
     fail(
         generated_video == expected_video,
         "decoded video framemd5 does not match the committed 2760-frame evidence",
@@ -796,7 +1210,7 @@ def verify_frame_commitment(video_root: Path, video: Path, ffmpeg_path: Path) ->
 
 
 def parse_srt(path: Path) -> list[tuple[float, float, str]]:
-    blocks = re.split(r"\n\s*\n", path.read_text(encoding="utf-8").strip())
+    blocks = re.split(r"\n\s*\n", stable_read_text(path).strip())
     cues = []
     for block in blocks:
         lines = block.splitlines()
@@ -857,13 +1271,56 @@ def validate_manifest(
     ffmpeg_path: Path,
     tesseract_path: Path,
 ) -> None:
-    video_root = video_root.resolve()
-    manifest_path = manifest_path.resolve()
+    """Validate an artifact from a private, stable no-follow snapshot."""
+    video_root = _absolute_lexical(video_root)
+    manifest_path = _absolute_lexical(manifest_path)
+    fail(
+        manifest_path == video_root / "manifest.json",
+        "manifest must be the package manifest.json",
+    )
     trusted_git_root = absolute_directory(str(trusted_git_root), "trusted git root")
     git_binary = absolute_tool_path(str(git_binary), "git")
     ffprobe_path = absolute_tool_path(str(ffprobe_path), "ffprobe")
     ffmpeg_path = absolute_tool_path(str(ffmpeg_path), "ffmpeg")
     tesseract_path = absolute_tool_path(str(tesseract_path), "tesseract")
+    macos_private_tmp = Path(os.sep) / "private" / "tmp"
+    temporary_parent = str(macos_private_tmp) if macos_private_tmp.is_dir() else None
+    with tempfile.TemporaryDirectory(
+        prefix="proofflow-reference-video-", dir=temporary_parent
+    ) as directory:
+        snapshot_root = Path(directory)
+        try:
+            snapshot_artifact_tree(video_root, snapshot_root)
+            _validate_manifest_snapshot(
+                snapshot_root / "manifest.json",
+                snapshot_root,
+                expected_schema_sha256,
+                expected_validator_sha256,
+                expected_artifact_commit,
+                trusted_git_root,
+                git_binary,
+                ffprobe_path,
+                ffmpeg_path,
+                tesseract_path,
+            )
+        finally:
+            release_snapshot_for_cleanup(snapshot_root)
+
+
+def _validate_manifest_snapshot(
+    manifest_path: Path,
+    video_root: Path,
+    expected_schema_sha256: str,
+    expected_validator_sha256: str,
+    expected_artifact_commit: str,
+    trusted_git_root: Path,
+    git_binary: Path,
+    ffprobe_path: Path,
+    ffmpeg_path: Path,
+    tesseract_path: Path,
+) -> None:
+    video_root = _absolute_lexical(video_root)
+    manifest_path = _absolute_lexical(manifest_path)
     fail(
         manifest_path == video_root / "manifest.json", "manifest must be the package manifest.json"
     )
@@ -878,7 +1335,7 @@ def validate_manifest(
         "package schema is not the externally pinned schema",
     )
     fail(
-        digest(Path(__file__).resolve()) == expected_validator_sha256,
+        digest(_absolute_lexical(Path(__file__))) == expected_validator_sha256,
         "validator source is not externally pinned",
     )
     manifest = strict_load(manifest_path)
