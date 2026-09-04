@@ -305,7 +305,6 @@ def test_qa_6_to_7_second_overclaim_injection_is_caught_by_live_ocr() -> None:
             f"missing explicit text2image helper beside tesseract: {TEXT2IMAGE}",
         )
 
-
         subprocess.run(
             [
                 str(TEXT2IMAGE),
@@ -375,8 +374,7 @@ def test_live_ocr_timeout_is_45_seconds(monkeypatch) -> None:
 
     monkeypatch.setattr(validate_manifest.subprocess, "run", fake_run)
     assert (
-        validate_manifest.ocr_snapshot(Path("/tmp/snapshot.png"), Path("/usr/bin/tesseract"))
-        == ""
+        validate_manifest.ocr_snapshot(Path("/tmp/snapshot.png"), Path("/usr/bin/tesseract")) == ""
     )
     assert captured["timeout"] == 45
 
