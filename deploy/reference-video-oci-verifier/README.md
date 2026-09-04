@@ -102,10 +102,10 @@ has a canonical payload integrity digest. It contains no host paths. A changed
 receipt fails integrity verification. The command exits zero only for an
 independently schema-valid `PASS`; `FAIL` and `UNKNOWN` both exit non-zero.
 
-`blocked-build-receipt.json` is a committed contract fixture for the current
-unavailable-image state. Its zero pins are intentional, its status is `FAIL`,
-and its only check is `BLOCKED_BY_IMAGE_BUILD`; it is not a media or supply
-chain result.
+`blocked-build-receipt.json` is a committed negative contract fixture for an
+unavailable-image failure. Its zero pins are intentional, its status is
+`FAIL`, and its only check is `BLOCKED_BY_IMAGE_BUILD`; it does not describe
+the current environment and is not a media or supply-chain result.
 
 The runner independently recomputes ffprobe metadata and both full framemd5
 streams. It executes fixed-path Tesseract with `eng+chi_sim`, but the macOS
@@ -114,6 +114,19 @@ manifest has no comparable OCR-output digest, so `observed.ocr_parity` remains
 Linux OCR actually runs. Forbidden-claim scanning remains the trusted
 validator's live OCR responsibility. Any Linux frame/audio mismatch is
 `FAIL`; no threshold or video mutation is permitted.
+
+## Local validation checkpoint (not a Draft exit)
+
+On 2026-09-04, an isolated local-only registry resolved one candidate to OCI
+child digest
+`sha256:a33bdc1d9e98677ca6e4f61034d67cf4c711eb0a2688b3aed49703a63f2adb3e`
+and config digest
+`sha256:003fe877ac46415d049edddaf284e0b209b537d1a952dc9992e370ac5e4ac123`.
+Two strict runs each returned 19/19 checks `PASS`; the persisted receipt has
+SHA-256 `74dc4bbe8b572095c5c57fff2470b793a8729255b33984a14a05b48853f76b3f`.
+This is local execution evidence only: the image was not published to an
+external registry or independently downloaded, and `observed.ocr_parity`
+remains `UNKNOWN` by design.
 
 ## Draft boundary
 
