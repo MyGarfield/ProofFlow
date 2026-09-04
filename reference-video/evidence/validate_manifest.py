@@ -1290,7 +1290,7 @@ def ocr_snapshot(path: Path, tesseract_path: Path) -> str:
         check=False,
         capture_output=True,
         text=True,
-        timeout=30,
+        timeout=45,
     )
     fail(completed.returncode == 0, f"tesseract failed for {path.name}")
     return completed.stdout

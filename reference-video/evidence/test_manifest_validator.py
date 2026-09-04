@@ -7,7 +7,9 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 
+import validate_manifest
 from validate_manifest import aggregate_hash, claim_scan, digest, strict_load
 
 EVIDENCE = Path(__file__).resolve().parent
@@ -302,6 +304,8 @@ def test_qa_6_to_7_second_overclaim_injection_is_caught_by_live_ocr() -> None:
             TEXT2IMAGE.is_file(),
             f"missing explicit text2image helper beside tesseract: {TEXT2IMAGE}",
         )
+
+
         subprocess.run(
             [
                 str(TEXT2IMAGE),
@@ -359,6 +363,22 @@ def test_qa_6_to_7_second_overclaim_injection_is_caught_by_live_ocr() -> None:
             {"six_agents_live", "legal_accuracy_100"}.issubset(patterns),
             f"live OCR missed QA overclaim: {matches}",
         )
+
+
+def test_live_ocr_timeout_is_45_seconds(monkeypatch) -> None:
+    captured = {}
+
+    def fake_run(command, **kwargs):
+        captured["command"] = command
+        captured.update(kwargs)
+        return SimpleNamespace(returncode=0, stdout="")
+
+    monkeypatch.setattr(validate_manifest.subprocess, "run", fake_run)
+    assert (
+        validate_manifest.ocr_snapshot(Path("/tmp/snapshot.png"), Path("/usr/bin/tesseract"))
+        == ""
+    )
+    assert captured["timeout"] == 45
 
 
 def test_privacy_is_recomputed_not_read_from_stale_summary() -> None:

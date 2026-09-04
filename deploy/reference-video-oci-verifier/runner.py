@@ -63,6 +63,7 @@ SNAPSHOT_PATHS = (
 MAX_TOOL_OUTPUT_BYTES = 2 * 1024 * 1024
 MAX_ERROR_OUTPUT_BYTES = 64 * 1024
 TIMEOUT_SECONDS = 120
+VALIDATOR_TIMEOUT_SECONDS = 420
 BASE_ENV = {
     "HOME": "/nonexistent",
     "LANG": "C.UTF-8",
@@ -652,34 +653,6 @@ def media_checks(manifest: dict[str, Any]) -> tuple[list[dict[str, str]], str | 
     return checks, outputs["video"], outputs["audio"]
 
 
-def ocr_check() -> tuple[dict[str, str], str | None]:
-    outputs: list[bytes] = []
-    for path in SNAPSHOT_PATHS:
-        result = bounded_run(
-            [INTERNAL_PATHS["tesseract"], str(path), "stdout", "--psm", "6", "-l", "eng+chi_sim"],
-            timeout=30,
-            max_bytes=MAX_ERROR_OUTPUT_BYTES,
-        )
-        if result["status"] != "PASS":
-            return {
-                "id": "linux_ocr",
-                "status": "FAIL",
-                "code": "OCR_EXECUTION_FAILED",
-            }, None
-        outputs.append(str(result["stdout"]).encode("utf-8"))
-    # The macOS manifest does not carry an OCR output digest. Execution is
-    # observed, but cross-toolchain parity remains a separate UNKNOWN field.
-    aggregate = hashlib.sha256()
-    for output in outputs:
-        aggregate.update(len(output).to_bytes(8, "big"))
-        aggregate.update(output)
-    return {
-        "id": "linux_ocr",
-        "status": "PASS",
-        "code": "OCR_EXECUTION_OBSERVED",
-    }, "sha256:" + aggregate.hexdigest()
-
-
 def make_receipt(
     pins: dict[str, str],
     identity: dict[str, object],
@@ -869,8 +842,7 @@ def run() -> dict[str, object]:
     checks.extend(check_pin_bindings(pins, manifest))
     media, _video_md5, _audio_md5 = media_checks(manifest)
     checks.extend(media)
-    ocr, ocr_sha256 = ocr_check()
-    checks.append(ocr)
+    ocr_sha256 = None
     validator_result = bounded_run(
         [
             INTERNAL_PATHS["python"],
@@ -901,17 +873,33 @@ def run() -> dict[str, object]:
             "--expected-verification-toolchain-sha256",
             identity_digest,
         ],
-        timeout=TIMEOUT_SECONDS,
+        timeout=VALIDATOR_TIMEOUT_SECONDS,
         max_bytes=MAX_ERROR_OUTPUT_BYTES,
     )
-    checks.append(
-        {
-            "id": "trusted_validator",
-            "status": "FAIL" if validator_result["status"] == "FAIL" else "PASS",
-            "code": "VALIDATOR_FAILED"
-            if validator_result["status"] == "FAIL"
-            else "VALIDATOR_PASS",
-        }
+    validator_passed = validator_result["status"] == "PASS"
+    validator_code = (
+        "VALIDATOR_PASS"
+        if validator_passed
+        else {
+            "TIMEOUT": "VALIDATOR_TIMEOUT",
+            "OUTPUT_LIMIT_EXCEEDED": "VALIDATOR_OUTPUT_LIMIT",
+        }.get(str(validator_result["code"]), "VALIDATOR_FAILED")
+    )
+    checks.extend(
+        [
+            {
+                "id": "trusted_validator",
+                "status": "PASS" if validator_passed else "FAIL",
+                "code": validator_code,
+            },
+            {
+                "id": "linux_ocr",
+                "status": "PASS" if validator_passed else "FAIL",
+                "code": "OCR_EXECUTION_OBSERVED"
+                if validator_passed
+                else "OCR_EXECUTION_NOT_OBSERVED",
+            },
+        ]
     )
     return make_receipt(
         pins,

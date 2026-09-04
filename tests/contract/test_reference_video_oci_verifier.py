@@ -78,6 +78,14 @@ def test_launcher_has_all_fail_closed_docker_options() -> None:
     assert "/bin/cat" in launcher
 
 
+def test_runner_executes_ocr_only_through_the_trusted_validator() -> None:
+    source = (OCI / "runner.py").read_text(encoding="utf-8")
+    assert "VALIDATOR_TIMEOUT_SECONDS = 420" in source
+    assert "def ocr_check" not in source
+    assert '"code": "OCR_EXECUTION_OBSERVED"' in source
+    assert '"ocr_parity": "UNKNOWN"' in source
+
+
 def test_mutable_tag_is_not_an_image_reference() -> None:
     import policy
 
