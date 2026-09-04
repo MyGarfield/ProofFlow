@@ -119,11 +119,12 @@ validator's live OCR responsibility. Any Linux frame/audio mismatch is
 
 On 2026-09-04, an isolated local-only registry resolved one candidate to OCI
 child digest
-`sha256:a33bdc1d9e98677ca6e4f61034d67cf4c711eb0a2688b3aed49703a63f2adb3e`
+`sha256:78c4e14b3c3c08cf8b99e19002c58de44e5a9ccd979fb7bf9ec89af6a7eea823`
 and config digest
-`sha256:003fe877ac46415d049edddaf284e0b209b537d1a952dc9992e370ac5e4ac123`.
-Two strict runs each returned 19/19 checks `PASS`; the persisted receipt has
-SHA-256 `74dc4bbe8b572095c5c57fff2470b793a8729255b33984a14a05b48853f76b3f`.
+`sha256:dc52abae5702b4d14fc1a672a4b8f38c1a6fd81578f20474fae6649daf53a481`.
+The final-head strict run returned 19/19 checks `PASS`; the persisted receipt
+has SHA-256
+`b5b29ae989be585418669691c33c5cba2b088e745877e827c9f58fdee883e989`.
 This is local execution evidence only: the image was not published to an
 external registry or independently downloaded, and `observed.ocr_parity`
 remains `UNKNOWN` by design.
