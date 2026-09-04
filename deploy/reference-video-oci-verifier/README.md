@@ -88,10 +88,10 @@ deploy/reference-video-oci-verifier/run.sh \
   --image ghcr.io/mygarfield/proofflow-reference-video-verifier@sha256:CHILD \
   --repo-root /absolute/path/to/ProofFlow \
   --artifact-root /absolute/path/to/ProofFlow/reference-video \
-  --expected-artifact-commit 81af263aa612529b487e5f13540f19716a20fa58 \
-  --expected-manifest-sha256 sha256:30e6fea061dbf13260790bb380ced7a81ff619527e9e08dc76494f196e6cbae4 \
+  --expected-artifact-commit 506c4d38de7fd6826dcc3170686668b4ed75ca25 \
+  --expected-manifest-sha256 sha256:b427dc4eeeecc04f2d14e4c3e1a8059ac63e7c45c7054c86ebe772c88a1e01ac \
   --expected-schema-sha256 sha256:3af014e66ce304a5f205e5cb9b2900157d6469b72ff5601e1c7a1d447224c104 \
-  --expected-validator-sha256 sha256:349f1dace7c1f703f58057108a0a1d1ffe1db2ea90e98b41c41df221b7e8a339 \
+  --expected-validator-sha256 sha256:bba1e9d75c5694a148da96f77f2e431bc23ce1248e6bac3f3a1db3bca8940051 \
   --expected-image-digest sha256:CHILD \
   --expected-image-config-digest sha256:CONFIG \
   --receipt-output /absolute/private/path/receipt.json

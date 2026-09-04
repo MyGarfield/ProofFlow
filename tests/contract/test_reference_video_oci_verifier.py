@@ -38,7 +38,7 @@ def digest(path: Path) -> str:
 def test_dockerfile_pins_current_amd64_child_and_build_inputs() -> None:
     dockerfile = (OCI / "Dockerfile").read_text(encoding="utf-8")
     assert "FROM --platform=linux/amd64 python:3.12-alpine@sha256:78e987" in dockerfile
-    assert "ARG ARTIFACT_COMMIT=81af263aa612529b487e5f13540f19716a20fa58" in dockerfile
+    assert "ARG ARTIFACT_COMMIT=506c4d38de7fd6826dcc3170686668b4ed75ca25" in dockerfile
     assert "--require-hashes" in dockerfile
     assert "ALPINE_PACKAGES.lock" in dockerfile
     assert "MAIN_APKINDEX_SHA256" in dockerfile
