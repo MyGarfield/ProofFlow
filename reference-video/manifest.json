@@ -24,11 +24,11 @@
     "evidence/lint-summary.json": "sha256:2de33e6b316e0173ff4d86ea75011a0acbd2537fa17a644db2ffde6677675743",
     "evidence/manifest.schema.json": "sha256:3af014e66ce304a5f205e5cb9b2900157d6469b72ff5601e1c7a1d447224c104",
     "evidence/network-ledger.json": "sha256:0ea4696637b8308e90fa78ba1fbeeb87d51bc1081869619bbb9dcfb047643bdf",
-    "evidence/privacy-scan.json": "sha256:69f7d7cd2a89817aecdd9765db1fc18cabcab5f52b0821d4f814571381d4b355",
+    "evidence/privacy-scan.json": "sha256:cf443cf786ca228fcd3cc83785f4fa486dff907ab3c505406b7b9436447ef6be",
     "evidence/run_final_lint.py": "sha256:9fe3ece8d70f3c2582274f68477dbb92172c364a1aceb012a07fb82d0267fc34",
     "evidence/run_privacy_scan.py": "sha256:f22fad5d6c9ab66b7e179a6469cfec959725b0eebecfa8f0855475af3164e085",
-    "evidence/test_manifest_validator.py": "sha256:6d07b2614dac40c8ccae545f5c1550976acaeeb453998f00a9a9b61c20a48ea8",
-    "evidence/validate_manifest.py": "sha256:759b57258662b6e2e7e612a1235b650f70d65f107903e77a78dd0f51a7cd3654",
+    "evidence/test_manifest_validator.py": "sha256:a655d9f03b237e51811e672259a67affa31b552f900912228d088913a0da4316",
+    "evidence/validate_manifest.py": "sha256:bba1e9d75c5694a148da96f77f2e431bc23ce1248e6bac3f3a1db3bca8940051",
     "evidence/video-frames.framemd5": "sha256:d7f1593cc4acccf2c630a878384952e547f281a508129c31c170450c6f13c1c0",
     "index.html": "sha256:c7d1032d17805c33f4d5515dffc28c56eb0a31f227a5a3c5590d8d69e52827af",
     "narration.txt": "sha256:22932db9ec806ad33e05ab8311d8afc89be24beca20b26953f287b1d7478a252",
@@ -67,7 +67,7 @@
       "snapshots/frame-06-at-84s.png"
     ],
     "scanner": "trusted-validator-live+tesseract",
-    "scanner_sha256": "sha256:759b57258662b6e2e7e612a1235b650f70d65f107903e77a78dd0f51a7cd3654"
+    "scanner_sha256": "sha256:bba1e9d75c5694a148da96f77f2e431bc23ce1248e6bac3f3a1db3bca8940051"
   },
   "claims": {
     "benchmark_11_of_11": "STRUCTURE_COMPLETE_ONLY",
@@ -324,7 +324,7 @@
       "evidence/privacy-scan.json",
       "manifest.json"
     ],
-    "input_digest": "sha256:373f95c7181006fdb5826f12af6a4f8d8b296c324b2fa8d1e33b01a12b7d80eb",
+    "input_digest": "sha256:6df91fb2ca20c51195c5bb8996bb489d97e0000995f509335f5c96606cb381bc",
     "input_paths": [
       "DESIGN.md",
       "SCRIPT.md",
@@ -357,7 +357,7 @@
     ],
     "matches": [],
     "scanner": "trusted-validator-live",
-    "scanner_sha256": "sha256:759b57258662b6e2e7e612a1235b650f70d65f107903e77a78dd0f51a7cd3654"
+    "scanner_sha256": "sha256:bba1e9d75c5694a148da96f77f2e431bc23ce1248e6bac3f3a1db3bca8940051"
   },
   "readyWorkers": 0,
   "recorded_source_commit": "b63eeb60d1072c73d2d0d1d6061b3c8f800487a4",
@@ -411,7 +411,7 @@
       "version": "5.5.2"
     }
   },
-  "validator_sha256": "sha256:759b57258662b6e2e7e612a1235b650f70d65f107903e77a78dd0f51a7cd3654",
+  "validator_sha256": "sha256:bba1e9d75c5694a148da96f77f2e431bc23ce1248e6bac3f3a1db3bca8940051",
   "video": "renders/reference-runtime-evidence.mp4",
   "voiceover_status": "UNAVAILABLE_LOCAL_TTS",
   "workers": "Stopped"
