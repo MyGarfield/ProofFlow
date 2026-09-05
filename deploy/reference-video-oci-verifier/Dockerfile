@@ -1,6 +1,8 @@
-# syntax=docker/dockerfile:1.7
+# syntax=docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
 # Build only for the immutable amd64 child, never for a multi-platform index.
+ARG SOURCE_DATE_EPOCH=1788519180
 FROM --platform=linux/amd64 python:3.12-alpine@sha256:78e98729f8fc4099e53cffb3fe59fd15b18dfa4ace8c914dee0cefa5320068eb
+ARG SOURCE_DATE_EPOCH
 
 ARG ARTIFACT_COMMIT=290ef94caf96cf3f1e4568cf8f19a52a8b460bc0
 ARG MANIFEST_SHA256=sha256:d031c112d517d1a6931c97fed6fc667a7fd2fd29872e04d901829b6bcfe2b92a
@@ -47,7 +49,8 @@ RUN --mount=type=bind,from=verifier_inputs,source=.,target=/opt/proofflow-inputs
       file:///opt/proofflow-inputs/v3.24/community \
       > /etc/apk/repositories; \
     apk --no-network add --no-cache --no-progress \
-      $(sed -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' /opt/proofflow/ALPINE_PACKAGES.lock)
+      $(sed -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' /opt/proofflow/ALPINE_PACKAGES.lock); \
+    rm -f /var/log/apk.log /var/cache/fontconfig/*
 
 RUN --mount=type=bind,from=verifier_inputs,source=wheels,target=/opt/proofflow-wheels,ro \
     echo "${WHEEL_CLOSURE_LOCK_SHA256#sha256:}  /opt/proofflow/wheel-closure.lock.json" | sha256sum -c - \
@@ -56,6 +59,7 @@ RUN --mount=type=bind,from=verifier_inputs,source=wheels,target=/opt/proofflow-w
       --no-cache-dir \
       --no-index \
       --find-links /opt/proofflow-wheels \
+      --no-compile \
       --only-binary=:all: \
       --require-hashes \
       --requirement /opt/proofflow/requirements.lock \
