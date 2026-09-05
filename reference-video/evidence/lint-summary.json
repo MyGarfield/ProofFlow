@@ -1,0 +1,14 @@
+{
+  "command": "npx hyperframes lint --json",
+  "errorCount": 0,
+  "index_sha256": "sha256:c7d1032d17805c33f4d5515dffc28c56eb0a31f227a5a3c5590d8d69e52827af",
+  "ok": true,
+  "paths_redacted": true,
+  "schema": "proofflow.reference-runtime.lint-summary.v1",
+  "tool": "hyperframes",
+  "tool_version": "0.8.8",
+  "warningCodes": [
+    "timeline_track_too_dense"
+  ],
+  "warningCount": 1
+}

@@ -1,0 +1,302 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "proofflow.reference-runtime-evidence-video.manifest.v2",
+  "title": "ProofFlow reference runtime evidence manifest structure",
+  "description": "Structural envelope only. Release claims and artifact membership are independently checked by the trusted validator.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "actual_duration_seconds",
+    "artifact_hashes",
+    "audio",
+    "audio_role",
+    "benchmark_report_hash",
+    "benchmark_report_hash_provenance",
+    "benchmark_report_hash_reproducible",
+    "capture",
+    "claim_provenance",
+    "claims",
+    "classification",
+    "duration_seconds",
+    "external_side_effects_enabled",
+    "faststart",
+    "ffprobe",
+    "fps",
+    "frame_bindings",
+    "frame_commitment",
+    "keyframe_probes",
+    "ledgers",
+    "lint_summary",
+    "llm",
+    "moov_atom_before_mdat",
+    "network_ledger_non_loopback_requests_sent",
+    "network_policy",
+    "pixel_format",
+    "privacy_provenance",
+    "readyWorkers",
+    "recorded_source_commit",
+    "render_input_digest",
+    "render_input_hashes",
+    "render_method",
+    "resolution",
+    "schema",
+    "schema_sha256",
+    "sequence",
+    "source_url",
+    "status",
+    "subtitles",
+    "tooling",
+    "validator_sha256",
+    "video",
+    "voiceover_status",
+    "workers"
+  ],
+  "properties": {
+    "schema": {"type": "string"},
+    "schema_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "validator_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "status": {"type": "string"},
+    "recorded_source_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "actual_duration_seconds": {"type": "number", "minimum": 0},
+    "duration_seconds": {"type": "number", "minimum": 0},
+    "network_ledger_non_loopback_requests_sent": {"type": "integer", "minimum": 0},
+    "artifact_hashes": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "patternProperties": {
+        "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      }
+    },
+    "render_input_hashes": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "patternProperties": {
+        "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      }
+    },
+    "render_input_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "audio": {"type": "string"},
+    "audio_role": {"type": "string"},
+    "capture": {"type": "string"},
+    "claim_provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scanner", "scanner_sha256", "input_paths", "excluded_from_digest", "input_digest", "forbidden_matches"],
+      "properties": {
+        "scanner": {"type": "string"},
+        "scanner_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "input_paths": {"type": "array", "items": {"type": "string"}},
+        "excluded_from_digest": {"type": "array", "items": {"type": "string"}},
+        "input_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "forbidden_matches": {"type": "array", "items": {"type": "object", "additionalProperties": false}}
+      }
+    },
+    "claims": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["benchmark_11_of_11", "calculation_60000", "evaluation_scores", "legal_accuracy", "worker_llm_evaluation"],
+      "properties": {
+        "benchmark_11_of_11": {"type": "string"},
+        "calculation_60000": {"type": "string"},
+        "evaluation_scores": {"type": ["null", "object", "array", "number", "string", "boolean"]},
+        "legal_accuracy": {"type": "string"},
+        "worker_llm_evaluation": {"type": "string"}
+      }
+    },
+    "classification": {"type": "string"},
+    "external_side_effects_enabled": {"type": "boolean"},
+    "faststart": {"type": "boolean"},
+    "ffprobe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format", "programs", "stream_groups", "streams"],
+      "properties": {
+        "format": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["duration", "format_name"],
+          "properties": {
+            "duration": {"type": "string"},
+            "format_name": {"type": "string"}
+          }
+        },
+        "programs": {"type": "array", "maxItems": 0},
+        "stream_groups": {"type": "array", "maxItems": 0},
+        "streams": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "channels": {"type": "integer", "minimum": 1},
+              "codec_name": {"type": "string"},
+              "codec_type": {"type": "string"},
+              "height": {"type": "integer", "minimum": 1},
+              "index": {"type": "integer", "minimum": 0},
+              "pix_fmt": {"type": "string"},
+              "r_frame_rate": {"type": "string"},
+              "sample_rate": {"type": "string"},
+              "width": {"type": "integer", "minimum": 1}
+            }
+          }
+        }
+      }
+    },
+    "fps": {"type": "integer", "minimum": 1},
+    "frame_bindings": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["snapshot", "target_seconds", "width", "height", "snapshot_sample_sha256", "video_sample_sha256", "sampled_mae", "sampled_equal_ratio"],
+        "properties": {
+          "snapshot": {"type": "string"},
+          "target_seconds": {"type": "number", "minimum": 0},
+          "width": {"type": "integer", "minimum": 1},
+          "height": {"type": "integer", "minimum": 1},
+          "snapshot_sample_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+          "video_sample_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+          "sampled_mae": {"type": "number", "minimum": 0},
+          "sampled_equal_ratio": {"type": "number", "minimum": 0, "maximum": 1}
+        }
+      }
+    },
+    "frame_commitment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "video_digest_path",
+        "audio_digest_path",
+        "video_framemd5_sha256",
+        "audio_framemd5_sha256",
+        "video_filter",
+        "video_codec",
+        "video_frame_count",
+        "video_width",
+        "video_height",
+        "video_pixel_format",
+        "video_time_base",
+        "audio_sample_rate",
+        "audio_sample_format",
+        "audio_channel_layout",
+        "audio_sample_count",
+        "audio_time_base",
+        "command",
+        "segments"
+      ],
+      "properties": {
+        "video_digest_path": {"type": "string"},
+        "audio_digest_path": {"type": "string"},
+        "video_framemd5_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "audio_framemd5_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "video_filter": {"type": "string"},
+        "video_codec": {"type": "string"},
+        "video_frame_count": {"type": "integer", "minimum": 1},
+        "video_width": {"type": "integer", "minimum": 1},
+        "video_height": {"type": "integer", "minimum": 1},
+        "video_pixel_format": {"type": "string"},
+        "video_time_base": {"type": "string"},
+        "audio_sample_rate": {"type": "integer", "minimum": 1},
+        "audio_sample_format": {"type": "string"},
+        "audio_channel_layout": {"type": "string"},
+        "audio_sample_count": {"type": "integer", "minimum": 1},
+        "audio_time_base": {"type": "string"},
+        "command": {"type": "string"},
+        "segments": {
+          "type": "array",
+          "minItems": 7,
+          "maxItems": 7,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["segment", "start_seconds", "end_seconds", "start_frame", "end_frame_exclusive", "snapshot"],
+            "properties": {
+              "segment": {"type": "integer", "minimum": 1},
+              "start_seconds": {"type": "integer", "minimum": 0},
+              "end_seconds": {"type": "integer", "minimum": 1},
+              "start_frame": {"type": "integer", "minimum": 0},
+              "end_frame_exclusive": {"type": "integer", "minimum": 1},
+              "snapshot": {"type": "string"}
+            }
+          }
+        }
+      }
+    },
+    "keyframe_probes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["target_seconds", "nearest_frame_seconds", "key_frame", "pict_type", "within_one_frame"],
+        "properties": {
+          "target_seconds": {"type": "number", "minimum": 0},
+          "nearest_frame_seconds": {"type": "number", "minimum": 0},
+          "key_frame": {"type": "integer", "minimum": 0, "maximum": 1},
+          "pict_type": {"type": "string"},
+          "within_one_frame": {"type": "boolean"}
+        }
+      }
+    },
+    "ledgers": {"type": "array", "items": {"type": "string"}},
+    "lint_summary": {"type": "string"},
+    "llm": {"type": "string"},
+    "moov_atom_before_mdat": {"type": "boolean"},
+    "network_policy": {"type": "string"},
+    "pixel_format": {"type": "string"},
+    "privacy_provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scanner", "scanner_sha256", "input_paths", "excluded_from_digest", "input_digest", "matches"],
+      "properties": {
+        "scanner": {"type": "string"},
+        "scanner_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "input_paths": {"type": "array", "items": {"type": "string"}},
+        "excluded_from_digest": {"type": "array", "items": {"type": "string"}},
+        "input_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "matches": {"type": "array", "items": {"type": "object", "additionalProperties": false}}
+      }
+    },
+    "readyWorkers": {"type": "integer", "minimum": 0},
+    "render_method": {"type": "string"},
+    "resolution": {"type": "string"},
+    "sequence": {"type": "array", "items": {"type": "string"}},
+    "source_url": {"type": "string", "format": "uri"},
+    "subtitles": {"type": "string"},
+    "tooling": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ffprobe", "ffmpeg", "tesseract"],
+      "properties": {
+        "ffprobe": {"$ref": "#/$defs/tool"},
+        "ffmpeg": {"$ref": "#/$defs/tool"},
+        "tesseract": {"$ref": "#/$defs/tool"}
+      }
+    },
+    "benchmark_report_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "benchmark_report_hash_provenance": {"type": "string"},
+    "benchmark_report_hash_reproducible": {"type": "boolean"},
+    "video": {"type": "string"},
+    "voiceover_status": {"type": "string"},
+    "workers": {"type": "string"}
+  },
+  "$defs": {
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "version", "owner", "mode"],
+      "properties": {
+        "path": {"type": "string"},
+        "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "version": {"type": "string"},
+        "owner": {"type": "string"},
+        "mode": {"type": "string"}
+      }
+    }
+  }
+}

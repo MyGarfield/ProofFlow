@@ -1,0 +1,93 @@
+{
+  "client": "http.client.HTTPConnection",
+  "non_loopback_requests_sent": 0,
+  "policy": "capture client uses direct http.client connections to 127.0.0.1/localhost only; reject all other targets before socket creation; no proxy env and no redirects",
+  "proxy_env_used": false,
+  "redirect_regression": {
+    "location_observed": true,
+    "redirect_followed": false,
+    "sink_requests": 0,
+    "status": 302
+  },
+  "redirects_followed": false,
+  "requests": [
+    {
+      "decision": "ALLOW_LOOPBACK",
+      "method": "GET",
+      "seq": 0,
+      "status": 200,
+      "url": "http://127.0.0.1:8765/"
+    },
+    {
+      "decision": "ALLOW_LOOPBACK",
+      "method": "GET",
+      "seq": 1,
+      "status": 200,
+      "url": "http://127.0.0.1:8765/app.js"
+    },
+    {
+      "decision": "ALLOW_LOOPBACK",
+      "method": "GET",
+      "seq": 2,
+      "status": 200,
+      "url": "http://127.0.0.1:8765/styles.css"
+    },
+    {
+      "decision": "BLOCK_BEFORE_SOCKET",
+      "method": "GET",
+      "seq": 3,
+      "status": null,
+      "url": "https://external.invalid/blocked-by-loopback-policy"
+    },
+    {
+      "decision": "ALLOW_LOOPBACK",
+      "method": "GET",
+      "seq": 4,
+      "status": 200,
+      "url": "http://127.0.0.1:8765/api/bootstrap"
+    },
+    {
+      "decision": "ALLOW_LOOPBACK",
+      "method": "POST",
+      "seq": 5,
+      "status": 200,
+      "url": "http://127.0.0.1:8765/api/prepare"
+    },
+    {
+      "decision": "ALLOW_LOOPBACK",
+      "method": "POST",
+      "seq": 6,
+      "status": 409,
+      "url": "http://127.0.0.1:8765/api/package"
+    },
+    {
+      "decision": "ALLOW_LOOPBACK",
+      "method": "POST",
+      "seq": 7,
+      "status": 200,
+      "url": "http://127.0.0.1:8765/api/approve"
+    },
+    {
+      "decision": "ALLOW_LOOPBACK",
+      "method": "POST",
+      "seq": 8,
+      "status": 200,
+      "url": "http://127.0.0.1:8765/api/package"
+    },
+    {
+      "decision": "ALLOW_LOOPBACK",
+      "method": "POST",
+      "seq": 9,
+      "status": 200,
+      "url": "http://127.0.0.1:8765/api/verify"
+    },
+    {
+      "decision": "ALLOW_LOOPBACK",
+      "method": "POST",
+      "seq": 10,
+      "status": 200,
+      "url": "http://127.0.0.1:8765/api/benchmark"
+    }
+  ],
+  "schema": "proofflow.reference-runtime.network-ledger.v1"
+}

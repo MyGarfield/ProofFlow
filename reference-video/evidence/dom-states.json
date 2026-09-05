@@ -1,0 +1,995 @@
+{
+  "fixed_sequence": [
+    "PREPARE",
+    "409_FAIL_CLOSED",
+    "LOCAL_DEMO",
+    "PACKAGE",
+    "VERIFY",
+    "11/11_BENCHMARK"
+  ],
+  "page": "http://127.0.0.1:8765",
+  "schema": "proofflow.reference-runtime.dom-state-capture.v1",
+  "states": [
+    {
+      "action": "PREPARE",
+      "seq": 1,
+      "state": {
+        "approval": {
+          "method": null,
+          "reason": null,
+          "required_role": "legal-reviewer"
+        },
+        "artifacts": {
+          "audit_verdict": "PASS",
+          "calculation_total_cny": "60000",
+          "evidence": 13,
+          "package_files": 0,
+          "proposals": 1,
+          "rules": 4
+        },
+        "benchmark": null,
+        "boundaries": {
+          "agentteams_integrated": false,
+          "classification": "PUBLIC_SYNTHETIC",
+          "external_side_effects_enabled": false,
+          "llm_enabled": false,
+          "network_bind": "127.0.0.1",
+          "readyWorkers": 0,
+          "workers": "Stopped"
+        },
+        "gate_probe": "NOT_ATTEMPTED",
+        "pins": {
+          "fixture_bundle": "sha256:60ce3111c813c8869e4be65ae5f4fcd9712e388769b35645393dc270184c7f9d",
+          "rule_catalog": "sha256:27686c904451870dd5953ec6e47c155a395b2f279995e50f68aea984e6bf91de",
+          "signature_verified": false
+        },
+        "run": {
+          "run_id": "run-910c2fe0613b10aed106",
+          "stage": "AWAITING_APPROVAL",
+          "subject_hash": "sha256:9509706aa5e62120778326ed5ccd9bdec023fdc213a20e3073b297b5dbed5a80",
+          "trace_id": "trace-1cae64bb3c3b3f045232"
+        },
+        "trace": [
+          {
+            "actor": "PF-A1",
+            "event": "case.state_transition",
+            "sequence": 1,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A2",
+            "event": "skill.evidence_ingest",
+            "sequence": 2,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A2",
+            "event": "skill.evidence_ingest",
+            "sequence": 3,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A2",
+            "event": "skill.evidence_ingest",
+            "sequence": 4,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A2",
+            "event": "skill.timeline_build",
+            "sequence": 5,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A1",
+            "event": "case.state_transition",
+            "sequence": 6,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A3",
+            "event": "skill.rule_retrieve",
+            "sequence": 7,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A1",
+            "event": "case.state_transition",
+            "sequence": 8,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A4",
+            "event": "skill.deterministic_calculate",
+            "sequence": 9,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A1",
+            "event": "case.state_transition",
+            "sequence": 10,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A5",
+            "event": "strategy.proposal_generate",
+            "sequence": 11,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A1",
+            "event": "case.state_transition",
+            "sequence": 12,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A6",
+            "event": "skill.conflict_detect",
+            "sequence": 13,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A6",
+            "event": "skill.decision_audit",
+            "sequence": 14,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A1",
+            "event": "case.state_transition",
+            "sequence": 15,
+            "status": "SUCCESS"
+          }
+        ],
+        "verification": null
+      }
+    },
+    {
+      "action": "PACKAGE",
+      "seq": 2,
+      "state": {
+        "approval": {
+          "method": null,
+          "reason": null,
+          "required_role": "legal-reviewer"
+        },
+        "artifacts": {
+          "audit_verdict": "PASS",
+          "calculation_total_cny": "60000",
+          "evidence": 13,
+          "package_files": 0,
+          "proposals": 1,
+          "rules": 4
+        },
+        "benchmark": null,
+        "boundaries": {
+          "agentteams_integrated": false,
+          "classification": "PUBLIC_SYNTHETIC",
+          "external_side_effects_enabled": false,
+          "llm_enabled": false,
+          "network_bind": "127.0.0.1",
+          "readyWorkers": 0,
+          "workers": "Stopped"
+        },
+        "gate_probe": "BLOCKED_AS_EXPECTED",
+        "pins": {
+          "fixture_bundle": "sha256:60ce3111c813c8869e4be65ae5f4fcd9712e388769b35645393dc270184c7f9d",
+          "rule_catalog": "sha256:27686c904451870dd5953ec6e47c155a395b2f279995e50f68aea984e6bf91de",
+          "signature_verified": false
+        },
+        "run": {
+          "run_id": "run-910c2fe0613b10aed106",
+          "stage": "AWAITING_APPROVAL",
+          "subject_hash": "sha256:9509706aa5e62120778326ed5ccd9bdec023fdc213a20e3073b297b5dbed5a80",
+          "trace_id": "trace-1cae64bb3c3b3f045232"
+        },
+        "trace": [
+          {
+            "actor": "PF-A1",
+            "event": "case.state_transition",
+            "sequence": 1,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A2",
+            "event": "skill.evidence_ingest",
+            "sequence": 2,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A2",
+            "event": "skill.evidence_ingest",
+            "sequence": 3,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A2",
+            "event": "skill.evidence_ingest",
+            "sequence": 4,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A2",
+            "event": "skill.timeline_build",
+            "sequence": 5,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A1",
+            "event": "case.state_transition",
+            "sequence": 6,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A3",
+            "event": "skill.rule_retrieve",
+            "sequence": 7,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A1",
+            "event": "case.state_transition",
+            "sequence": 8,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A4",
+            "event": "skill.deterministic_calculate",
+            "sequence": 9,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A1",
+            "event": "case.state_transition",
+            "sequence": 10,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A5",
+            "event": "strategy.proposal_generate",
+            "sequence": 11,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A1",
+            "event": "case.state_transition",
+            "sequence": 12,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A6",
+            "event": "skill.conflict_detect",
+            "sequence": 13,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A6",
+            "event": "skill.decision_audit",
+            "sequence": 14,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A1",
+            "event": "case.state_transition",
+            "sequence": 15,
+            "status": "SUCCESS"
+          }
+        ],
+        "verification": null
+      }
+    },
+    {
+      "action": "APPROVE",
+      "seq": 3,
+      "state": {
+        "approval": {
+          "method": "LOCAL_DEMO",
+          "reason": "已核验公开合成证据、规则时效、确定性计算、风险与不确定项，同意仅生成本地评审包。",
+          "required_role": "legal-reviewer"
+        },
+        "artifacts": {
+          "audit_verdict": "PASS",
+          "calculation_total_cny": "60000",
+          "evidence": 13,
+          "package_files": 0,
+          "proposals": 1,
+          "rules": 4
+        },
+        "benchmark": null,
+        "boundaries": {
+          "agentteams_integrated": false,
+          "classification": "PUBLIC_SYNTHETIC",
+          "external_side_effects_enabled": false,
+          "llm_enabled": false,
+          "network_bind": "127.0.0.1",
+          "readyWorkers": 0,
+          "workers": "Stopped"
+        },
+        "gate_probe": "BLOCKED_AS_EXPECTED",
+        "pins": {
+          "fixture_bundle": "sha256:60ce3111c813c8869e4be65ae5f4fcd9712e388769b35645393dc270184c7f9d",
+          "rule_catalog": "sha256:27686c904451870dd5953ec6e47c155a395b2f279995e50f68aea984e6bf91de",
+          "signature_verified": false
+        },
+        "run": {
+          "run_id": "run-910c2fe0613b10aed106",
+          "stage": "APPROVED",
+          "subject_hash": "sha256:9509706aa5e62120778326ed5ccd9bdec023fdc213a20e3073b297b5dbed5a80",
+          "trace_id": "trace-1cae64bb3c3b3f045232"
+        },
+        "trace": [
+          {
+            "actor": "PF-A1",
+            "event": "case.state_transition",
+            "sequence": 1,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A2",
+            "event": "skill.evidence_ingest",
+            "sequence": 2,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A2",
+            "event": "skill.evidence_ingest",
+            "sequence": 3,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A2",
+            "event": "skill.evidence_ingest",
+            "sequence": 4,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A2",
+            "event": "skill.timeline_build",
+            "sequence": 5,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A1",
+            "event": "case.state_transition",
+            "sequence": 6,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A3",
+            "event": "skill.rule_retrieve",
+            "sequence": 7,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A1",
+            "event": "case.state_transition",
+            "sequence": 8,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A4",
+            "event": "skill.deterministic_calculate",
+            "sequence": 9,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A1",
+            "event": "case.state_transition",
+            "sequence": 10,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A5",
+            "event": "strategy.proposal_generate",
+            "sequence": 11,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A1",
+            "event": "case.state_transition",
+            "sequence": 12,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A6",
+            "event": "skill.conflict_detect",
+            "sequence": 13,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A6",
+            "event": "skill.decision_audit",
+            "sequence": 14,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A1",
+            "event": "case.state_transition",
+            "sequence": 15,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "semifinal-demo-reviewer",
+            "event": "skill.human_approval",
+            "sequence": 16,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "semifinal-demo-reviewer",
+            "event": "case.state_transition",
+            "sequence": 17,
+            "status": "SUCCESS"
+          }
+        ],
+        "verification": null
+      }
+    },
+    {
+      "action": "PACKAGE",
+      "seq": 4,
+      "state": {
+        "approval": {
+          "method": "LOCAL_DEMO",
+          "reason": "已核验公开合成证据、规则时效、确定性计算、风险与不确定项，同意仅生成本地评审包。",
+          "required_role": "legal-reviewer"
+        },
+        "artifacts": {
+          "audit_verdict": "PASS",
+          "calculation_total_cny": "60000",
+          "evidence": 13,
+          "package_files": 2,
+          "proposals": 1,
+          "rules": 4
+        },
+        "benchmark": null,
+        "boundaries": {
+          "agentteams_integrated": false,
+          "classification": "PUBLIC_SYNTHETIC",
+          "external_side_effects_enabled": false,
+          "llm_enabled": false,
+          "network_bind": "127.0.0.1",
+          "readyWorkers": 0,
+          "workers": "Stopped"
+        },
+        "gate_probe": "BLOCKED_AS_EXPECTED",
+        "pins": {
+          "fixture_bundle": "sha256:60ce3111c813c8869e4be65ae5f4fcd9712e388769b35645393dc270184c7f9d",
+          "rule_catalog": "sha256:27686c904451870dd5953ec6e47c155a395b2f279995e50f68aea984e6bf91de",
+          "signature_verified": false
+        },
+        "run": {
+          "run_id": "run-910c2fe0613b10aed106",
+          "stage": "PACKAGED",
+          "subject_hash": "sha256:9509706aa5e62120778326ed5ccd9bdec023fdc213a20e3073b297b5dbed5a80",
+          "trace_id": "trace-1cae64bb3c3b3f045232"
+        },
+        "trace": [
+          {
+            "actor": "PF-A1",
+            "event": "case.state_transition",
+            "sequence": 1,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A2",
+            "event": "skill.evidence_ingest",
+            "sequence": 2,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A2",
+            "event": "skill.evidence_ingest",
+            "sequence": 3,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A2",
+            "event": "skill.evidence_ingest",
+            "sequence": 4,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A2",
+            "event": "skill.timeline_build",
+            "sequence": 5,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A1",
+            "event": "case.state_transition",
+            "sequence": 6,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A3",
+            "event": "skill.rule_retrieve",
+            "sequence": 7,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A1",
+            "event": "case.state_transition",
+            "sequence": 8,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A4",
+            "event": "skill.deterministic_calculate",
+            "sequence": 9,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A1",
+            "event": "case.state_transition",
+            "sequence": 10,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A5",
+            "event": "strategy.proposal_generate",
+            "sequence": 11,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A1",
+            "event": "case.state_transition",
+            "sequence": 12,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A6",
+            "event": "skill.conflict_detect",
+            "sequence": 13,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A6",
+            "event": "skill.decision_audit",
+            "sequence": 14,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A1",
+            "event": "case.state_transition",
+            "sequence": 15,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "semifinal-demo-reviewer",
+            "event": "skill.human_approval",
+            "sequence": 16,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "semifinal-demo-reviewer",
+            "event": "case.state_transition",
+            "sequence": 17,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A1",
+            "event": "skill.document_package",
+            "sequence": 18,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A1",
+            "event": "case.state_transition",
+            "sequence": 19,
+            "status": "SUCCESS"
+          }
+        ],
+        "verification": null
+      }
+    },
+    {
+      "action": "VERIFY",
+      "seq": 5,
+      "state": {
+        "approval": {
+          "method": "LOCAL_DEMO",
+          "reason": "已核验公开合成证据、规则时效、确定性计算、风险与不确定项，同意仅生成本地评审包。",
+          "required_role": "legal-reviewer"
+        },
+        "artifacts": {
+          "audit_verdict": "PASS",
+          "calculation_total_cny": "60000",
+          "evidence": 13,
+          "package_files": 2,
+          "proposals": 1,
+          "rules": 4
+        },
+        "benchmark": null,
+        "boundaries": {
+          "agentteams_integrated": false,
+          "classification": "PUBLIC_SYNTHETIC",
+          "external_side_effects_enabled": false,
+          "llm_enabled": false,
+          "network_bind": "127.0.0.1",
+          "readyWorkers": 0,
+          "workers": "Stopped"
+        },
+        "gate_probe": "BLOCKED_AS_EXPECTED",
+        "pins": {
+          "fixture_bundle": "sha256:60ce3111c813c8869e4be65ae5f4fcd9712e388769b35645393dc270184c7f9d",
+          "rule_catalog": "sha256:27686c904451870dd5953ec6e47c155a395b2f279995e50f68aea984e6bf91de",
+          "signature_verified": false
+        },
+        "run": {
+          "run_id": "run-910c2fe0613b10aed106",
+          "stage": "PACKAGED",
+          "subject_hash": "sha256:9509706aa5e62120778326ed5ccd9bdec023fdc213a20e3073b297b5dbed5a80",
+          "trace_id": "trace-1cae64bb3c3b3f045232"
+        },
+        "trace": [
+          {
+            "actor": "PF-A1",
+            "event": "case.state_transition",
+            "sequence": 1,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A2",
+            "event": "skill.evidence_ingest",
+            "sequence": 2,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A2",
+            "event": "skill.evidence_ingest",
+            "sequence": 3,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A2",
+            "event": "skill.evidence_ingest",
+            "sequence": 4,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A2",
+            "event": "skill.timeline_build",
+            "sequence": 5,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A1",
+            "event": "case.state_transition",
+            "sequence": 6,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A3",
+            "event": "skill.rule_retrieve",
+            "sequence": 7,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A1",
+            "event": "case.state_transition",
+            "sequence": 8,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A4",
+            "event": "skill.deterministic_calculate",
+            "sequence": 9,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A1",
+            "event": "case.state_transition",
+            "sequence": 10,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A5",
+            "event": "strategy.proposal_generate",
+            "sequence": 11,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A1",
+            "event": "case.state_transition",
+            "sequence": 12,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A6",
+            "event": "skill.conflict_detect",
+            "sequence": 13,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A6",
+            "event": "skill.decision_audit",
+            "sequence": 14,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A1",
+            "event": "case.state_transition",
+            "sequence": 15,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "semifinal-demo-reviewer",
+            "event": "skill.human_approval",
+            "sequence": 16,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "semifinal-demo-reviewer",
+            "event": "case.state_transition",
+            "sequence": 17,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A1",
+            "event": "skill.document_package",
+            "sequence": 18,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A1",
+            "event": "case.state_transition",
+            "sequence": 19,
+            "status": "SUCCESS"
+          }
+        ],
+        "verification": {
+          "checked_artifacts": 25,
+          "checked_package_files": 2,
+          "errors": [],
+          "valid": true
+        }
+      }
+    },
+    {
+      "action": "BENCHMARK",
+      "seq": 6,
+      "state": {
+        "approval": {
+          "method": "LOCAL_DEMO",
+          "reason": "已核验公开合成证据、规则时效、确定性计算、风险与不确定项，同意仅生成本地评审包。",
+          "required_role": "legal-reviewer"
+        },
+        "artifacts": {
+          "audit_verdict": "PASS",
+          "calculation_total_cny": "60000",
+          "evidence": 13,
+          "package_files": 2,
+          "proposals": 1,
+          "rules": 4
+        },
+        "benchmark": {
+          "all_contracts_satisfied": true,
+          "contract_pass_fraction": "11/11",
+          "excluded_coverage": [
+            "AGENTTEAMS_ORCHESTRATION",
+            "LEGAL_ACCURACY",
+            "LLM_PROMPT_INJECTION_DEFENSE",
+            "MCP_TOOL_POISONING",
+            "PERFORMANCE"
+          ],
+          "legal_accuracy_measured": false,
+          "performance_measured": false,
+          "report_hash": "sha256:3a7a2d0e0c405c718d94c95b0436a98583466757c07e7c62691f6cddf6ea9498",
+          "results": [
+            {
+              "fault": "NONE",
+              "id": "happy_path",
+              "passed": true,
+              "title": "Controlled happy path reaches a verified package"
+            },
+            {
+              "fault": "REMOVE_MONTHLY_WAGE_AVERAGE",
+              "id": "missing_parameter",
+              "passed": true,
+              "title": "A missing wage parameter blocks deterministic calculation"
+            },
+            {
+              "fault": "REQUEST_FOREIGN_AND_EXPIRED_RULES",
+              "id": "rule_scope_and_time",
+              "passed": true,
+              "title": "Foreign and expired rules require human resolution"
+            },
+            {
+              "fault": "EMBED_INSTRUCTION_LIKE_TEXT_IN_UNTRUSTED_DOCUMENT_FIELD",
+              "id": "parser_field_allowlist",
+              "passed": true,
+              "title": "The parser allowlist ignores an instruction-like document field"
+            },
+            {
+              "fault": "DECLARE_INCORRECT_SOURCE_DIGEST",
+              "id": "evidence_tamper",
+              "passed": true,
+              "title": "Evidence bytes that disagree with the declared digest are blocked"
+            },
+            {
+              "fault": "MUTATE_PROPOSAL_AFTER_APPROVAL_REQUEST",
+              "id": "approval_toctou",
+              "passed": true,
+              "title": "A post-request artifact mutation invalidates pending approval"
+            },
+            {
+              "fault": "MUTATE_PACKAGED_DRAFT",
+              "id": "package_tamper",
+              "passed": true,
+              "title": "A packaged file mutation is detected by independent verification"
+            },
+            {
+              "fault": "MUTATE_SEALED_EVIDENCE_WITHOUT_RESEALING",
+              "id": "seal_tamper",
+              "passed": true,
+              "title": "A sealed evidence object mutated after sealing is rejected"
+            },
+            {
+              "fault": "MUTATE_EVIDENCE_VALUE_AND_RESEAL_IN_SAME_CONTEXT",
+              "id": "resealed_value_tamper",
+              "passed": true,
+              "title": "A same-context evidence value cannot gain provenance by recalculating its SHA seal"
+            },
+            {
+              "fault": "RESEAL_ONE_EVIDENCE_OBJECT_FOR_ANOTHER_TENANT",
+              "id": "cross_tenant_calculation",
+              "passed": true,
+              "title": "A validly sealed evidence object from another tenant is rejected"
+            },
+            {
+              "fault": "MARK_REQUIRED_WAGE_FACT_UNRESOLVED_AND_RESEAL",
+              "id": "unresolved_calculation_boundary",
+              "passed": true,
+              "title": "A validly sealed unresolved fact cannot become a calculation parameter"
+            }
+          ],
+          "suite_id": "proofflow-public-contracts",
+          "suite_version": "0.3.0"
+        },
+        "boundaries": {
+          "agentteams_integrated": false,
+          "classification": "PUBLIC_SYNTHETIC",
+          "external_side_effects_enabled": false,
+          "llm_enabled": false,
+          "network_bind": "127.0.0.1",
+          "readyWorkers": 0,
+          "workers": "Stopped"
+        },
+        "gate_probe": "BLOCKED_AS_EXPECTED",
+        "pins": {
+          "fixture_bundle": "sha256:60ce3111c813c8869e4be65ae5f4fcd9712e388769b35645393dc270184c7f9d",
+          "rule_catalog": "sha256:27686c904451870dd5953ec6e47c155a395b2f279995e50f68aea984e6bf91de",
+          "signature_verified": false
+        },
+        "run": {
+          "run_id": "run-910c2fe0613b10aed106",
+          "stage": "PACKAGED",
+          "subject_hash": "sha256:9509706aa5e62120778326ed5ccd9bdec023fdc213a20e3073b297b5dbed5a80",
+          "trace_id": "trace-1cae64bb3c3b3f045232"
+        },
+        "trace": [
+          {
+            "actor": "PF-A1",
+            "event": "case.state_transition",
+            "sequence": 1,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A2",
+            "event": "skill.evidence_ingest",
+            "sequence": 2,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A2",
+            "event": "skill.evidence_ingest",
+            "sequence": 3,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A2",
+            "event": "skill.evidence_ingest",
+            "sequence": 4,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A2",
+            "event": "skill.timeline_build",
+            "sequence": 5,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A1",
+            "event": "case.state_transition",
+            "sequence": 6,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A3",
+            "event": "skill.rule_retrieve",
+            "sequence": 7,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A1",
+            "event": "case.state_transition",
+            "sequence": 8,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A4",
+            "event": "skill.deterministic_calculate",
+            "sequence": 9,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A1",
+            "event": "case.state_transition",
+            "sequence": 10,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A5",
+            "event": "strategy.proposal_generate",
+            "sequence": 11,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A1",
+            "event": "case.state_transition",
+            "sequence": 12,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A6",
+            "event": "skill.conflict_detect",
+            "sequence": 13,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A6",
+            "event": "skill.decision_audit",
+            "sequence": 14,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A1",
+            "event": "case.state_transition",
+            "sequence": 15,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "semifinal-demo-reviewer",
+            "event": "skill.human_approval",
+            "sequence": 16,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "semifinal-demo-reviewer",
+            "event": "case.state_transition",
+            "sequence": 17,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A1",
+            "event": "skill.document_package",
+            "sequence": 18,
+            "status": "SUCCESS"
+          },
+          {
+            "actor": "PF-A1",
+            "event": "case.state_transition",
+            "sequence": 19,
+            "status": "SUCCESS"
+          }
+        ],
+        "verification": {
+          "checked_artifacts": 25,
+          "checked_package_files": 2,
+          "errors": [],
+          "valid": true
+        }
+      }
+    }
+  ]
+}
