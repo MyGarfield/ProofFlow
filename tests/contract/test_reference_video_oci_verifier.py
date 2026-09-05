@@ -21,6 +21,7 @@ import fetch_apk_closure  # noqa: E402
 import inspect_oci_archive  # noqa: E402
 import inspect_registry_bundle  # noqa: E402
 import runner  # noqa: E402
+import verify_wheel_closure  # noqa: E402
 import write_receipt  # noqa: E402
 
 EVIDENCE = Path(__file__).parents[2] / "reference-video/evidence"
@@ -46,7 +47,14 @@ def test_dockerfile_pins_current_amd64_child_and_build_inputs() -> None:
     assert "ARG ARTIFACT_COMMIT=290ef94caf96cf3f1e4568cf8f19a52a8b460bc0" in dockerfile
     assert "--require-hashes" in dockerfile
     assert "ALPINE_PACKAGES.lock" in dockerfile
-    assert "MAIN_APKINDEX_CONTENT_SHA256" in dockerfile
+    assert "APK_CLOSURE_LOCK_SHA256" in dockerfile
+    assert "WHEEL_CLOSURE_LOCK_SHA256" in dockerfile
+    assert "from=verifier_inputs" in dockerfile
+    assert "apk --no-network add" in dockerfile
+    assert "--no-index" in dockerfile
+    assert "file:///opt/proofflow-inputs/v3.24/main" in dockerfile
+    assert "dl-cdn.alpinelinux.org" not in dockerfile
+    assert "--allow-untrusted" not in dockerfile
     assert "USER 65532:65532" in dockerfile
     assert 'ENTRYPOINT ["/usr/local/bin/python3.12", "/opt/proofflow/runner.py"]' in dockerfile
     assert "COPY deploy/reference-video-oci-verifier/receipt.schema.json" in dockerfile
@@ -63,7 +71,9 @@ def test_dockerfile_pins_current_amd64_child_and_build_inputs() -> None:
     assert "IMAGE_REGISTRY_BUNDLE_PIN_MISMATCH" in launcher
     assert "REGISTRY_BUNDLE_ARGUMENTS_MUST_BE_PAIRED" in launcher
     assert "IMAGE_ID_INVALID" in launcher
-    assert "IMAGE_CONFIG_DIGEST_MISMATCH" in launcher
+    assert "IMAGE_STORE_IDENTITY_DIGEST_MISMATCH" in launcher
+    assert '"$IMAGE_ID" != "$EXPECTED_IMAGE_CONFIG_DIGEST"' in launcher
+    assert '"$IMAGE_ID" != "$EXPECTED_IMAGE_DIGEST"' in launcher
     assert "REPO_DIGEST_MATCH=false" in launcher
     assert 'case "$IMAGE_REPO_DIGESTS" in *"$IMAGE_REF"*' not in launcher
     result = __import__("subprocess").run(
@@ -137,6 +147,9 @@ def test_github_oci_workflow_is_pinned_local_only_and_path_filtered() -> None:
     assert "secrets." not in workflow
     assert "retention-days: 3" in workflow
     assert "docker rm --force" in workflow
+    assert "prepare_verifier_inputs.sh" in workflow
+    assert "--network=none" in workflow
+    assert '--build-context verifier_inputs="$PROOFFLOW_VERIFIER_INPUTS"' in workflow
     assert "git clone --no-local --no-hardlinks" in workflow
     assert "checkout --detach" in workflow
     assert "rev-parse HEAD" in workflow
@@ -144,10 +157,10 @@ def test_github_oci_workflow_is_pinned_local_only_and_path_filtered() -> None:
     assert 'sudo chown -R -- 65532:65532 "$DETACHED_REPO"' in workflow
     assert "stat -c '%u:%g' \"$DETACHED_REPO\"" in workflow
     assert "PROOFFLOW_REPO_ROOT" in workflow
-    assert (
-        'sudo rm -rf -- "$RUNNER_TEMP/proofflow-detached-repo" '
-        '"$RUNNER_TEMP/proofflow-reference-video.oci.tar"' in workflow
-    )
+    assert "sudo rm -rf --" in workflow
+    assert '"$RUNNER_TEMP/proofflow-detached-repo"' in workflow
+    assert '"$RUNNER_TEMP/proofflow-reference-video.oci.tar"' in workflow
+    assert '"$RUNNER_TEMP/proofflow-verifier-input-parent"' in workflow
 
 
 def test_mutable_tag_is_not_an_image_reference() -> None:
@@ -707,6 +720,7 @@ def test_apk_closure_lock_is_complete_sorted_and_unknown() -> None:
     assert lock["total_package_bytes"] == sum(item["size"] for item in lock["packages"])
     assert {item["architecture"] for item in lock["packages"]} == {"noarch", "x86_64"}
     assert not list(OCI.rglob("*.apk"))
+    assert not list(OCI.rglob("*.whl"))
 
 
 @pytest.mark.parametrize(
@@ -853,3 +867,98 @@ def test_apk_download_redirect_is_forbidden_and_part_is_removed(tmp_path: Path) 
         server.server_close()
     assert not destination.exists()
     assert not destination.with_name("payload.apk.part").exists()
+
+
+def test_verifier_input_preparation_has_bounded_network_phase() -> None:
+    script = (OCI / "prepare_verifier_inputs.sh").read_text(encoding="utf-8")
+    assert "python:3.12-alpine@sha256:78e987" in script
+    assert "--network bridge" in script
+    assert "--read-only" in script
+    assert "--cap-drop ALL" in script
+    assert "--security-opt no-new-privileges:true" in script
+    assert "fetch_apk_closure.py" in script
+    assert "verify_wheel_closure.py" in script
+    assert "OUTPUT_PARENT_MUST_BE_DEDICATED_EMPTY_DIRECTORY" in script
+    assert "--require-hashes" in script
+    assert "--only-binary=:all:" in script
+    assert "--allow-untrusted" not in script
+    assert "secrets." not in script
+
+
+def test_verifier_input_preparation_rejects_shared_output_parent(tmp_path: Path) -> None:
+    parent = tmp_path / "shared"
+    parent.mkdir()
+    (parent / "unrelated").write_text("must not be mounted", encoding="utf-8")
+    result = __import__("subprocess").run(
+        [
+            "/bin/sh",
+            str(OCI / "prepare_verifier_inputs.sh"),
+            "--docker-bin",
+            "/bin/sh",
+            "--repo-root",
+            str(Path(__file__).parents[2]),
+            "--output",
+            str(parent / "verifier-inputs"),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 2
+    assert "OUTPUT_PARENT_MUST_BE_DEDICATED_EMPTY_DIRECTORY" in result.stderr
+
+
+def test_wheel_closure_lock_is_exact_and_unknown() -> None:
+    lock = verify_wheel_closure.load_lock(OCI / "wheel-closure.lock.json")
+    assert lock["file_count"] == 6
+    assert lock["availability"] == "UNKNOWN"
+    assert lock["total_bytes"] == 821982
+    assert [item["filename"] for item in lock["files"]] == sorted(
+        item["filename"] for item in lock["files"]
+    )
+
+
+@pytest.mark.parametrize(
+    ("mutation", "code"),
+    [
+        (lambda lock: lock.update(availability="PASS"), "AVAILABILITY"),
+        (lambda lock: lock.update(extra=True), "KEYSET"),
+        (lambda lock: lock.update(base_image="sha256:" + "0" * 64), "BASE_IMAGE"),
+        (lambda lock: lock.update(file_count=7), "WHEEL_COUNT"),
+        (lambda lock: lock.update(total_bytes=1), "WHEEL_TOTAL_SIZE"),
+        (
+            lambda lock: lock["files"][1].update(filename=lock["files"][0]["filename"]),
+            "WHEEL_FILENAME",
+        ),
+    ],
+)
+def test_wheel_closure_lock_attacks_fail_closed(mutation, code: str) -> None:
+    lock = json.loads((OCI / "wheel-closure.lock.json").read_text(encoding="utf-8"))
+    mutation(lock)
+    with pytest.raises(verify_wheel_closure.WheelFailure, match=code):
+        verify_wheel_closure.validate_lock(lock)
+
+
+def test_wheel_directory_rejects_missing_extra_symlink_and_tamper(tmp_path: Path) -> None:
+    payload = b"wheel"
+    filename = "fixture-1.0-py3-none-any.whl"
+    path = tmp_path / filename
+    path.write_bytes(payload)
+    lock = {
+        "files": [
+            {
+                "filename": filename,
+                "size": len(payload),
+                "sha256": "sha256:" + hashlib.sha256(payload).hexdigest(),
+            }
+        ]
+    }
+    verify_wheel_closure.verify(tmp_path, lock)
+    path.write_bytes(payload + b"tamper")
+    with pytest.raises(verify_wheel_closure.WheelFailure, match="BYTES"):
+        verify_wheel_closure.verify(tmp_path, lock)
+    path.unlink()
+    with pytest.raises(verify_wheel_closure.WheelFailure, match="MEMBER_SET"):
+        verify_wheel_closure.verify(tmp_path, lock)
+    path.symlink_to(tmp_path / "outside")
+    with pytest.raises(verify_wheel_closure.WheelFailure, match="NOT_REGULAR"):
+        verify_wheel_closure.verify(tmp_path, lock)
