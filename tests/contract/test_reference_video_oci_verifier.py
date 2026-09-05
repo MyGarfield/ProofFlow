@@ -19,6 +19,7 @@ sys.path.insert(0, str(OCI))
 
 import build_identity  # noqa: E402
 import compare_reproducible_builds  # noqa: E402
+import diagnose_reproducibility_mismatch  # noqa: E402
 import fetch_apk_closure  # noqa: E402
 import inspect_oci_archive  # noqa: E402
 import inspect_registry_bundle  # noqa: E402
@@ -164,6 +165,10 @@ def test_github_oci_workflow_is_pinned_local_only_and_path_filtered() -> None:
     assert "rewrite-timestamp=true" in workflow
     assert (
         "uv run python deploy/reference-video-oci-verifier/compare_reproducible_builds.py"
+        in workflow
+    )
+    assert (
+        "uv run python deploy/reference-video-oci-verifier/diagnose_reproducibility_mismatch.py"
         in workflow
     )
     assert "repro-a" in workflow and "repro-b" in workflow
@@ -1054,3 +1059,26 @@ def test_build_reproducibility_receipt_rejects_invalid_inputs_and_overwrite(
     assert stat.S_IMODE(output.stat().st_mode) == 0o600
     with pytest.raises(compare_reproducible_builds.ComparisonFailure, match="ALREADY_EXISTS"):
         compare_reproducible_builds.write_once(output, receipt)
+
+
+def test_reproducibility_diagnostic_exposes_only_indexes_and_hashes() -> None:
+    manifest_a = {"layers": [{"digest": "sha256:" + "a" * 64}, {"digest": "sha256:" + "b" * 64}]}
+    manifest_b = {"layers": [{"digest": "sha256:" + "a" * 64}, {"digest": "sha256:" + "c" * 64}]}
+    config_a = {
+        "architecture": "amd64",
+        "rootfs": {"diff_ids": ["sha256:" + "d" * 64, "sha256:" + "e" * 64]},
+        "history": [{"created_by": "fixed"}, {"created_by": "left-secret-value"}],
+    }
+    config_b = {
+        "architecture": "amd64",
+        "rootfs": {"diff_ids": ["sha256:" + "d" * 64, "sha256:" + "f" * 64]},
+        "history": [{"created_by": "fixed"}, {"created_by": "right-secret-value"}],
+    }
+    result = diagnose_reproducibility_mismatch.summarize(manifest_a, config_a, manifest_b, config_b)
+    encoded = json.dumps(result, sort_keys=True)
+    assert result["manifest_layer_indexes"] == [1]
+    assert result["rootfs_diff_id_indexes"] == [1]
+    assert result["history_indexes"] == [1]
+    assert result["config_keys"] == ["history", "rootfs"]
+    assert "left-secret-value" not in encoded
+    assert "right-secret-value" not in encoded

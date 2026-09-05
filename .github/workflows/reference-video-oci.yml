@@ -134,6 +134,11 @@ jobs:
           }
           read -r CHILD_A CONFIG_A <<< "$(resolve_registry_image repro-a)"
           read -r CHILD_B CONFIG_B <<< "$(resolve_registry_image repro-b)"
+          if [ "$CHILD_A" != "$CHILD_B" ] || [ "$CONFIG_A" != "$CONFIG_B" ]; then
+            uv run python deploy/reference-video-oci-verifier/diagnose_reproducibility_mismatch.py \
+              --child-a "$CHILD_A" --config-a "$CONFIG_A" \
+              --child-b "$CHILD_B" --config-b "$CONFIG_B"
+          fi
           REPRO_RECEIPT="$RUNNER_TEMP/proofflow-build-reproducibility.json"
           uv run python deploy/reference-video-oci-verifier/compare_reproducible_builds.py \
             --child-a "$CHILD_A" --config-a "$CONFIG_A" \
