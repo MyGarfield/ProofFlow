@@ -139,7 +139,14 @@ def test_github_oci_workflow_is_pinned_local_only_and_path_filtered() -> None:
     assert "git clone --no-local --no-hardlinks" in workflow
     assert "checkout --detach" in workflow
     assert "rev-parse HEAD" in workflow
+    assert 'git -C "$DETACHED_REPO" status --porcelain' in workflow
+    assert 'sudo chown -R -- 65532:65532 "$DETACHED_REPO"' in workflow
+    assert "stat -c '%u:%g' \"$DETACHED_REPO\"" in workflow
     assert "PROOFFLOW_REPO_ROOT" in workflow
+    assert (
+        'sudo rm -rf -- "$RUNNER_TEMP/proofflow-detached-repo" '
+        '"$RUNNER_TEMP/proofflow-reference-video.oci.tar"' in workflow
+    )
 
 
 def test_mutable_tag_is_not_an_image_reference() -> None:

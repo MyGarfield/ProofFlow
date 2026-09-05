@@ -45,6 +45,9 @@ jobs:
           git clone --no-local --no-hardlinks "$GITHUB_WORKSPACE" "$DETACHED_REPO"
           git -C "$DETACHED_REPO" checkout --detach "$PINNED_ARTIFACT_COMMIT"
           test "$(git -C "$DETACHED_REPO" rev-parse HEAD)" = "$PINNED_ARTIFACT_COMMIT"
+          test -z "$(git -C "$DETACHED_REPO" status --porcelain)"
+          sudo chown -R -- 65532:65532 "$DETACHED_REPO"
+          test "$(stat -c '%u:%g' "$DETACHED_REPO")" = "65532:65532"
           {
             echo "PROOFFLOW_REPO_ROOT=$DETACHED_REPO"
             echo "PROOFFLOW_ARTIFACT_COMMIT=$PINNED_ARTIFACT_COMMIT"
@@ -170,4 +173,4 @@ jobs:
         if: always()
         run: |
           docker rm --force "$REGISTRY_NAME" >/dev/null 2>&1 || true
-          rm -rf "$RUNNER_TEMP/proofflow-detached-repo" "$RUNNER_TEMP/proofflow-reference-video.oci.tar"
+          sudo rm -rf -- "$RUNNER_TEMP/proofflow-detached-repo" "$RUNNER_TEMP/proofflow-reference-video.oci.tar"
