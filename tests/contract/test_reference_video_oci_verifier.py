@@ -52,7 +52,8 @@ def test_dockerfile_pins_current_amd64_child_and_build_inputs() -> None:
     assert "{{.Descriptor.digest}}" not in launcher
     assert "RepoDigests" in launcher
     assert "save --platform linux/amd64" in launcher
-    assert "image inspect --platform linux/amd64" in launcher
+    assert 'image inspect "$IMAGE_REF"' in launcher
+    assert "image inspect --platform" not in launcher
     assert "IMAGE_REPO_DIGEST_NOT_CONFIRMED" in launcher
     assert "IMAGE_ARCHIVE_PIN_MISMATCH" in launcher
     assert "IMAGE_ID_INVALID" in launcher

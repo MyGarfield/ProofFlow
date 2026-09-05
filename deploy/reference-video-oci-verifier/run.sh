@@ -89,7 +89,7 @@ RUN_OUTPUT="$TMP_ROOT/receipt.json"
 
 inspect() {
     value=""
-    if ! value="$($DOCKER_BIN image inspect --platform linux/amd64 "$IMAGE_REF" --format "$1" 2>"$INSPECT_ERR")"; then
+    if ! value="$($DOCKER_BIN image inspect "$IMAGE_REF" --format "$1" 2>"$INSPECT_ERR")"; then
         die "IMAGE_NOT_AVAILABLE_OR_INSPECT_FAILED"
     fi
     printf '%s' "$value"
