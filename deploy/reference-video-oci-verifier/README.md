@@ -138,3 +138,14 @@ downloads the exact image, runs this launcher against the exact artifact
 commit, and preserves the resulting receipt. A run with a local tag, mutable
 child, writable mount, host tool, missing security profile, timeout or output
 limit cannot satisfy that gate.
+
+## GitHub CI boundary
+
+`.github/workflows/reference-video-oci.yml` is a separate path-filtered
+workflow. It runs only when GitHub Actions accepts a push or pull request that
+changes `reference-video/**`, `deploy/reference-video-oci-verifier/**`, or the
+workflow itself. A dependency PR whose base branch is
+`feature/reference-runtime-evidence-only` must have Actions enabled for that
+branch; if the platform does not schedule the workflow, there is no CI receipt
+and no portability claim. The workflow pushes only to its ephemeral local
+registry and never logs in to or publishes an external registry.

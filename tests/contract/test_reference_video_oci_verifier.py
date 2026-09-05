@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import re
 import sys
 import tarfile
 from pathlib import Path
@@ -84,6 +85,29 @@ def test_runner_executes_ocr_only_through_the_trusted_validator() -> None:
     assert "def ocr_check" not in source
     assert '"code": "OCR_EXECUTION_OBSERVED"' in source
     assert '"ocr_parity": "UNKNOWN"' in source
+
+
+def test_github_oci_workflow_is_pinned_local_only_and_path_filtered() -> None:
+    workflow = (Path(__file__).parents[2] / ".github/workflows/reference-video-oci.yml").read_text(
+        encoding="utf-8"
+    )
+    uses = re.findall(r"uses:\s+([^\s#]+)", workflow)
+    assert uses
+    assert all(re.search(r"@[0-9a-f]{40}$", value) for value in uses)
+    assert "fetch-depth: 0" in workflow
+    assert "persist-credentials: false" in workflow
+    assert '"reference-video/**"' in workflow
+    assert '"deploy/reference-video-oci-verifier/**"' in workflow
+    assert (
+        "registry@sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373"
+        in workflow
+    )
+    assert "localhost:5000" in workflow
+    assert "docker login" not in workflow
+    assert "ghcr.io" not in workflow
+    assert "secrets." not in workflow
+    assert "retention-days: 3" in workflow
+    assert "docker rm --force" in workflow
 
 
 def test_mutable_tag_is_not_an_image_reference() -> None:
