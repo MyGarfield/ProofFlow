@@ -1,0 +1,73 @@
+{
+  "checks": [
+    {
+      "code": "EXTERNAL_VERIFICATION_NOT_EXECUTED",
+      "id": "external_publication",
+      "status": "UNKNOWN"
+    },
+    {
+      "code": "EXTERNAL_VERIFICATION_NOT_EXECUTED",
+      "id": "public_digest_pull",
+      "status": "UNKNOWN"
+    },
+    {
+      "code": "EXTERNAL_VERIFICATION_NOT_EXECUTED",
+      "id": "publisher_attestation",
+      "status": "UNKNOWN"
+    },
+    {
+      "code": "EXTERNAL_VERIFICATION_NOT_EXECUTED",
+      "id": "independent_identity",
+      "status": "UNKNOWN"
+    },
+    {
+      "code": "EXTERNAL_VERIFICATION_NOT_EXECUTED",
+      "id": "video_receipt_schema",
+      "status": "UNKNOWN"
+    },
+    {
+      "code": "EXTERNAL_VERIFICATION_NOT_EXECUTED",
+      "id": "video_receipt_integrity",
+      "status": "UNKNOWN"
+    },
+    {
+      "code": "EXTERNAL_VERIFICATION_NOT_EXECUTED",
+      "id": "video_runtime_checks",
+      "status": "UNKNOWN"
+    },
+    {
+      "code": "EXTERNAL_VERIFICATION_NOT_EXECUTED",
+      "id": "reproducibility_receipt",
+      "status": "UNKNOWN"
+    },
+    {
+      "code": "EXTERNAL_VERIFICATION_NOT_EXECUTED",
+      "id": "cross_receipt_binding",
+      "status": "UNKNOWN"
+    }
+  ],
+  "decision": "BLOCKED",
+  "error_code": "EXTERNAL_VERIFICATION_NOT_EXECUTED",
+  "evidence": {
+    "attestation_evidence_url": null,
+    "attestation_result_sha256": null,
+    "identity_evidence_url": null,
+    "identity_result_sha256": null,
+    "reproducibility_receipt_file_sha256": null,
+    "reproducibility_receipt_payload_sha256": null,
+    "video_receipt_file_sha256": null,
+    "video_receipt_payload_sha256": null
+  },
+  "image": {
+    "child_digest": "sha256:95098d1231d5cdc8a046e33bad298d5dd85dafaaa1c9a450b82e46f026bf174f",
+    "config_digest": "sha256:5e0b838383ca9050d801fe5a95809106fa428bc98c521cfb15fafd8355286ba9",
+    "ref": "ghcr.io/mygarfield/proofflow-reference-video-verifier@sha256:95098d1231d5cdc8a046e33bad298d5dd85dafaaa1c9a450b82e46f026bf174f",
+    "toolchain_identity_sha256": "sha256:f9c4884ce4d3ba693325790329e980c29b40423d1034593e28e8d3231aa82a8f"
+  },
+  "integrity": {
+    "algorithm": "sha256-canonical-json-excluding-integrity",
+    "payload_sha256": "sha256:3033e954ac4d9a32f492dfefb419fcf13b81eb16330ad73c2683f6f2371ba9dc"
+  },
+  "schema": "proofflow.reference-video.draft-exit-report.v1",
+  "status": "UNKNOWN"
+}

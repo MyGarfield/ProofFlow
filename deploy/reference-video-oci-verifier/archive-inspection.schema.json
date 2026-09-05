@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "proofflow.reference-runtime-oci-verifier.archive-inspection.v1",
+  "title": "ProofFlow OCI archive inspection receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "status",
+    "error_code",
+    "platform",
+    "expected_child_digest",
+    "observed_child_digest",
+    "manifest_media_type",
+    "expected_config_digest",
+    "observed_config_digest",
+    "config_media_type",
+    "config_blob_sha256",
+    "config_size",
+    "archive_entries"
+  ],
+  "properties": {
+    "schema": {"const": "proofflow.reference-runtime-oci-verifier.archive-inspection.v1"},
+    "status": {"enum": ["PASS", "FAIL"]},
+    "error_code": {"type": ["null", "string"], "pattern": "^[A-Z0-9_]+$"},
+    "platform": {"const": "linux/amd64"},
+    "expected_child_digest": {"$ref": "#/$defs/sha256"},
+    "observed_child_digest": {"$ref": "#/$defs/sha256"},
+    "manifest_media_type": {"const": "application/vnd.oci.image.manifest.v1+json"},
+    "expected_config_digest": {"$ref": "#/$defs/sha256"},
+    "observed_config_digest": {"$ref": "#/$defs/sha256"},
+    "config_media_type": {"const": "application/vnd.oci.image.config.v1+json"},
+    "config_blob_sha256": {"$ref": "#/$defs/sha256"},
+    "config_size": {"type": "integer", "minimum": 0},
+    "archive_entries": {"type": "integer", "minimum": 3}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  }
+}

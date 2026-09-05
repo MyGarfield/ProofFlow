@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://proofflow.invalid/schemas/reference-video-build-reproducibility-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "status", "error_code", "source_date_epoch", "builds", "builder", "integrity"],
+  "properties": {
+    "schema": {"const": "proofflow.reference-video.build-reproducibility.v1"},
+    "status": {"enum": ["PASS", "FAIL"]},
+    "error_code": {"type": ["string", "null"]},
+    "source_date_epoch": {"const": 1788519180},
+    "builds": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "image_ref", "child_digest", "config_digest"],
+        "properties": {
+          "name": {"enum": ["a", "b"]},
+          "image_ref": {"type": "string", "pattern": "^localhost:5000/proofflow-reference-video-verifier@sha256:[0-9a-f]{64}$"},
+          "child_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+          "config_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+        }
+      }
+    },
+    "builder": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["docker_client", "docker_server", "buildx", "buildkit", "buildkit_image", "dockerfile_frontend", "exporter"],
+      "properties": {
+        "docker_client": {"type": "string", "minLength": 1, "maxLength": 200},
+        "docker_server": {"type": "string", "minLength": 1, "maxLength": 200},
+        "buildx": {"type": "string", "minLength": 1, "maxLength": 300},
+        "buildkit": {"const": "v0.30.0"},
+        "buildkit_image": {"const": "sha256:57269d1784e49b46228c45a1a1b870fbe40e0a639ab60b37b032d83af5bccdfc"},
+        "dockerfile_frontend": {"const": "sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e"},
+        "exporter": {"const": "type=image,rewrite-timestamp=true,unpack=false,oci-mediatypes=false,compression=gzip,force-compression=true,compatibility-version=30,provenance=false"}
+      }
+    },
+    "integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "payload_sha256"],
+      "properties": {
+        "algorithm": {"const": "sha256-canonical-json-excluding-integrity"},
+        "payload_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "PASS"}}},
+      "then": {"properties": {"error_code": {"type": "null"}}}
+    },
+    {
+      "if": {"properties": {"status": {"const": "FAIL"}}},
+      "then": {"properties": {"error_code": {"const": "IMAGE_REPRODUCIBILITY_MISMATCH"}}}
+    }
+  ]
+}

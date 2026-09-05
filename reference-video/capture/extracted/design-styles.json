@@ -1,0 +1,235 @@
+{
+  "typography": [
+    {
+      "role": "display",
+      "fontFamily": "-apple-system",
+      "fontSize": "88px",
+      "fontWeight": "900",
+      "lineHeight": "76.56px",
+      "letterSpacing": "-6.336px",
+      "color": "#000000",
+      "sampleText": "证明先于行动."
+    },
+    {
+      "role": "heading",
+      "fontFamily": "-apple-system",
+      "fontSize": "64px",
+      "fontWeight": "700",
+      "lineHeight": "53.76px",
+      "letterSpacing": "-4.48px",
+      "color": "#000000",
+      "sampleText": "TRACE"
+    },
+    {
+      "role": "heading-2",
+      "fontFamily": "-apple-system",
+      "fontSize": "43.2px",
+      "fontWeight": "700",
+      "lineHeight": "35.424px",
+      "letterSpacing": "-2.808px",
+      "color": "#000000",
+      "sampleText": "REFERENCERUNTIME"
+    },
+    {
+      "role": "label",
+      "fontFamily": "-apple-system",
+      "fontSize": "15px",
+      "fontWeight": "400",
+      "lineHeight": "20.25px",
+      "letterSpacing": "normal",
+      "color": "#000000",
+      "sampleText": "HUMAN APPROVAL REASON / REQUIRED 已核验公开合成证据、规则时效、确定性计算、风险与不确定"
+    },
+    {
+      "role": "link",
+      "fontFamily": "-apple-system",
+      "fontSize": "15px",
+      "fontWeight": "800",
+      "lineHeight": "20.25px",
+      "letterSpacing": "normal",
+      "color": "#000000",
+      "sampleText": "跳到证明链"
+    },
+    {
+      "role": "body",
+      "fontFamily": "-apple-system",
+      "fontSize": "13.12px",
+      "fontWeight": "400",
+      "lineHeight": "17.712px",
+      "letterSpacing": "normal",
+      "color": "#000000",
+      "sampleText": "固定公开合成案例，从证据与规则进入 Human Gate；未审批打包必须失败，审批后才允许封装与独立校验。"
+    },
+    {
+      "role": "code",
+      "fontFamily": "ui-monospace",
+      "fontSize": "10.24px",
+      "fontWeight": "400",
+      "lineHeight": "13.824px",
+      "letterSpacing": "0.768px",
+      "color": "#000000",
+      "sampleText": "GOAI / SEMIFINAL / LOCAL PROOF CONSOLE / V0.1"
+    },
+    {
+      "role": "body-small",
+      "fontFamily": "-apple-system",
+      "fontSize": "9.92px",
+      "fontWeight": "400",
+      "lineHeight": "11.904px",
+      "letterSpacing": "normal",
+      "color": "#000000",
+      "sampleText": "固定 fixture + rules"
+    }
+  ],
+  "spacing": {
+    "observed": [
+      4,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      16,
+      20,
+      51
+    ],
+    "baseUnit": 4
+  },
+  "radius": [],
+  "shadows": [],
+  "buttons": [
+    {
+      "label": "01 PREPARE → GATE\n          \n          \n",
+      "background": "transparent",
+      "backgroundImage": "",
+      "backdropFilter": "",
+      "color": "#000000",
+      "padding": "0px",
+      "borderRadius": "0px",
+      "border": "0px none rgb(0, 0, 0)",
+      "boxShadow": "none",
+      "fontSize": "15px",
+      "fontWeight": "400",
+      "height": "44px"
+    },
+    {
+      "label": "01 PREPARE → GATE",
+      "background": "#000000",
+      "backgroundImage": "",
+      "backdropFilter": "",
+      "color": "#FFFFFF",
+      "padding": "10.88px 12.8px",
+      "borderRadius": "0px",
+      "border": "2px solid rgb(0, 0, 0)",
+      "boxShadow": "none",
+      "fontSize": "12.16px",
+      "fontWeight": "800",
+      "height": "44px"
+    },
+    {
+      "label": "02 TRY PACKAGE / EXPECT 409",
+      "background": "#FFFFFF",
+      "backgroundImage": "",
+      "backdropFilter": "",
+      "color": "#000000",
+      "padding": "10.88px 12.8px",
+      "borderRadius": "0px",
+      "border": "2px solid rgb(0, 0, 0)",
+      "boxShadow": "none",
+      "fontSize": "12.16px",
+      "fontWeight": "800",
+      "height": "44px"
+    },
+    {
+      "label": "RUN 11 CONTRACT SCENARIOS",
+      "background": "#0000FF",
+      "backgroundImage": "",
+      "backdropFilter": "",
+      "color": "#FFFFFF",
+      "padding": "10.88px 12.8px",
+      "borderRadius": "0px",
+      "border": "2px solid rgb(0, 0, 255)",
+      "boxShadow": "none",
+      "fontSize": "12.16px",
+      "fontWeight": "800",
+      "height": "44px"
+    },
+    {
+      "label": "RESET TEMP RUN",
+      "background": "#000000",
+      "backgroundImage": "",
+      "backdropFilter": "",
+      "color": "#FFFFFF",
+      "padding": "10.88px 12.8px",
+      "borderRadius": "0px",
+      "border": "2px solid rgb(255, 255, 255)",
+      "boxShadow": "none",
+      "fontSize": "12.16px",
+      "fontWeight": "800",
+      "height": "44px"
+    }
+  ],
+  "cards": [
+    {
+      "label": "card",
+      "background": "transparent",
+      "backgroundImage": "",
+      "backdropFilter": "",
+      "color": "#000000",
+      "padding": "0px",
+      "borderRadius": "0px",
+      "border": "0px none rgb(0, 0, 0)",
+      "boxShadow": "none",
+      "fontSize": "15px",
+      "fontWeight": "400",
+      "height": "589.531px"
+    },
+    {
+      "label": "card",
+      "background": "transparent",
+      "backgroundImage": "",
+      "backdropFilter": "",
+      "color": "#000000",
+      "padding": "16px",
+      "borderRadius": "0px",
+      "border": "",
+      "boxShadow": "none",
+      "fontSize": "15px",
+      "fontWeight": "400",
+      "height": "317.312px"
+    }
+  ],
+  "nav": {
+    "label": "navigation",
+    "background": "transparent",
+    "backgroundImage": "",
+    "backdropFilter": "",
+    "color": "#000000",
+    "padding": "0px 20px",
+    "borderRadius": "0px",
+    "border": "",
+    "boxShadow": "none",
+    "fontSize": "15px",
+    "fontWeight": "400",
+    "height": "72px"
+  },
+  "chips": [],
+  "statCells": [
+    {
+      "background": "transparent",
+      "borderRadius": "0px",
+      "border": "",
+      "boxShadow": "none",
+      "numberFontSize": "28.8px",
+      "numberFontWeight": "700",
+      "numberColor": "#000000"
+    }
+  ],
+  "tabs": [],
+  "backgrounds": [],
+  "glass": []
+}

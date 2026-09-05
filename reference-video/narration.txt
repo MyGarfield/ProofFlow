@@ -1,0 +1,15 @@
+这是 ProofFlow 的公开合成参考运行证据片。画面只展示本地 loopback Demo；不声称六个 Agent、Worker、LLM 或真实 Human 已经运行。
+
+先看边界：PUBLIC SYNTHETIC、REFERENCE RUNTIME、NO LLM、Workers Stopped、readyWorkers 等于零。页面的网络目标固定为 127.0.0.1；任何外部请求都必须被拦截。
+
+第一步，PREPARE。固定 fixture 和 rules 被封存，运行在 AWAITING_APPROVAL 停止。这里的六个 PF 身份只是确定性 trace actor，不是正在工作的 Agent。
+
+第二步，故意在审批前尝试 PACKAGE。系统返回 409 HUMAN_GATE_REQUIRED。这个 fail-closed 阻断是预期证据，package 文件仍然为零。
+
+第三步，记录 LOCAL_DEMO 审批理由。审批绑定当前 subject hash；审批方式是 LOCAL_DEMO，仍然没有外部副作用。
+
+第四步，PACKAGE 生成本地评审包。第五步，VERIFY 独立检查 artifact、trace、审批绑定与文件哈希，结构校验结果为 VALID。
+
+最后运行公开合同套件，结果为 11/11。它表示结构合同完整，不是法律准确率；60000 是固定合成参考值，不是法律结论。Worker 与 LLM 评测保持 UNKNOWN，分值保持 null。
+
+这段片只证明页面级 loopback capture 的证据顺序：PREPARE、409、LOCAL_DEMO、PACKAGE、VERIFY、11/11。Workers Stopped，readyWorkers 等于零；这是参考运行，不是真实多 Agent 协作。
