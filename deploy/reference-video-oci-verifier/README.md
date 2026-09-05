@@ -77,17 +77,26 @@ python:3.12-alpine@sha256:78e98729f8fc4099e53cffb3fe59fd15b18dfa4ace8c914dee0cef
 `apk-closure.lock.json` closes 141 additional APKs (172,535,952 bytes) over
 repository, package metadata, build commit, filename, size, SHA-256 and signing
 key. `fetch_apk_closure.py` accepts only the official Alpine HTTPS paths,
-disables redirects and proxies, checks both signed APKINDEX content digests,
-rejects missing/extra/link/special members, and runs `/sbin/apk verify` with the
-fixed base image key and pinned key SHA-256. It never uses `--allow-untrusted`.
+disables redirects and proxies, rejects missing/extra/link/special members, and
+runs `/sbin/apk verify` with the fixed base image key and pinned key SHA-256. It
+never uses `--allow-untrusted`. The build deliberately does not consume the
+rolling v3.24 APKINDEX: all 141 signed package files are direct inputs, so a
+later index update cannot silently change or block the closed dependency set.
+Direct installation preserves each package's signed `noarch` metadata instead
+of projecting it to the repository target architecture. The raw installed-db
+digest therefore differs from earlier index-backed candidates even though the
+sorted 165-package set, tool binaries, versions, fonts and locale are equal;
+the new image identity and receipt expose that change rather than reusing the
+old toolchain digest.
 
 Python wheels remain selected by `requirements.lock` with `--require-hashes`
 and binary-only resolution. `wheel-closure.lock.json` additionally closes the
 six selected wheel filenames, sizes and SHA-256 values (821,982 bytes). The
 input preparation step is the only network-capable phase. The Docker build
 mounts the resulting directory as a read-only named context; `apk` uses only
-the two `file://` repositories with `--no-network`, pip uses only the mounted
-wheel directory with `--no-index`, and the input bytes do not become a layer.
+the 141 mounted package paths with an empty repository list and `--no-network`,
+pip uses only the mounted wheel directory with `--no-index`, and the input bytes
+do not become a layer.
 The resulting image still embeds the complete `/lib/apk/db/installed` package
 closure digest and package list in `/etc/proofflow/toolchain.json`.
 

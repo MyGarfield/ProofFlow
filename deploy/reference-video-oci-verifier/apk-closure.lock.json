@@ -1841,15 +1841,11 @@
   ],
   "repositories": [
     {
-      "index_content_sha256": "sha256:82a7fa67f13f0978d6a64cb1537fdf7682ec0c71c1671310fa2a3dc6339256fc",
-      "index_url": "https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86_64/APKINDEX.tar.gz",
       "name": "main",
       "signature_key": "alpine-devel@lists.alpinelinux.org-6165ee59.rsa.pub",
       "signature_key_sha256": "sha256:207e4696d3c05f7cb05966aee557307151f1f00217af4143c1bcaf33b8df733f"
     },
     {
-      "index_content_sha256": "sha256:b18679447a0440d5412e45aff0a24883f3a6ac6642117b6242be44b3b2f0d91b",
-      "index_url": "https://dl-cdn.alpinelinux.org/alpine/v3.24/community/x86_64/APKINDEX.tar.gz",
       "name": "community",
       "signature_key": "alpine-devel@lists.alpinelinux.org-6165ee59.rsa.pub",
       "signature_key_sha256": "sha256:207e4696d3c05f7cb05966aee557307151f1f00217af4143c1bcaf33b8df733f"

@@ -58,7 +58,9 @@ def test_dockerfile_pins_current_amd64_child_and_build_inputs() -> None:
     assert "from=verifier_inputs" in dockerfile
     assert "apk --no-network add" in dockerfile
     assert "--no-index" in dockerfile
-    assert "file:///opt/proofflow-inputs/v3.24/main" in dockerfile
+    assert "/opt/proofflow-inputs/v3.24/main/x86_64/*.apk" in dockerfile
+    assert "/opt/proofflow-inputs/v3.24/community/x86_64/*.apk" in dockerfile
+    assert "APKINDEX" not in dockerfile
     assert "dl-cdn.alpinelinux.org" not in dockerfile
     assert "--allow-untrusted" not in dockerfile
     assert "ARG SOURCE_DATE_EPOCH=1788519180" in dockerfile
@@ -67,8 +69,6 @@ def test_dockerfile_pins_current_amd64_child_and_build_inputs() -> None:
     assert "USER 65532:65532" in dockerfile
     assert 'ENTRYPOINT ["/usr/local/bin/python3.12", "/opt/proofflow/runner.py"]' in dockerfile
     assert "COPY deploy/reference-video-oci-verifier/receipt.schema.json" in dockerfile
-    assert r"printf '%s\n%s\n'" in dockerfile
-    assert "printf '%s\\\\n%s\\\\n'" not in dockerfile
     launcher = (OCI / "run.sh").read_text(encoding="utf-8")
     assert "{{.Descriptor.digest}}" not in launcher
     assert "RepoDigests" in launcher
@@ -823,24 +823,14 @@ def test_apk_package_metadata_signature_and_bytes_are_bound(tmp_path: Path) -> N
         fetch_apk_closure.verify_package(path, package)
 
 
-def test_apk_index_content_and_signature_are_bound(tmp_path: Path) -> None:
-    path = tmp_path / "APKINDEX.tar.gz"
-    content = b"P:fixture\nV:1.0-r0\n"
-    with tarfile.open(path, "w:gz") as archive:
-        signature = tarfile.TarInfo(".SIGN.RSA.alpine-devel@lists.alpinelinux.org-6165ee59.rsa.pub")
-        signature.size = 1
-        archive.addfile(signature, io.BytesIO(b"x"))
-        index = tarfile.TarInfo("APKINDEX")
-        index.size = len(content)
-        archive.addfile(index, io.BytesIO(content))
-    repository = {
-        "signature_key": "alpine-devel@lists.alpinelinux.org-6165ee59.rsa.pub",
-        "index_content_sha256": "sha256:" + hashlib.sha256(content).hexdigest(),
-    }
-    fetch_apk_closure.verify_index(path, repository)
-    repository["index_content_sha256"] = "sha256:" + "0" * 64
-    with pytest.raises(fetch_apk_closure.ClosureFailure, match="INDEX_CONTENT"):
-        fetch_apk_closure.verify_index(path, repository)
+def test_apk_closure_does_not_depend_on_mutable_repository_indexes() -> None:
+    lock = fetch_apk_closure.load_lock(OCI / "apk-closure.lock.json")
+    assert all("index_url" not in repository for repository in lock["repositories"])
+    assert all("index_content_sha256" not in repository for repository in lock["repositories"])
+    assert len(fetch_apk_closure.expected_paths(lock)) == 141
+    assert all(path.name != "APKINDEX.tar.gz" for path in fetch_apk_closure.expected_paths(lock))
+    source = (OCI / "fetch_apk_closure.py").read_text(encoding="utf-8")
+    assert "INDEX_CONTENT_DIGEST_MISMATCH" not in source
 
 
 def test_apk_bundle_rejects_missing_extra_and_symlink_members(tmp_path: Path) -> None:
