@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://proofflow.invalid/schemas/reference-video-external-verification-observation-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "status", "image", "publication", "verifier"],
+  "properties": {
+    "schema": {"const": "proofflow.reference-video.external-verification-observation.v1"},
+    "status": {"enum": ["NOT_EXECUTED", "VERIFIED"]},
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref", "child_digest", "config_digest", "toolchain_identity_sha256"],
+      "properties": {
+        "ref": {"const": "ghcr.io/mygarfield/proofflow-reference-video-verifier@sha256:95098d1231d5cdc8a046e33bad298d5dd85dafaaa1c9a450b82e46f026bf174f"},
+        "child_digest": {"const": "sha256:95098d1231d5cdc8a046e33bad298d5dd85dafaaa1c9a450b82e46f026bf174f"},
+        "config_digest": {"const": "sha256:5e0b838383ca9050d801fe5a95809106fa428bc98c521cfb15fafd8355286ba9"},
+        "toolchain_identity_sha256": {"const": "sha256:f9c4884ce4d3ba693325790329e980c29b40423d1034593e28e8d3231aa82a8f"}
+      }
+    },
+    "publication": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["registry", "external_push_observed", "public_pull_observed", "attestation"],
+      "properties": {
+        "registry": {"const": "ghcr.io"},
+        "external_push_observed": {"type": "boolean"},
+        "public_pull_observed": {"type": "boolean"},
+        "attestation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["verified", "repository", "subject_digest", "source_commit", "evidence_url", "raw_result_sha256"],
+          "properties": {
+            "verified": {"type": "boolean"},
+            "repository": {"const": "MyGarfield/ProofFlow"},
+            "subject_digest": {"const": "sha256:95098d1231d5cdc8a046e33bad298d5dd85dafaaa1c9a450b82e46f026bf174f"},
+            "source_commit": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"},
+            "evidence_url": {"type": ["string", "null"], "pattern": "^https://\\S+$"},
+            "raw_result_sha256": {"type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$"}
+          }
+        }
+      }
+    },
+    "verifier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["publisher_trust_domain", "trust_domain", "independent", "platform", "pull_by_digest_observed", "identity_evidence_url", "identity_result_sha256", "video_receipt_file_sha256", "video_receipt_payload_sha256", "reproducibility_receipt_file_sha256", "reproducibility_receipt_payload_sha256"],
+      "properties": {
+        "publisher_trust_domain": {"const": "github-actions:MyGarfield/ProofFlow"},
+        "trust_domain": {"type": ["string", "null"], "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{2,199}$"},
+        "independent": {"type": "boolean"},
+        "platform": {"const": "linux/amd64"},
+        "pull_by_digest_observed": {"type": "boolean"},
+        "identity_evidence_url": {"type": ["string", "null"], "pattern": "^https://\\S+$"},
+        "identity_result_sha256": {"type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$"},
+        "video_receipt_file_sha256": {"type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$"},
+        "video_receipt_payload_sha256": {"type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$"},
+        "reproducibility_receipt_file_sha256": {"type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$"},
+        "reproducibility_receipt_payload_sha256": {"type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$"}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "NOT_EXECUTED"}}},
+      "then": {
+        "properties": {
+          "publication": {
+            "properties": {
+              "external_push_observed": {"const": false},
+              "public_pull_observed": {"const": false},
+              "attestation": {
+                "properties": {
+                  "verified": {"const": false},
+                  "source_commit": {"type": "null"},
+                  "evidence_url": {"type": "null"},
+                  "raw_result_sha256": {"type": "null"}
+                }
+              }
+            }
+          },
+          "verifier": {
+            "properties": {
+              "trust_domain": {"type": "null"},
+              "independent": {"const": false},
+              "pull_by_digest_observed": {"const": false},
+              "identity_evidence_url": {"type": "null"},
+              "identity_result_sha256": {"type": "null"},
+              "video_receipt_file_sha256": {"type": "null"},
+              "video_receipt_payload_sha256": {"type": "null"},
+              "reproducibility_receipt_file_sha256": {"type": "null"},
+              "reproducibility_receipt_payload_sha256": {"type": "null"}
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties": {"status": {"const": "VERIFIED"}}},
+      "then": {
+        "properties": {
+          "publication": {
+            "properties": {
+              "external_push_observed": {"const": true},
+              "public_pull_observed": {"const": true},
+              "attestation": {
+                "properties": {
+                  "verified": {"const": true},
+                  "source_commit": {"type": "string"},
+                  "evidence_url": {"type": "string"},
+                  "raw_result_sha256": {"type": "string"}
+                }
+              }
+            }
+          },
+          "verifier": {
+            "properties": {
+              "trust_domain": {"type": "string"},
+              "independent": {"const": true},
+              "pull_by_digest_observed": {"const": true},
+              "identity_evidence_url": {"type": "string"},
+              "identity_result_sha256": {"type": "string"},
+              "video_receipt_file_sha256": {"type": "string"},
+              "video_receipt_payload_sha256": {"type": "string"},
+              "reproducibility_receipt_file_sha256": {"type": "string"},
+              "reproducibility_receipt_payload_sha256": {"type": "string"}
+            }
+          }
+        }
+      }
+    }
+  ]
+}

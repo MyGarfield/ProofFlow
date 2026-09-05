@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://proofflow.invalid/schemas/reference-video-external-verifier-identity-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "trust_domain", "publisher_trust_domain", "operator_id", "environment_id", "evidence_url", "image_ref", "pull_by_digest_observed", "video_receipt_file_sha256", "reproducibility_receipt_file_sha256", "attestation", "integrity"],
+  "properties": {
+    "schema": {"const": "proofflow.reference-video.external-verifier-identity.v1"},
+    "trust_domain": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{2,199}$"},
+    "publisher_trust_domain": {"const": "github-actions:MyGarfield/ProofFlow"},
+    "operator_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@/-]{2,199}$"},
+    "environment_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@/-]{2,199}$"},
+    "evidence_url": {"type": "string", "pattern": "^https://\\S+$"},
+    "image_ref": {"const": "ghcr.io/mygarfield/proofflow-reference-video-verifier@sha256:95098d1231d5cdc8a046e33bad298d5dd85dafaaa1c9a450b82e46f026bf174f"},
+    "pull_by_digest_observed": {"const": true},
+    "video_receipt_file_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "reproducibility_receipt_file_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "attestation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verified", "method", "raw_result_sha256"],
+      "properties": {
+        "verified": {"const": true},
+        "method": {"enum": ["github-artifact-attestation", "sigstore-keyless", "x509"]},
+        "raw_result_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      }
+    },
+    "integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "payload_sha256"],
+      "properties": {
+        "algorithm": {"const": "sha256-canonical-json-excluding-integrity"},
+        "payload_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

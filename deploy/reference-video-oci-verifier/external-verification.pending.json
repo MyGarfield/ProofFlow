@@ -1,0 +1,36 @@
+{
+  "schema": "proofflow.reference-video.external-verification-observation.v1",
+  "status": "NOT_EXECUTED",
+  "image": {
+    "ref": "ghcr.io/mygarfield/proofflow-reference-video-verifier@sha256:95098d1231d5cdc8a046e33bad298d5dd85dafaaa1c9a450b82e46f026bf174f",
+    "child_digest": "sha256:95098d1231d5cdc8a046e33bad298d5dd85dafaaa1c9a450b82e46f026bf174f",
+    "config_digest": "sha256:5e0b838383ca9050d801fe5a95809106fa428bc98c521cfb15fafd8355286ba9",
+    "toolchain_identity_sha256": "sha256:f9c4884ce4d3ba693325790329e980c29b40423d1034593e28e8d3231aa82a8f"
+  },
+  "publication": {
+    "registry": "ghcr.io",
+    "external_push_observed": false,
+    "public_pull_observed": false,
+    "attestation": {
+      "verified": false,
+      "repository": "MyGarfield/ProofFlow",
+      "subject_digest": "sha256:95098d1231d5cdc8a046e33bad298d5dd85dafaaa1c9a450b82e46f026bf174f",
+      "source_commit": null,
+      "evidence_url": null,
+      "raw_result_sha256": null
+    }
+  },
+  "verifier": {
+    "publisher_trust_domain": "github-actions:MyGarfield/ProofFlow",
+    "trust_domain": null,
+    "independent": false,
+    "platform": "linux/amd64",
+    "pull_by_digest_observed": false,
+    "identity_evidence_url": null,
+    "identity_result_sha256": null,
+    "video_receipt_file_sha256": null,
+    "video_receipt_payload_sha256": null,
+    "reproducibility_receipt_file_sha256": null,
+    "reproducibility_receipt_payload_sha256": null
+  }
+}

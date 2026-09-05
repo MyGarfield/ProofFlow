@@ -191,15 +191,57 @@ This is local execution evidence only: the image was not published to an
 external registry or independently downloaded, and `observed.ocr_parity`
 remains `UNKNOWN` by design.
 
+## External Draft-exit contract
+
+`external-verification.pending.json` and `draft-exit.pending.json` are the
+current truth: external publication and verification are `NOT_EXECUTED`, all
+nine release checks are `UNKNOWN`, and the decision is `BLOCKED`.
+
+After an explicitly authorized publisher places the exact image at
+`ghcr.io/mygarfield/proofflow-reference-video-verifier@sha256:95098d...bf174f`,
+the evidence package must include:
+
+- the raw JSON result of GitHub's read-only `gh attestation verify
+  oci://ghcr.io/...@sha256:95098d...bf174f -R MyGarfield/ProofFlow` command;
+- an HTTPS-addressable identity record from an operator/environment distinct
+  from `github-actions:MyGarfield/ProofFlow`; the record must validate against
+  `external-verifier-identity.schema.json`, carry canonical integrity, and bind
+  its image ref and both receipt file hashes;
+- observation of a public pull by digest, never a tag;
+- that environment's actual 19/19 video receipt and the reproducibility
+  receipt, with exact file and canonical payload hashes.
+
+The attestation command follows GitHub's documented OCI verification flow:
+<https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations>.
+
+Fill a copy of the observation only from those preserved results, then run:
+
+```sh
+python deploy/reference-video-oci-verifier/validate_draft_exit.py \
+  --observation /private/external-observation.json \
+  --attestation-result /private/gh-attestation-result.json \
+  --identity-result /private/external-identity.json \
+  --video-receipt /private/external-video-receipt.json \
+  --reproducibility-receipt /private/reproducibility-receipt.json \
+  --output /private/draft-exit-report.json
+```
+
+The validator is offline and read-only except for its no-overwrite report. It
+does not publish, pull, authenticate, or run `gh attestation verify`; it binds
+the preserved bytes and declared observation after those actions happen. A
+different trust-domain string is not by itself cryptographic proof of
+independence, so the identity record's own attestation result, HTTPS URL and
+hash-bound bytes remain mandatory review evidence. Only a schema-valid,
+integrity-valid report with all nine checks `PASS` returns `READY`.
+
 ## Draft boundary
 
-The OCI implementation and contract tests do not create a portable verifier
-receipt by themselves. The video PR remains Draft until a separate trusted
-environment builds and resolves the image, records child and config digests,
-downloads the exact image, runs this launcher against the exact artifact
-commit, and preserves the resulting receipt. A run with a local tag, mutable
-child, writable mount, host tool, missing security profile, timeout or output
-limit cannot satisfy that gate.
+The OCI implementation and CI receipts do not satisfy the external contract.
+The video PR remains Draft until an authorized external publication, verified
+publisher attestation, public digest pull and independent trust-domain receipt
+produce a `READY` report. A local registry, mutable tag, same-domain verifier,
+self-asserted identity, writable mount, host tool, missing security profile,
+timeout or output limit cannot satisfy that gate.
 
 ## GitHub CI boundary
 
