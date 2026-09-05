@@ -24,6 +24,7 @@ import fetch_apk_closure  # noqa: E402
 import inspect_oci_archive  # noqa: E402
 import inspect_registry_bundle  # noqa: E402
 import runner  # noqa: E402
+import validate_draft_exit  # noqa: E402
 import verify_wheel_closure  # noqa: E402
 import write_receipt  # noqa: E402
 
@@ -1093,3 +1094,345 @@ def test_reproducibility_diagnostic_exposes_only_indexes_and_hashes() -> None:
     assert result["config_keys"] == ["history", "rootfs"]
     assert "left-secret-value" not in encoded
     assert "right-secret-value" not in encoded
+
+
+def _draft_exit_video_receipt() -> dict[str, object]:
+    sha = "sha256:" + "a" * 64
+
+    def tool(path: str) -> dict[str, str]:
+        return {"path": path, "sha256": sha, "version": "1.0.0"}
+
+    receipt: dict[str, object] = {
+        "schema": "proofflow.reference-runtime-oci-verifier.receipt.v1",
+        "verifier": {
+            "version": "1.0.0",
+            "source_sha256": sha,
+            "platform": "linux/amd64",
+            "receipt_schema_sha256": sha,
+        },
+        "image": {
+            "child_digest": validate_draft_exit.EXPECTED_CHILD,
+            "config_digest": validate_draft_exit.EXPECTED_CONFIG,
+            "platform": "linux/amd64",
+        },
+        "expectations": {
+            "artifact_commit": validate_draft_exit.EXPECTED_ARTIFACT_COMMIT,
+            "manifest_sha256": validate_draft_exit.EXPECTED_MANIFEST,
+            "schema_sha256": validate_draft_exit.EXPECTED_MANIFEST_SCHEMA,
+            "validator_sha256": validate_draft_exit.EXPECTED_VALIDATOR,
+            "verification_toolchain_sha256": validate_draft_exit.EXPECTED_TOOLCHAIN,
+        },
+        "toolchain": {
+            "git": tool("/usr/bin/git"),
+            "python": tool("/usr/local/bin/python3.12"),
+            "ffmpeg": tool("/usr/bin/ffmpeg"),
+            "ffprobe": tool("/usr/bin/ffprobe"),
+            "tesseract": tool("/usr/bin/tesseract"),
+            "jsonschema": "4.26.0",
+            "locale": "C.UTF-8",
+            "tessdata": [
+                {"path": "/usr/share/tessdata/eng.traineddata", "sha256": sha},
+                {"path": "/usr/share/tessdata/chi_sim.traineddata", "sha256": sha},
+            ],
+            "fonts": {"root": "/usr/share/fonts/noto", "file_count": 4, "sha256": sha},
+        },
+        "observed": {
+            "manifest_sha256": validate_draft_exit.EXPECTED_MANIFEST,
+            "video_sha256": sha,
+            "verification_toolchain_sha256": validate_draft_exit.EXPECTED_TOOLCHAIN,
+            "ocr_sha256": None,
+            "ocr_parity": "UNKNOWN",
+            "mounts": {"artifact": "ro", "git": "ro", "rootfs": "ro"},
+            "resource_limits": {
+                "cpus": "100000 100000",
+                "memory": "536870912",
+                "memory_swap": "0",
+                "pids": "128",
+                "nofile": "1024:1024",
+                "tmpfs": "/tmp:rw,noexec,nosuid,nodev,size=64m",
+            },
+        },
+        "constraints": {
+            "uid": 65532,
+            "gid": 65532,
+            "network": "none",
+            "rootfs": "read-only",
+            "artifact_mount": "read-only",
+            "git_mount": "read-only",
+            "docker_socket": False,
+            "capabilities": "drop-all",
+            "no_new_privileges": True,
+            "seccomp": "default",
+            "path_source": "image-fixed-absolute",
+        },
+        "checks": [
+            {"id": f"check_{index}", "status": "PASS", "code": "VERIFIED_PASS"}
+            for index in range(19)
+        ],
+        "overall_status": "PASS",
+        "error_code": None,
+    }
+    receipt["integrity"] = {
+        "algorithm": "sha256-canonical-json-excluding-integrity",
+        "payload_sha256": validate_draft_exit.digest_bytes(
+            validate_draft_exit.canonical_json(receipt)
+        ),
+    }
+    return receipt
+
+
+def _draft_exit_reproducibility_receipt() -> dict[str, object]:
+    return compare_reproducible_builds.make_receipt(
+        child_a=validate_draft_exit.EXPECTED_CHILD,
+        config_a=validate_draft_exit.EXPECTED_CONFIG,
+        child_b=validate_draft_exit.EXPECTED_CHILD,
+        config_b=validate_draft_exit.EXPECTED_CONFIG,
+        docker_client="28.0.4",
+        docker_server="28.0.4",
+        buildx="github.com/docker/buildx v0.36.1",
+        buildkit="v0.30.0",
+    )
+
+
+def _draft_exit_identity(video_raw: bytes, reproducibility_raw: bytes) -> dict[str, object]:
+    identity: dict[str, object] = {
+        "schema": "proofflow.reference-video.external-verifier-identity.v1",
+        "trust_domain": "external-lab:fixture",
+        "publisher_trust_domain": "github-actions:MyGarfield/ProofFlow",
+        "operator_id": "external-operator:fixture",
+        "environment_id": "external-environment:fixture",
+        "evidence_url": "https://external.example.invalid/runs/fixture",
+        "image_ref": validate_draft_exit.EXPECTED_IMAGE_REF,
+        "pull_by_digest_observed": True,
+        "video_receipt_file_sha256": validate_draft_exit.digest_bytes(video_raw),
+        "reproducibility_receipt_file_sha256": validate_draft_exit.digest_bytes(
+            reproducibility_raw
+        ),
+        "attestation": {
+            "verified": True,
+            "method": "sigstore-keyless",
+            "raw_result_sha256": validate_draft_exit.digest_bytes(b"identity-attestation"),
+        },
+    }
+    identity["integrity"] = {
+        "algorithm": "sha256-canonical-json-excluding-integrity",
+        "payload_sha256": validate_draft_exit.digest_bytes(
+            validate_draft_exit.canonical_json(identity)
+        ),
+    }
+    return identity
+
+
+def _verified_draft_exit_observation(
+    video_raw: bytes, reproducibility_raw: bytes, attestation_raw: bytes, identity_raw: bytes
+) -> dict[str, object]:
+    video = json.loads(video_raw)
+    reproducibility = json.loads(reproducibility_raw)
+    return {
+        "schema": "proofflow.reference-video.external-verification-observation.v1",
+        "status": "VERIFIED",
+        "image": {
+            "ref": validate_draft_exit.EXPECTED_IMAGE_REF,
+            "child_digest": validate_draft_exit.EXPECTED_CHILD,
+            "config_digest": validate_draft_exit.EXPECTED_CONFIG,
+            "toolchain_identity_sha256": validate_draft_exit.EXPECTED_TOOLCHAIN,
+        },
+        "publication": {
+            "registry": "ghcr.io",
+            "external_push_observed": True,
+            "public_pull_observed": True,
+            "attestation": {
+                "verified": True,
+                "repository": "MyGarfield/ProofFlow",
+                "subject_digest": validate_draft_exit.EXPECTED_CHILD,
+                "source_commit": "d10cea34664ed9fc362b9e189d2c0f3119973291",
+                "evidence_url": "https://github.com/MyGarfield/ProofFlow/attestations/fixture",
+                "raw_result_sha256": validate_draft_exit.digest_bytes(attestation_raw),
+            },
+        },
+        "verifier": {
+            "publisher_trust_domain": "github-actions:MyGarfield/ProofFlow",
+            "trust_domain": "external-lab:fixture",
+            "independent": True,
+            "platform": "linux/amd64",
+            "pull_by_digest_observed": True,
+            "identity_evidence_url": "https://external.example.invalid/runs/fixture",
+            "identity_result_sha256": validate_draft_exit.digest_bytes(identity_raw),
+            "video_receipt_file_sha256": validate_draft_exit.digest_bytes(video_raw),
+            "video_receipt_payload_sha256": video["integrity"]["payload_sha256"],
+            "reproducibility_receipt_file_sha256": validate_draft_exit.digest_bytes(
+                reproducibility_raw
+            ),
+            "reproducibility_receipt_payload_sha256": reproducibility["integrity"][
+                "payload_sha256"
+            ],
+        },
+    }
+
+
+def test_draft_exit_pending_is_unknown_and_blocked() -> None:
+    observation = json.loads((OCI / "external-verification.pending.json").read_text())
+    observation_schema = json.loads(
+        (OCI / "external-verification-observation.schema.json").read_text()
+    )
+    report_schema = json.loads((OCI / "draft-exit-report.schema.json").read_text())
+    Draft202012Validator.check_schema(observation_schema)
+    Draft202012Validator.check_schema(report_schema)
+    Draft202012Validator(observation_schema).validate(observation)
+    report = validate_draft_exit.evaluate(
+        observation,
+        attestation_raw=None,
+        identity_raw=None,
+        identity=None,
+        video_raw=None,
+        video=None,
+        reproducibility_raw=None,
+        reproducibility=None,
+        video_schema=json.loads((OCI / "receipt.schema.json").read_text()),
+        reproducibility_schema=json.loads((OCI / "build-reproducibility.schema.json").read_text()),
+        identity_schema=json.loads((OCI / "external-verifier-identity.schema.json").read_text()),
+    )
+    Draft202012Validator(report_schema).validate(report)
+    assert report["status"] == "UNKNOWN"
+    assert report["decision"] == "BLOCKED"
+    assert len(report["checks"]) == 9
+    assert all(item["status"] == "UNKNOWN" for item in report["checks"])
+    assert validate_draft_exit.verify_integrity(report)
+    assert report == json.loads((OCI / "draft-exit.pending.json").read_text())
+    reordered = json.loads(json.dumps(report))
+    reordered["checks"][0], reordered["checks"][1] = (
+        reordered["checks"][1],
+        reordered["checks"][0],
+    )
+    with pytest.raises(ValidationError):
+        Draft202012Validator(report_schema).validate(reordered)
+
+
+def test_draft_exit_requires_all_external_evidence() -> None:
+    video = _draft_exit_video_receipt()
+    reproducibility = _draft_exit_reproducibility_receipt()
+    video_raw = json.dumps(video, sort_keys=True, separators=(",", ":")).encode()
+    reproducibility_raw = json.dumps(
+        reproducibility, sort_keys=True, separators=(",", ":")
+    ).encode()
+    attestation_raw = b'{"verification":"verified"}'
+    identity = _draft_exit_identity(video_raw, reproducibility_raw)
+    identity_raw = json.dumps(identity, sort_keys=True, separators=(",", ":")).encode()
+    observation = _verified_draft_exit_observation(
+        video_raw, reproducibility_raw, attestation_raw, identity_raw
+    )
+    Draft202012Validator(
+        json.loads((OCI / "external-verification-observation.schema.json").read_text())
+    ).validate(observation)
+    report = validate_draft_exit.evaluate(
+        observation,
+        attestation_raw=attestation_raw,
+        identity_raw=identity_raw,
+        identity=identity,
+        video_raw=video_raw,
+        video=video,
+        reproducibility_raw=reproducibility_raw,
+        reproducibility=reproducibility,
+        video_schema=json.loads((OCI / "receipt.schema.json").read_text()),
+        reproducibility_schema=json.loads((OCI / "build-reproducibility.schema.json").read_text()),
+        identity_schema=json.loads((OCI / "external-verifier-identity.schema.json").read_text()),
+    )
+    Draft202012Validator(json.loads((OCI / "draft-exit-report.schema.json").read_text())).validate(
+        report
+    )
+    assert report["status"] == "PASS"
+    assert report["decision"] == "READY"
+    assert all(item["status"] == "PASS" for item in report["checks"])
+    assert validate_draft_exit.verify_integrity(report)
+
+    tampered = json.loads(json.dumps(observation))
+    tampered["verifier"]["trust_domain"] = tampered["verifier"]["publisher_trust_domain"]
+    blocked = validate_draft_exit.evaluate(
+        tampered,
+        attestation_raw=attestation_raw,
+        identity_raw=identity_raw,
+        identity=identity,
+        video_raw=video_raw,
+        video=video,
+        reproducibility_raw=reproducibility_raw,
+        reproducibility=reproducibility,
+        video_schema=json.loads((OCI / "receipt.schema.json").read_text()),
+        reproducibility_schema=json.loads((OCI / "build-reproducibility.schema.json").read_text()),
+        identity_schema=json.loads((OCI / "external-verifier-identity.schema.json").read_text()),
+    )
+    assert blocked["status"] == "FAIL"
+    assert blocked["decision"] == "BLOCKED"
+    assert (
+        next(item for item in blocked["checks"] if item["id"] == "independent_identity")["status"]
+        == "FAIL"
+    )
+
+    missing = validate_draft_exit.evaluate(
+        observation,
+        attestation_raw=None,
+        identity_raw=None,
+        identity=None,
+        video_raw=None,
+        video=None,
+        reproducibility_raw=None,
+        reproducibility=None,
+        video_schema=json.loads((OCI / "receipt.schema.json").read_text()),
+        reproducibility_schema=json.loads((OCI / "build-reproducibility.schema.json").read_text()),
+        identity_schema=json.loads((OCI / "external-verifier-identity.schema.json").read_text()),
+    )
+    assert missing["status"] == "FAIL"
+    assert missing["decision"] == "BLOCKED"
+    assert sum(item["status"] == "FAIL" for item in missing["checks"]) >= 6
+
+
+def test_draft_exit_rejects_mutable_ref_hash_tamper_and_overwrite(tmp_path: Path) -> None:
+    video = _draft_exit_video_receipt()
+    reproducibility = _draft_exit_reproducibility_receipt()
+    video_raw = json.dumps(video, sort_keys=True, separators=(",", ":")).encode()
+    reproducibility_raw = json.dumps(
+        reproducibility, sort_keys=True, separators=(",", ":")
+    ).encode()
+    attestation_raw = b'{"verification":"verified"}'
+    identity = _draft_exit_identity(video_raw, reproducibility_raw)
+    identity_raw = json.dumps(identity, sort_keys=True, separators=(",", ":")).encode()
+    observation = _verified_draft_exit_observation(
+        video_raw, reproducibility_raw, attestation_raw, identity_raw
+    )
+    observation_schema = json.loads(
+        (OCI / "external-verification-observation.schema.json").read_text()
+    )
+    mutable = json.loads(json.dumps(observation))
+    mutable["image"]["ref"] = "ghcr.io/mygarfield/proofflow-reference-video-verifier:latest"
+    with pytest.raises(ValidationError):
+        Draft202012Validator(observation_schema).validate(mutable)
+
+    tampered = json.loads(json.dumps(observation))
+    tampered["publication"]["attestation"]["raw_result_sha256"] = "sha256:" + "0" * 64
+    report = validate_draft_exit.evaluate(
+        tampered,
+        attestation_raw=attestation_raw,
+        identity_raw=identity_raw,
+        identity=identity,
+        video_raw=video_raw,
+        video=video,
+        reproducibility_raw=reproducibility_raw,
+        reproducibility=reproducibility,
+        video_schema=json.loads((OCI / "receipt.schema.json").read_text()),
+        reproducibility_schema=json.loads((OCI / "build-reproducibility.schema.json").read_text()),
+        identity_schema=json.loads((OCI / "external-verifier-identity.schema.json").read_text()),
+    )
+    assert report["status"] == "FAIL"
+    assert (
+        next(item for item in report["checks"] if item["id"] == "publisher_attestation")["status"]
+        == "FAIL"
+    )
+
+    output = tmp_path / "report.json"
+    validate_draft_exit.write_once(output, report)
+    assert stat.S_IMODE(output.stat().st_mode) == 0o600
+    with pytest.raises(validate_draft_exit.DraftExitFailure, match="ALREADY_EXISTS"):
+        validate_draft_exit.write_once(output, report)
+    unsafe_parent = tmp_path / "unsafe-parent"
+    unsafe_parent.symlink_to(tmp_path)
+    with pytest.raises(validate_draft_exit.DraftExitFailure, match="PARENT_INVALID"):
+        validate_draft_exit.write_once(unsafe_parent / "report.json", report)
