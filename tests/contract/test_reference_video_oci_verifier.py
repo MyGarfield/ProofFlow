@@ -876,6 +876,7 @@ def test_verifier_input_preparation_has_bounded_network_phase() -> None:
     assert "--read-only" in script
     assert "--cap-drop ALL" in script
     assert "--security-opt no-new-privileges:true" in script
+    assert '--user "$HOST_UID:$HOST_GID"' in script
     assert "fetch_apk_closure.py" in script
     assert "verify_wheel_closure.py" in script
     assert "OUTPUT_PARENT_MUST_BE_DEDICATED_EMPTY_DIRECTORY" in script

@@ -50,6 +50,10 @@ for input in fetch_apk_closure.py apk-closure.lock.json requirements.lock verify
     [ -f "$INPUT_ROOT/$input" ] && [ ! -L "$INPUT_ROOT/$input" ] || die "REQUIRED_INPUT_INVALID"
 done
 
+HOST_UID="$(/usr/bin/id -u)"
+HOST_GID="$(/usr/bin/id -g)"
+case "$HOST_UID:$HOST_GID" in *[!0-9:]*) die "HOST_IDENTITY_INVALID" ;; esac
+
 "$DOCKER_BIN" pull "$BASE_IMAGE" >/dev/null || die "BASE_IMAGE_PULL_FAILED"
 
 if ! "$DOCKER_BIN" run --rm \
@@ -57,6 +61,7 @@ if ! "$DOCKER_BIN" run --rm \
     --read-only \
     --cap-drop ALL \
     --security-opt no-new-privileges:true \
+    --user "$HOST_UID:$HOST_GID" \
     --cpus 1 \
     --memory 536870912 \
     --memory-swap 536870912 \
