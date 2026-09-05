@@ -57,7 +57,7 @@ python:3.12-alpine@sha256:78e98729f8fc4099e53cffb3fe59fd15b18dfa4ace8c914dee0cef
 Python wheels are selected from `requirements.lock` with hashes and only
 binary wheels. Alpine package names and versions are in
 `ALPINE_PACKAGES.lock`; the build preflights the v3.24 `main` and `community`
-APKINDEX digests. The resulting image embeds the complete `/lib/apk/db/installed`
+decompressed APKINDEX content digests. The resulting image embeds the complete `/lib/apk/db/installed`
 package closure digest and package list in `/etc/proofflow/toolchain.json`.
 
 This does not yet claim a bit-for-bit reproducible rebuild: `apk add` resolves

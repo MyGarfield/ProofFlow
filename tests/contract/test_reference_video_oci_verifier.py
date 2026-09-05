@@ -42,7 +42,7 @@ def test_dockerfile_pins_current_amd64_child_and_build_inputs() -> None:
     assert "ARG ARTIFACT_COMMIT=290ef94caf96cf3f1e4568cf8f19a52a8b460bc0" in dockerfile
     assert "--require-hashes" in dockerfile
     assert "ALPINE_PACKAGES.lock" in dockerfile
-    assert "MAIN_APKINDEX_SHA256" in dockerfile
+    assert "MAIN_APKINDEX_CONTENT_SHA256" in dockerfile
     assert "USER 65532:65532" in dockerfile
     assert 'ENTRYPOINT ["/usr/local/bin/python3.12", "/opt/proofflow/runner.py"]' in dockerfile
     assert "COPY deploy/reference-video-oci-verifier/receipt.schema.json" in dockerfile
