@@ -15,9 +15,10 @@ SOURCE_DATE_EPOCH = 1788519180
 REPOSITORY = "localhost:5000/proofflow-reference-video-verifier"
 DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 FRONTEND = "sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e"
+BUILDKIT_IMAGE = "sha256:57269d1784e49b46228c45a1a1b870fbe40e0a639ab60b37b032d83af5bccdfc"
 EXPORTER = (
     "type=image,rewrite-timestamp=true,unpack=false,oci-mediatypes=false,"
-    "compression=gzip,force-compression=true,provenance=false"
+    "compression=gzip,force-compression=true,compatibility-version=30,provenance=false"
 )
 
 
@@ -54,6 +55,7 @@ def make_receipt(
     docker_client: str,
     docker_server: str,
     buildx: str,
+    buildkit: str,
 ) -> dict[str, object]:
     child_a = _digest(child_a)
     config_a = _digest(config_a)
@@ -85,6 +87,8 @@ def make_receipt(
             "docker_client": _text(docker_client, 200),
             "docker_server": _text(docker_server, 200),
             "buildx": _text(buildx, 300),
+            "buildkit": _text(buildkit, 100),
+            "buildkit_image": BUILDKIT_IMAGE,
             "dockerfile_frontend": FRONTEND,
             "exporter": EXPORTER,
         },
@@ -125,6 +129,7 @@ def main() -> None:
     parser.add_argument("--docker-client", required=True)
     parser.add_argument("--docker-server", required=True)
     parser.add_argument("--buildx", required=True)
+    parser.add_argument("--buildkit", required=True)
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
     try:
@@ -136,6 +141,7 @@ def main() -> None:
             docker_client=args.docker_client,
             docker_server=args.docker_server,
             buildx=args.buildx,
+            buildkit=args.buildkit,
         )
         write_once(args.output, receipt)
     except ComparisonFailure as error:

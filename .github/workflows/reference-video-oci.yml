@@ -85,6 +85,29 @@ jobs:
           done
           exit 1
 
+      - name: Start pinned BuildKit builder
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          BUILDER_NAME="proofflow-repro-${GITHUB_RUN_ID}"
+          BUILDKIT_CONFIG="$RUNNER_TEMP/proofflow-buildkitd.toml"
+          BUILDKIT_IMAGE="moby/buildkit@sha256:57269d1784e49b46228c45a1a1b870fbe40e0a639ab60b37b032d83af5bccdfc"
+          printf '%s\n' \
+            '[registry."localhost:5000"]' \
+            '  http = true' \
+            '  insecure = true' \
+            > "$BUILDKIT_CONFIG"
+          docker buildx create \
+            --name "$BUILDER_NAME" \
+            --driver docker-container \
+            --driver-opt "image=$BUILDKIT_IMAGE" \
+            --driver-opt network=host \
+            --buildkitd-config "$BUILDKIT_CONFIG" \
+            --use
+          docker buildx inspect "$BUILDER_NAME" --bootstrap
+          docker buildx inspect "$BUILDER_NAME" | grep -F 'BuildKit version:      v0.30.0'
+          echo "PROOFFLOW_BUILDER=$BUILDER_NAME" >> "$GITHUB_ENV"
+
       - name: Build twice and push only to the local registry
         shell: bash
         run: |
@@ -92,13 +115,14 @@ jobs:
           SOURCE_DATE_EPOCH=1788519180
           REGISTRY_REPOSITORY="localhost:5000/proofflow-reference-video-verifier"
           for variant in a b; do
-            docker buildx build --no-cache --provenance=false \
+            docker buildx build --builder "$PROOFFLOW_BUILDER" \
+              --no-cache --provenance=false \
               --platform linux/amd64 \
               --network=none \
               --build-arg "SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH" \
               --build-context verifier_inputs="$PROOFFLOW_VERIFIER_INPUTS" \
               --file deploy/reference-video-oci-verifier/Dockerfile \
-              --output "type=image,name=$REGISTRY_REPOSITORY:repro-$variant,push=true,rewrite-timestamp=true,unpack=false,oci-mediatypes=false,compression=gzip,force-compression=true" \
+              --output "type=image,name=$REGISTRY_REPOSITORY:repro-$variant,push=true,rewrite-timestamp=true,unpack=false,oci-mediatypes=false,compression=gzip,force-compression=true,compatibility-version=30" \
               .
           done
 
@@ -146,6 +170,7 @@ jobs:
             --docker-client "$(docker version --format '{{.Client.Version}}')" \
             --docker-server "$(docker version --format '{{.Server.Version}}')" \
             --buildx "$(docker buildx version)" \
+            --buildkit "$(docker buildx inspect "$PROOFFLOW_BUILDER" | sed -n 's/^BuildKit version:[[:space:]]*//p')" \
             --output "$REPRO_RECEIPT"
           uv run python - "$REPRO_RECEIPT" <<'PY'
           import json
@@ -227,8 +252,12 @@ jobs:
       - name: Cleanup local registry
         if: always()
         run: |
+          if [ -n "${PROOFFLOW_BUILDER:-}" ]; then
+            docker buildx rm "$PROOFFLOW_BUILDER" >/dev/null 2>&1 || true
+          fi
           docker rm --force "$REGISTRY_NAME" >/dev/null 2>&1 || true
           sudo rm -rf -- \
             "$RUNNER_TEMP/proofflow-detached-repo" \
             "$RUNNER_TEMP/proofflow-build-reproducibility.json" \
+            "$RUNNER_TEMP/proofflow-buildkitd.toml" \
             "$RUNNER_TEMP/proofflow-verifier-input-parent"

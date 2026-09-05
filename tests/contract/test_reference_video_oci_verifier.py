@@ -160,9 +160,14 @@ def test_github_oci_workflow_is_pinned_local_only_and_path_filtered() -> None:
     assert "prepare_verifier_inputs.sh" in workflow
     assert "--network=none" in workflow
     assert '--build-context verifier_inputs="$PROOFFLOW_VERIFIER_INPUTS"' in workflow
-    assert "docker buildx build --no-cache --provenance=false" in workflow
+    assert 'docker buildx build --builder "$PROOFFLOW_BUILDER"' in workflow
+    assert "--no-cache --provenance=false" in workflow
+    assert "--driver docker-container" in workflow
+    assert "moby/buildkit@sha256:57269d1784e49b46228c45a1a1b870f" in workflow
+    assert "BuildKit version:      v0.30.0" in workflow
     assert "SOURCE_DATE_EPOCH=1788519180" in workflow
     assert "rewrite-timestamp=true" in workflow
+    assert "compatibility-version=30" in workflow
     assert (
         "uv run python deploy/reference-video-oci-verifier/compare_reproducible_builds.py"
         in workflow
@@ -989,6 +994,7 @@ def test_build_reproducibility_receipt_pass_and_mismatch() -> None:
         docker_client="29.0.0",
         docker_server="29.0.0",
         buildx="github.com/docker/buildx v0.34.1",
+        buildkit="v0.30.0",
     )
     schema = json.loads((OCI / "build-reproducibility.schema.json").read_text(encoding="utf-8"))
     Draft202012Validator.check_schema(schema)
@@ -1006,6 +1012,7 @@ def test_build_reproducibility_receipt_pass_and_mismatch() -> None:
         docker_client="29.0.0",
         docker_server="29.0.0",
         buildx="github.com/docker/buildx v0.34.1",
+        buildkit="v0.30.0",
     )
     Draft202012Validator(schema).validate(mismatch)
     assert mismatch["status"] == "FAIL"
@@ -1024,6 +1031,7 @@ def test_build_reproducibility_receipt_rejects_invalid_inputs_and_overwrite(
             docker_client="29.0.0",
             docker_server="29.0.0",
             buildx="buildx",
+            buildkit="v0.30.0",
         )
     with pytest.raises(compare_reproducible_builds.ComparisonFailure, match="BUILDER"):
         compare_reproducible_builds.make_receipt(
@@ -1034,6 +1042,7 @@ def test_build_reproducibility_receipt_rejects_invalid_inputs_and_overwrite(
             docker_client="29.0.0\nforged",
             docker_server="29.0.0",
             buildx="buildx",
+            buildkit="v0.30.0",
         )
     with pytest.raises(compare_reproducible_builds.ComparisonFailure, match="COLLISION"):
         compare_reproducible_builds.make_receipt(
@@ -1044,6 +1053,7 @@ def test_build_reproducibility_receipt_rejects_invalid_inputs_and_overwrite(
             docker_client="29.0.0",
             docker_server="29.0.0",
             buildx="buildx",
+            buildkit="v0.30.0",
         )
     receipt = compare_reproducible_builds.make_receipt(
         child_a="sha256:" + "a" * 64,
@@ -1053,6 +1063,7 @@ def test_build_reproducibility_receipt_rejects_invalid_inputs_and_overwrite(
         docker_client="29.0.0",
         docker_server="29.0.0",
         buildx="buildx",
+        buildkit="v0.30.0",
     )
     output = tmp_path / "receipt.json"
     compare_reproducible_builds.write_once(output, receipt)
