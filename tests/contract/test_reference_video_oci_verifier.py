@@ -5,6 +5,7 @@ import http.server
 import io
 import json
 import re
+import stat
 import sys
 import tarfile
 import threading
@@ -17,6 +18,8 @@ OCI = Path(__file__).parents[2] / "deploy/reference-video-oci-verifier"
 sys.path.insert(0, str(OCI))
 
 import build_identity  # noqa: E402
+import compare_reproducible_builds  # noqa: E402
+import diagnose_reproducibility_mismatch  # noqa: E402
 import fetch_apk_closure  # noqa: E402
 import inspect_oci_archive  # noqa: E402
 import inspect_registry_bundle  # noqa: E402
@@ -43,6 +46,10 @@ def digest(path: Path) -> str:
 
 def test_dockerfile_pins_current_amd64_child_and_build_inputs() -> None:
     dockerfile = (OCI / "Dockerfile").read_text(encoding="utf-8")
+    assert dockerfile.startswith(
+        "# syntax=docker/dockerfile:1.7@sha256:"
+        "a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e"
+    )
     assert "FROM --platform=linux/amd64 python:3.12-alpine@sha256:78e987" in dockerfile
     assert "ARG ARTIFACT_COMMIT=290ef94caf96cf3f1e4568cf8f19a52a8b460bc0" in dockerfile
     assert "--require-hashes" in dockerfile
@@ -52,14 +59,17 @@ def test_dockerfile_pins_current_amd64_child_and_build_inputs() -> None:
     assert "from=verifier_inputs" in dockerfile
     assert "apk --no-network add" in dockerfile
     assert "--no-index" in dockerfile
-    assert "file:///opt/proofflow-inputs/v3.24/main" in dockerfile
+    assert "/opt/proofflow-inputs/v3.24/main/x86_64/*.apk" in dockerfile
+    assert "/opt/proofflow-inputs/v3.24/community/x86_64/*.apk" in dockerfile
+    assert "APKINDEX" not in dockerfile
     assert "dl-cdn.alpinelinux.org" not in dockerfile
     assert "--allow-untrusted" not in dockerfile
+    assert "ARG SOURCE_DATE_EPOCH=1788519180" in dockerfile
+    assert "--no-compile" in dockerfile
+    assert "rm -f /var/log/apk.log /var/cache/fontconfig/*" in dockerfile
     assert "USER 65532:65532" in dockerfile
     assert 'ENTRYPOINT ["/usr/local/bin/python3.12", "/opt/proofflow/runner.py"]' in dockerfile
     assert "COPY deploy/reference-video-oci-verifier/receipt.schema.json" in dockerfile
-    assert r"printf '%s\n%s\n'" in dockerfile
-    assert "printf '%s\\\\n%s\\\\n'" not in dockerfile
     launcher = (OCI / "run.sh").read_text(encoding="utf-8")
     assert "{{.Descriptor.digest}}" not in launcher
     assert "RepoDigests" in launcher
@@ -150,6 +160,24 @@ def test_github_oci_workflow_is_pinned_local_only_and_path_filtered() -> None:
     assert "prepare_verifier_inputs.sh" in workflow
     assert "--network=none" in workflow
     assert '--build-context verifier_inputs="$PROOFFLOW_VERIFIER_INPUTS"' in workflow
+    assert 'docker buildx build --builder "$PROOFFLOW_BUILDER"' in workflow
+    assert "--no-cache --provenance=false" in workflow
+    assert "--driver docker-container" in workflow
+    assert "moby/buildkit@sha256:57269d1784e49b46228c45a1a1b870f" in workflow
+    assert "BuildKit version:      v0.30.0" in workflow
+    assert "SOURCE_DATE_EPOCH=1788519180" in workflow
+    assert "rewrite-timestamp=true" in workflow
+    assert "compatibility-version=30" in workflow
+    assert (
+        "uv run python deploy/reference-video-oci-verifier/compare_reproducible_builds.py"
+        in workflow
+    )
+    assert (
+        "uv run python deploy/reference-video-oci-verifier/diagnose_reproducibility_mismatch.py"
+        in workflow
+    )
+    assert "repro-a" in workflow and "repro-b" in workflow
+    assert "proofflow-reference-video-build-reproducibility-${{ github.run_id }}" in workflow
     assert "git clone --no-local --no-hardlinks" in workflow
     assert "checkout --detach" in workflow
     assert "rev-parse HEAD" in workflow
@@ -159,7 +187,7 @@ def test_github_oci_workflow_is_pinned_local_only_and_path_filtered() -> None:
     assert "PROOFFLOW_REPO_ROOT" in workflow
     assert "sudo rm -rf --" in workflow
     assert '"$RUNNER_TEMP/proofflow-detached-repo"' in workflow
-    assert '"$RUNNER_TEMP/proofflow-reference-video.oci.tar"' in workflow
+    assert '"$RUNNER_TEMP/proofflow-build-reproducibility.json"' in workflow
     assert '"$RUNNER_TEMP/proofflow-verifier-input-parent"' in workflow
 
 
@@ -805,24 +833,14 @@ def test_apk_package_metadata_signature_and_bytes_are_bound(tmp_path: Path) -> N
         fetch_apk_closure.verify_package(path, package)
 
 
-def test_apk_index_content_and_signature_are_bound(tmp_path: Path) -> None:
-    path = tmp_path / "APKINDEX.tar.gz"
-    content = b"P:fixture\nV:1.0-r0\n"
-    with tarfile.open(path, "w:gz") as archive:
-        signature = tarfile.TarInfo(".SIGN.RSA.alpine-devel@lists.alpinelinux.org-6165ee59.rsa.pub")
-        signature.size = 1
-        archive.addfile(signature, io.BytesIO(b"x"))
-        index = tarfile.TarInfo("APKINDEX")
-        index.size = len(content)
-        archive.addfile(index, io.BytesIO(content))
-    repository = {
-        "signature_key": "alpine-devel@lists.alpinelinux.org-6165ee59.rsa.pub",
-        "index_content_sha256": "sha256:" + hashlib.sha256(content).hexdigest(),
-    }
-    fetch_apk_closure.verify_index(path, repository)
-    repository["index_content_sha256"] = "sha256:" + "0" * 64
-    with pytest.raises(fetch_apk_closure.ClosureFailure, match="INDEX_CONTENT"):
-        fetch_apk_closure.verify_index(path, repository)
+def test_apk_closure_does_not_depend_on_mutable_repository_indexes() -> None:
+    lock = fetch_apk_closure.load_lock(OCI / "apk-closure.lock.json")
+    assert all("index_url" not in repository for repository in lock["repositories"])
+    assert all("index_content_sha256" not in repository for repository in lock["repositories"])
+    assert len(fetch_apk_closure.expected_paths(lock)) == 141
+    assert all(path.name != "APKINDEX.tar.gz" for path in fetch_apk_closure.expected_paths(lock))
+    source = (OCI / "fetch_apk_closure.py").read_text(encoding="utf-8")
+    assert "INDEX_CONTENT_DIGEST_MISMATCH" not in source
 
 
 def test_apk_bundle_rejects_missing_extra_and_symlink_members(tmp_path: Path) -> None:
@@ -963,3 +981,115 @@ def test_wheel_directory_rejects_missing_extra_symlink_and_tamper(tmp_path: Path
     path.symlink_to(tmp_path / "outside")
     with pytest.raises(verify_wheel_closure.WheelFailure, match="NOT_REGULAR"):
         verify_wheel_closure.verify(tmp_path, lock)
+
+
+def test_build_reproducibility_receipt_pass_and_mismatch() -> None:
+    digest_a = "sha256:" + "a" * 64
+    digest_b = "sha256:" + "b" * 64
+    receipt = compare_reproducible_builds.make_receipt(
+        child_a=digest_a,
+        config_a=digest_b,
+        child_b=digest_a,
+        config_b=digest_b,
+        docker_client="29.0.0",
+        docker_server="29.0.0",
+        buildx="github.com/docker/buildx v0.34.1",
+        buildkit="v0.30.0",
+    )
+    schema = json.loads((OCI / "build-reproducibility.schema.json").read_text(encoding="utf-8"))
+    Draft202012Validator.check_schema(schema)
+    Draft202012Validator(schema).validate(receipt)
+    assert receipt["status"] == "PASS"
+    payload = {key: value for key, value in receipt.items() if key != "integrity"}
+    assert receipt["integrity"]["payload_sha256"] == (
+        "sha256:" + hashlib.sha256(compare_reproducible_builds.canonical_json(payload)).hexdigest()
+    )
+    mismatch = compare_reproducible_builds.make_receipt(
+        child_a=digest_a,
+        config_a=digest_b,
+        child_b="sha256:" + "c" * 64,
+        config_b=digest_b,
+        docker_client="29.0.0",
+        docker_server="29.0.0",
+        buildx="github.com/docker/buildx v0.34.1",
+        buildkit="v0.30.0",
+    )
+    Draft202012Validator(schema).validate(mismatch)
+    assert mismatch["status"] == "FAIL"
+    assert mismatch["error_code"] == "IMAGE_REPRODUCIBILITY_MISMATCH"
+
+
+def test_build_reproducibility_receipt_rejects_invalid_inputs_and_overwrite(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(compare_reproducible_builds.ComparisonFailure, match="DIGEST"):
+        compare_reproducible_builds.make_receipt(
+            child_a="latest",
+            config_a="sha256:" + "b" * 64,
+            child_b="sha256:" + "a" * 64,
+            config_b="sha256:" + "b" * 64,
+            docker_client="29.0.0",
+            docker_server="29.0.0",
+            buildx="buildx",
+            buildkit="v0.30.0",
+        )
+    with pytest.raises(compare_reproducible_builds.ComparisonFailure, match="BUILDER"):
+        compare_reproducible_builds.make_receipt(
+            child_a="sha256:" + "a" * 64,
+            config_a="sha256:" + "b" * 64,
+            child_b="sha256:" + "a" * 64,
+            config_b="sha256:" + "b" * 64,
+            docker_client="29.0.0\nforged",
+            docker_server="29.0.0",
+            buildx="buildx",
+            buildkit="v0.30.0",
+        )
+    with pytest.raises(compare_reproducible_builds.ComparisonFailure, match="COLLISION"):
+        compare_reproducible_builds.make_receipt(
+            child_a="sha256:" + "a" * 64,
+            config_a="sha256:" + "a" * 64,
+            child_b="sha256:" + "b" * 64,
+            config_b="sha256:" + "c" * 64,
+            docker_client="29.0.0",
+            docker_server="29.0.0",
+            buildx="buildx",
+            buildkit="v0.30.0",
+        )
+    receipt = compare_reproducible_builds.make_receipt(
+        child_a="sha256:" + "a" * 64,
+        config_a="sha256:" + "b" * 64,
+        child_b="sha256:" + "a" * 64,
+        config_b="sha256:" + "b" * 64,
+        docker_client="29.0.0",
+        docker_server="29.0.0",
+        buildx="buildx",
+        buildkit="v0.30.0",
+    )
+    output = tmp_path / "receipt.json"
+    compare_reproducible_builds.write_once(output, receipt)
+    assert stat.S_IMODE(output.stat().st_mode) == 0o600
+    with pytest.raises(compare_reproducible_builds.ComparisonFailure, match="ALREADY_EXISTS"):
+        compare_reproducible_builds.write_once(output, receipt)
+
+
+def test_reproducibility_diagnostic_exposes_only_indexes_and_hashes() -> None:
+    manifest_a = {"layers": [{"digest": "sha256:" + "a" * 64}, {"digest": "sha256:" + "b" * 64}]}
+    manifest_b = {"layers": [{"digest": "sha256:" + "a" * 64}, {"digest": "sha256:" + "c" * 64}]}
+    config_a = {
+        "architecture": "amd64",
+        "rootfs": {"diff_ids": ["sha256:" + "d" * 64, "sha256:" + "e" * 64]},
+        "history": [{"created_by": "fixed"}, {"created_by": "left-secret-value"}],
+    }
+    config_b = {
+        "architecture": "amd64",
+        "rootfs": {"diff_ids": ["sha256:" + "d" * 64, "sha256:" + "f" * 64]},
+        "history": [{"created_by": "fixed"}, {"created_by": "right-secret-value"}],
+    }
+    result = diagnose_reproducibility_mismatch.summarize(manifest_a, config_a, manifest_b, config_b)
+    encoded = json.dumps(result, sort_keys=True)
+    assert result["manifest_layer_indexes"] == [1]
+    assert result["rootfs_diff_id_indexes"] == [1]
+    assert result["history_indexes"] == [1]
+    assert result["config_keys"] == ["history", "rootfs"]
+    assert "left-secret-value" not in encoded
+    assert "right-secret-value" not in encoded

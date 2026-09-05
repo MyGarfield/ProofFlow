@@ -29,7 +29,6 @@ ARCHITECTURE = "x86_64"
 REPOSITORIES = {"main", "community"}
 MAX_PACKAGES = 256
 MAX_PACKAGE_BYTES = 96 * 1024 * 1024
-MAX_INDEX_BYTES = 32 * 1024 * 1024
 MAX_TOTAL_PACKAGE_BYTES = 256 * 1024 * 1024
 MAX_TAR_MEMBERS = 262_144
 APK_BINARY = "/sbin/apk"
@@ -109,12 +108,11 @@ def _require_signature_key(value: object) -> str:
     return value
 
 
-def _validate_url(url: object, repository: str, filename: str, *, index: bool) -> str:
+def _validate_url(url: object, repository: str, filename: str) -> str:
     if not isinstance(url, str):
         raise ClosureFailure("URL_INVALID")
     parsed = urlsplit(url)
-    expected_name = "APKINDEX.tar.gz" if index else filename
-    expected_path = f"/alpine/{ALPINE_RELEASE}/{repository}/{ARCHITECTURE}/{expected_name}"
+    expected_path = f"/alpine/{ALPINE_RELEASE}/{repository}/{ARCHITECTURE}/{filename}"
     if (
         parsed.scheme != "https"
         or parsed.hostname != OFFICIAL_HOST
@@ -174,15 +172,13 @@ def validate_lock(document: object) -> dict[str, Any]:
     for raw_repository in repositories:
         repository = _exact_keys(
             raw_repository,
-            {"name", "index_url", "index_content_sha256", "signature_key", "signature_key_sha256"},
+            {"name", "signature_key", "signature_key_sha256"},
             "REPOSITORY_KEYSET_INVALID",
         )
         name = repository["name"]
         if not isinstance(name, str) or name not in REPOSITORIES or name in seen_repositories:
             raise ClosureFailure("REPOSITORY_NAME_INVALID")
         seen_repositories.add(name)
-        _validate_url(repository["index_url"], name, "", index=True)
-        _require_digest(repository["index_content_sha256"], "INDEX_DIGEST_INVALID")
         repository_keys.add(_require_signature_key(repository["signature_key"]))
         _require_digest(repository["signature_key_sha256"], "SIGNATURE_KEY_DIGEST_INVALID")
 
@@ -238,7 +234,7 @@ def validate_lock(document: object) -> dict[str, Any]:
             raise ClosureFailure("PACKAGE_REPOSITORY_INVALID")
         if package_architecture not in {ARCHITECTURE, "noarch"}:
             raise ClosureFailure("PACKAGE_ARCHITECTURE_INVALID")
-        url = _validate_url(package["url"], repository, filename, index=False)
+        url = _validate_url(package["url"], repository, filename)
         if url in urls:
             raise ClosureFailure("DUPLICATE_PACKAGE_URL")
         urls.add(url)
@@ -431,24 +427,6 @@ def verify_package(path: Path, package: dict[str, Any]) -> None:
         raise ClosureFailure("PACKAGE_METADATA_MISMATCH")
 
 
-def verify_index(path: Path, repository: dict[str, Any]) -> None:
-    if path.is_symlink() or not path.is_file() or path.stat().st_size > MAX_INDEX_BYTES:
-        raise ClosureFailure("INDEX_ARCHIVE_INVALID")
-    try:
-        with tarfile.open(path, "r:*") as archive:
-            key = _archive_signature_key(archive)
-            content = _read_tar_member(archive, "APKINDEX", MAX_INDEX_BYTES)
-    except ClosureFailure:
-        raise
-    except (OSError, tarfile.TarError) as error:
-        raise ClosureFailure("INDEX_ARCHIVE_INVALID") from error
-    if key != repository["signature_key"]:
-        raise ClosureFailure("INDEX_SIGNATURE_KEY_MISMATCH")
-    digest = "sha256:" + hashlib.sha256(content).hexdigest()
-    if digest != repository["index_content_sha256"]:
-        raise ClosureFailure("INDEX_CONTENT_DIGEST_MISMATCH")
-
-
 def verify_signatures(output: Path, lock: dict[str, Any]) -> None:
     """Use only the fixed base image key directory and apk's verifier."""
     if not APK_KEYS_DIR.is_dir() or APK_KEYS_DIR.is_symlink():
@@ -467,13 +445,9 @@ def verify_signatures(output: Path, lock: dict[str, Any]) -> None:
         if _digest_file(key_path) != expected:
             raise ClosureFailure("FIXED_APK_SIGNING_KEY_DIGEST_MISMATCH")
     paths = [
-        str(output / ALPINE_RELEASE / repository["name"] / ARCHITECTURE / "APKINDEX.tar.gz")
-        for repository in lock["repositories"]
-    ]
-    paths.extend(
         str(output / ALPINE_RELEASE / package["repository"] / ARCHITECTURE / package["filename"])
         for package in lock["packages"]
-    )
+    ]
     command = [APK_BINARY, "--keys-dir", "/etc/apk/keys", "verify", *paths]
     if "--allow-untrusted" in command:
         raise ClosureFailure("APK_SIGNATURE_BYPASS_FORBIDDEN")
@@ -494,9 +468,6 @@ def verify_signatures(output: Path, lock: dict[str, Any]) -> None:
 
 def expected_paths(lock: dict[str, Any]) -> set[Path]:
     paths: set[Path] = set()
-    for repository in lock["repositories"]:
-        root = Path(ALPINE_RELEASE) / repository["name"] / ARCHITECTURE
-        paths.add(root / "APKINDEX.tar.gz")
     for package in lock["packages"]:
         paths.add(Path(ALPINE_RELEASE) / package["repository"] / ARCHITECTURE / package["filename"])
     return paths
@@ -520,12 +491,6 @@ def verify_directory(output: Path, lock: dict[str, Any]) -> None:
         raise ClosureFailure("BUNDLE_DIRECTORY_UNREADABLE") from error
     if actual != wanted:
         raise ClosureFailure("BUNDLE_MEMBER_SET_MISMATCH")
-    repositories = {item["name"]: item for item in lock["repositories"]}
-    for repository in repositories.values():
-        verify_index(
-            output / ALPINE_RELEASE / repository["name"] / ARCHITECTURE / "APKINDEX.tar.gz",
-            repository,
-        )
     for package in lock["packages"]:
         verify_package(
             output / ALPINE_RELEASE / package["repository"] / ARCHITECTURE / package["filename"],
@@ -535,34 +500,6 @@ def verify_directory(output: Path, lock: dict[str, Any]) -> None:
 
 def fetch(lock: dict[str, Any], output: Path) -> None:
     _prepare_output(output)
-    for repository in lock["repositories"]:
-        destination = (
-            output / ALPINE_RELEASE / repository["name"] / ARCHITECTURE / "APKINDEX.tar.gz"
-        )
-        # Compressed APKINDEX bytes can vary while signed content remains equal.
-        # Download with a hard cap, then validate content and the expected key.
-        opener = build_opener(ProxyHandler({}), _NoRedirect())
-        temporary = destination.with_name("APKINDEX.tar.gz.part")
-        try:
-            destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-            with opener.open(Request(repository["index_url"]), timeout=30) as response:
-                if response.status != 200 or response.geturl() != repository["index_url"]:
-                    raise ClosureFailure("INDEX_DOWNLOAD_INVALID")
-                payload = response.read(MAX_INDEX_BYTES + 1)
-            if len(payload) > MAX_INDEX_BYTES:
-                raise ClosureFailure("INDEX_DOWNLOAD_SIZE_LIMIT")
-            temporary.write_bytes(payload)
-            verify_index(temporary, repository)
-            os.replace(temporary, destination)
-            destination.chmod(0o444)
-        except ClosureFailure:
-            if temporary.exists():
-                temporary.unlink()
-            raise
-        except Exception as error:
-            if temporary.exists():
-                temporary.unlink()
-            raise ClosureFailure("INDEX_DOWNLOAD_FAILED") from error
     for package in lock["packages"]:
         destination = (
             output / ALPINE_RELEASE / package["repository"] / ARCHITECTURE / package["filename"]

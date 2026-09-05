@@ -59,10 +59,12 @@ deploy/reference-video-oci-verifier/prepare_verifier_inputs.sh \
   --repo-root "$PWD" \
   --output /absolute/private/temp/verifier-inputs
 
-docker buildx build --load --platform linux/amd64 --network=none \
+docker buildx build --no-cache --provenance=false \
+  --platform linux/amd64 --network=none \
+  --build-arg SOURCE_DATE_EPOCH=1788519180 \
   --build-context verifier_inputs=/absolute/private/temp/verifier-inputs \
   -f deploy/reference-video-oci-verifier/Dockerfile \
-  -t proofflow-reference-video-verifier:local \
+  --output 'type=image,name=localhost:5000/proofflow-reference-video-verifier:repro-a,push=true,rewrite-timestamp=true,unpack=false,oci-mediatypes=false,compression=gzip,force-compression=true' \
   .
 ```
 
@@ -75,26 +77,56 @@ python:3.12-alpine@sha256:78e98729f8fc4099e53cffb3fe59fd15b18dfa4ace8c914dee0cef
 `apk-closure.lock.json` closes 141 additional APKs (172,535,952 bytes) over
 repository, package metadata, build commit, filename, size, SHA-256 and signing
 key. `fetch_apk_closure.py` accepts only the official Alpine HTTPS paths,
-disables redirects and proxies, checks both signed APKINDEX content digests,
-rejects missing/extra/link/special members, and runs `/sbin/apk verify` with the
-fixed base image key and pinned key SHA-256. It never uses `--allow-untrusted`.
+disables redirects and proxies, rejects missing/extra/link/special members, and
+runs `/sbin/apk verify` with the fixed base image key and pinned key SHA-256. It
+never uses `--allow-untrusted`. The build deliberately does not consume the
+rolling v3.24 APKINDEX: all 141 signed package files are direct inputs, so a
+later index update cannot silently change or block the closed dependency set.
+Direct installation preserves each package's signed `noarch` metadata instead
+of projecting it to the repository target architecture. The raw installed-db
+digest therefore differs from earlier index-backed candidates even though the
+sorted 165-package set, tool binaries, versions, fonts and locale are equal;
+the new image identity and receipt expose that change rather than reusing the
+old toolchain digest.
 
 Python wheels remain selected by `requirements.lock` with `--require-hashes`
 and binary-only resolution. `wheel-closure.lock.json` additionally closes the
 six selected wheel filenames, sizes and SHA-256 values (821,982 bytes). The
 input preparation step is the only network-capable phase. The Docker build
 mounts the resulting directory as a read-only named context; `apk` uses only
-the two `file://` repositories with `--no-network`, pip uses only the mounted
-wheel directory with `--no-index`, and the input bytes do not become a layer.
+the 141 mounted package paths with an empty repository list and `--no-network`,
+pip uses only the mounted wheel directory with `--no-index`, and the input bytes
+do not become a layer.
 The resulting image still embeds the complete `/lib/apk/db/installed` package
 closure digest and package list in `/etc/proofflow/toolchain.json`.
 
-This is a network-separated build-input closure, not a permanent offline or
-bit-for-bit reproducibility claim. The official package and wheel URLs may stop
+This is a network-separated build-input closure, not a permanent offline
+availability claim. The official package and wheel URLs may stop
 serving the locked bytes, so future source availability remains `UNKNOWN` until
-the closure is stored in an authorized immutable external trust domain. Image
-digest reproducibility also remains unclaimed until two clean builds are
-compared under a fixed builder/exporter contract.
+the closure is stored in an authorized immutable external trust domain.
+
+## Reproducibility gate
+
+The GitHub workflow performs two `--no-cache` builds from the same verified
+input closure. `SOURCE_DATE_EPOCH=1788519180` is the fixed artifact-commit time;
+the builder is the `linux/amd64` child of `moby/buildkit:v0.30.0` pinned at
+`sha256:57269d1784e49b46228c45a1a1b870fbe40e0a639ab60b37b032d83af5bccdfc`.
+The exporter uses compatibility version 30, `rewrite-timestamp=true`, forced
+gzip, fixed Docker media types, disabled provenance and no unpack. Build-only
+`.pyc`, fontconfig caches and `apk.log` are omitted because their generated
+bytes or timestamps are not runtime inputs. `compare_reproducible_builds.py`
+requires both child manifest and config digests to match, writes a schema-valid
+canonical-integrity receipt, and fails the workflow on any mismatch.
+
+A passing receipt proves repeatability for two clean builds under the recorded
+Docker/Buildx versions, pinned BuildKit image and exact exporter contract. The
+BuildKit daemon uses host networking only for pinned source pulls and the
+ephemeral localhost registry; every Dockerfile `RUN` remains `--network=none`.
+The docker-container driver is privileged on the disposable CI runner and is
+never given credentials or a Docker socket inside the verifier image. This
+does not prove cross-version or cross-implementation reproducibility; that remains `UNKNOWN`
+until a separate pinned builder implementation independently reproduces the
+same digest.
 
 The image identity records the base child, artifact/schema/validator pins,
 package-lock digests, platform, fixed tool paths, binary SHA-256 and versions,
