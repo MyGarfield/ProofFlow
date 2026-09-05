@@ -6,6 +6,8 @@ import argparse
 import hashlib
 import json
 import re
+from http.client import HTTPMessage
+from typing import IO, cast
 from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
@@ -95,7 +97,15 @@ def validate_endpoint(endpoint: str, repository: str) -> str:
 
 
 class _NoRedirect(HTTPRedirectHandler):
-    def redirect_request(self, request, *args, **kwargs):
+    def redirect_request(
+        self,
+        req: Request,
+        fp: IO[bytes],
+        code: int,
+        msg: str,
+        headers: HTTPMessage,
+        newurl: str,
+    ) -> Request | None:
         raise BundleFailure("REGISTRY_REDIRECT_FORBIDDEN")
 
 
@@ -113,7 +123,7 @@ def fetch_bytes(url: str, limit: int, expected_content_types: set[str]) -> bytes
             length = response.headers.get("Content-Length")
             if length is not None and int(length) > limit:
                 raise BundleFailure("REGISTRY_OUTPUT_LIMIT")
-            body = response.read(limit + 1)
+            body = cast(bytes, response.read(limit + 1))
     except BundleFailure:
         raise
     except Exception as error:
