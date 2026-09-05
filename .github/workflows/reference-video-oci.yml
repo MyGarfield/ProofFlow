@@ -1,0 +1,176 @@
+name: Reference video OCI verifier
+
+on:
+  push:
+    branches: [main, "feature/**"]
+    paths:
+      - "reference-video/**"
+      - "deploy/reference-video-oci-verifier/**"
+      - ".github/workflows/reference-video-oci.yml"
+  pull_request:
+    paths:
+      - "reference-video/**"
+      - "deploy/reference-video-oci-verifier/**"
+      - ".github/workflows/reference-video-oci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  reference-video-oci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact history without credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up pinned uv
+        uses: astral-sh/setup-uv@557e51de59eb14aaaba2ed9621916900a91d50c6 # v6.6.1
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Install verifier contract dependencies
+        run: uv sync --locked --dev
+
+      - name: Prepare exact detached artifact repository
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          PINNED_ARTIFACT_COMMIT=290ef94caf96cf3f1e4568cf8f19a52a8b460bc0
+          DETACHED_REPO="$RUNNER_TEMP/proofflow-detached-repo"
+          git clone --no-local --no-hardlinks "$GITHUB_WORKSPACE" "$DETACHED_REPO"
+          git -C "$DETACHED_REPO" checkout --detach "$PINNED_ARTIFACT_COMMIT"
+          test "$(git -C "$DETACHED_REPO" rev-parse HEAD)" = "$PINNED_ARTIFACT_COMMIT"
+          test -z "$(git -C "$DETACHED_REPO" status --porcelain)"
+          sudo chown -R -- 65532:65532 "$DETACHED_REPO"
+          test "$(stat -c '%u:%g' "$DETACHED_REPO")" = "65532:65532"
+          {
+            echo "PROOFFLOW_REPO_ROOT=$DETACHED_REPO"
+            echo "PROOFFLOW_ARTIFACT_COMMIT=$PINNED_ARTIFACT_COMMIT"
+          } >> "$GITHUB_ENV"
+
+      - name: Start local pinned registry
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          REGISTRY_NAME="proofflow-oci-registry-${GITHUB_RUN_ID}"
+          REGISTRY_IMAGE="registry@sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373"
+          echo "REGISTRY_NAME=${REGISTRY_NAME}" >> "$GITHUB_ENV"
+          docker pull "$REGISTRY_IMAGE"
+          docker run --detach --name "$REGISTRY_NAME" \
+            --publish 127.0.0.1:5000:5000 \
+            "$REGISTRY_IMAGE"
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error http://127.0.0.1:5000/v2/ >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          exit 1
+
+      - name: Build and push only to the local registry
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          LOCAL_TAG="proofflow-reference-video-verifier:ci"
+          REGISTRY_TAG="localhost:5000/proofflow-reference-video-verifier:ci"
+          docker build --platform linux/amd64 \
+            --file deploy/reference-video-oci-verifier/Dockerfile \
+            --tag "$LOCAL_TAG" .
+          docker tag "$LOCAL_TAG" "$REGISTRY_TAG"
+          docker push "$REGISTRY_TAG"
+          docker pull "$REGISTRY_TAG"
+
+      - name: Resolve immutable child and config digests from local OCI archive
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          REGISTRY_TAG="localhost:5000/proofflow-reference-video-verifier:ci"
+          REPO_DIGESTS="$(docker image inspect "$REGISTRY_TAG" --format '{{json .RepoDigests}}')"
+          IMAGE_REF="$(python3 - "$REPO_DIGESTS" <<'PY'
+          import json
+          import sys
+          values = json.loads(sys.argv[1])
+          matches = [value for value in values if value.startswith("localhost:5000/proofflow-reference-video-verifier@sha256:")]
+          if len(matches) != 1:
+              raise SystemExit("expected one local registry digest")
+          print(matches[0])
+          PY
+          )"
+          ARCHIVE="$RUNNER_TEMP/proofflow-reference-video.oci.tar"
+          docker save --platform linux/amd64 --output "$ARCHIVE" "$IMAGE_REF"
+          CONFIG_DIGEST="$(python3 - "$ARCHIVE" <<'PY'
+          import json
+          import sys
+          import tarfile
+          with tarfile.open(sys.argv[1], "r:*") as archive:
+              index = json.loads(archive.extractfile("index.json").read())
+              descriptor = index["manifests"][0]
+              manifest_path = "blobs/sha256/" + descriptor["digest"].split(":", 1)[1]
+              manifest = json.loads(archive.extractfile(manifest_path).read())
+              print(manifest["config"]["digest"])
+          PY
+          )"
+          {
+            echo "PROOFFLOW_IMAGE_REF=$IMAGE_REF"
+            echo "PROOFFLOW_IMAGE_CONFIG_DIGEST=$CONFIG_DIGEST"
+          } >> "$GITHUB_ENV"
+
+      - name: Run strict verifier and require 19 PASS checks
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          RECEIPT="$RUNNER_TEMP/proofflow-oci-receipt.json"
+          deploy/reference-video-oci-verifier/run.sh \
+            --docker-bin /usr/bin/docker \
+            --host-python-bin /usr/bin/python3 \
+            --image "$PROOFFLOW_IMAGE_REF" \
+            --repo-root "$PROOFFLOW_REPO_ROOT" \
+            --artifact-root "$PROOFFLOW_REPO_ROOT/reference-video" \
+            --expected-artifact-commit "$PROOFFLOW_ARTIFACT_COMMIT" \
+            --expected-manifest-sha256 sha256:d031c112d517d1a6931c97fed6fc667a7fd2fd29872e04d901829b6bcfe2b92a \
+            --expected-schema-sha256 sha256:3af014e66ce304a5f205e5cb9b2900157d6469b72ff5601e1c7a1d447224c104 \
+            --expected-validator-sha256 sha256:bba1e9d75c5694a148da96f77f2e431bc23ce1248e6bac3f3a1db3bca8940051 \
+            --expected-image-digest "${PROOFFLOW_IMAGE_REF##*@}" \
+            --expected-image-config-digest "$PROOFFLOW_IMAGE_CONFIG_DIGEST" \
+            --registry-bundle-url http://127.0.0.1:5000/v2 \
+            --registry-repository proofflow-reference-video-verifier \
+            --receipt-output "$RECEIPT"
+          uv run python - "$RECEIPT" <<'PY'
+          import hashlib
+          import json
+          import sys
+          from pathlib import Path
+          from jsonschema import Draft202012Validator
+          receipt_path = Path(sys.argv[1])
+          root = Path("deploy/reference-video-oci-verifier")
+          receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+          schema = json.loads((root / "receipt.schema.json").read_text(encoding="utf-8"))
+          Draft202012Validator(schema).validate(receipt)
+          assert receipt["overall_status"] == "PASS"
+          assert len(receipt["checks"]) == 19
+          assert all(item["status"] == "PASS" for item in receipt["checks"])
+          assert receipt["observed"]["ocr_parity"] == "UNKNOWN"
+          payload = {key: value for key, value in receipt.items() if key != "integrity"}
+          digest = "sha256:" + hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+          assert receipt["integrity"]["payload_sha256"] == digest
+          PY
+
+      - name: Upload exact receipt for short-term CI evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: proofflow-reference-video-oci-receipt-${{ github.run_id }}
+          path: ${{ runner.temp }}/proofflow-oci-receipt.json
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Cleanup local registry
+        if: always()
+        run: |
+          docker rm --force "$REGISTRY_NAME" >/dev/null 2>&1 || true
+          sudo rm -rf -- "$RUNNER_TEMP/proofflow-detached-repo" "$RUNNER_TEMP/proofflow-reference-video.oci.tar"

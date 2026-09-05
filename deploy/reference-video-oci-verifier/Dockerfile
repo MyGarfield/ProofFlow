@@ -6,8 +6,8 @@ ARG ARTIFACT_COMMIT=290ef94caf96cf3f1e4568cf8f19a52a8b460bc0
 ARG MANIFEST_SHA256=sha256:d031c112d517d1a6931c97fed6fc667a7fd2fd29872e04d901829b6bcfe2b92a
 ARG SCHEMA_SHA256=sha256:3af014e66ce304a5f205e5cb9b2900157d6469b72ff5601e1c7a1d447224c104
 ARG VALIDATOR_SHA256=sha256:bba1e9d75c5694a148da96f77f2e431bc23ce1248e6bac3f3a1db3bca8940051
-ARG MAIN_APKINDEX_SHA256=sha256:d06e04b2a46b8f669cd1fa5244ed3786a63efd41d9a2403433a9e6a21d9d7ce1
-ARG COMMUNITY_APKINDEX_SHA256=sha256:d5fda4c2f0c2ed5c537a1a3aeeb7e642e5aabf7e22b2ae2be9d99d341f1fcef7
+ARG MAIN_APKINDEX_CONTENT_SHA256=sha256:82a7fa67f13f0978d6a64cb1537fdf7682ec0c71c1671310fa2a3dc6339256fc
+ARG COMMUNITY_APKINDEX_CONTENT_SHA256=sha256:b18679447a0440d5412e45aff0a24883f3a6ac6642117b6242be44b3b2f0d91b
 
 LABEL org.opencontainers.image.title="ProofFlow reference-video OCI verifier" \
       org.opencontainers.image.description="Fixed, fail-closed linux/amd64 verifier for synthetic reference evidence" \
@@ -41,11 +41,13 @@ RUN set -eux; \
       https://dl-cdn.alpinelinux.org/alpine/v3.24/community \
       > /etc/apk/repositories; \
     wget -q -O /tmp/main-index.tar.gz https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86_64/APKINDEX.tar.gz; \
-    echo "${MAIN_APKINDEX_SHA256#sha256:}  /tmp/main-index.tar.gz" | sha256sum -c -; \
+    tar -xOf /tmp/main-index.tar.gz APKINDEX > /tmp/main-index; \
+    echo "${MAIN_APKINDEX_CONTENT_SHA256#sha256:}  /tmp/main-index" | sha256sum -c -; \
     wget -q -O /tmp/community-index.tar.gz https://dl-cdn.alpinelinux.org/alpine/v3.24/community/x86_64/APKINDEX.tar.gz; \
-    echo "${COMMUNITY_APKINDEX_SHA256#sha256:}  /tmp/community-index.tar.gz" | sha256sum -c -; \
+    tar -xOf /tmp/community-index.tar.gz APKINDEX > /tmp/community-index; \
+    echo "${COMMUNITY_APKINDEX_CONTENT_SHA256#sha256:}  /tmp/community-index" | sha256sum -c -; \
     apk add --no-cache --no-progress $(sed -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' /opt/proofflow/ALPINE_PACKAGES.lock); \
-    rm -f /tmp/main-index.tar.gz /tmp/community-index.tar.gz
+    rm -f /tmp/main-index.tar.gz /tmp/community-index.tar.gz /tmp/main-index /tmp/community-index
 
 RUN python -m pip install \
       --disable-pip-version-check \

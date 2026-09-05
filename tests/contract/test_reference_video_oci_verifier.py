@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import hashlib
+import http.server
 import io
 import json
+import re
 import sys
 import tarfile
+import threading
 from pathlib import Path
 
 import pytest
@@ -15,6 +18,7 @@ sys.path.insert(0, str(OCI))
 
 import build_identity  # noqa: E402
 import inspect_oci_archive  # noqa: E402
+import inspect_registry_bundle  # noqa: E402
 import runner  # noqa: E402
 import write_receipt  # noqa: E402
 
@@ -41,15 +45,40 @@ def test_dockerfile_pins_current_amd64_child_and_build_inputs() -> None:
     assert "ARG ARTIFACT_COMMIT=290ef94caf96cf3f1e4568cf8f19a52a8b460bc0" in dockerfile
     assert "--require-hashes" in dockerfile
     assert "ALPINE_PACKAGES.lock" in dockerfile
-    assert "MAIN_APKINDEX_SHA256" in dockerfile
+    assert "MAIN_APKINDEX_CONTENT_SHA256" in dockerfile
     assert "USER 65532:65532" in dockerfile
     assert 'ENTRYPOINT ["/usr/local/bin/python3.12", "/opt/proofflow/runner.py"]' in dockerfile
     assert "COPY deploy/reference-video-oci-verifier/receipt.schema.json" in dockerfile
     assert r"printf '%s\n%s\n'" in dockerfile
     assert "printf '%s\\\\n%s\\\\n'" not in dockerfile
     launcher = (OCI / "run.sh").read_text(encoding="utf-8")
-    assert "{{.Descriptor.digest}}" in launcher
+    assert "{{.Descriptor.digest}}" not in launcher
+    assert "RepoDigests" in launcher
     assert "save --platform linux/amd64" in launcher
+    assert 'image inspect "$IMAGE_REF"' in launcher
+    assert "image inspect --platform" not in launcher
+    assert "IMAGE_REPO_DIGEST_NOT_CONFIRMED" in launcher
+    assert "IMAGE_ARCHIVE_PIN_MISMATCH" in launcher
+    assert "IMAGE_REGISTRY_BUNDLE_PIN_MISMATCH" in launcher
+    assert "REGISTRY_BUNDLE_ARGUMENTS_MUST_BE_PAIRED" in launcher
+    assert "IMAGE_ID_INVALID" in launcher
+    assert "IMAGE_CONFIG_DIGEST_MISMATCH" in launcher
+    assert "REPO_DIGEST_MATCH=false" in launcher
+    assert 'case "$IMAGE_REPO_DIGESTS" in *"$IMAGE_REF"*' not in launcher
+    result = __import__("subprocess").run(
+        [
+            "/bin/sh",
+            str(OCI / "run.sh"),
+            "--image",
+            "localhost:5000/fixture@sha256:" + "a" * 64,
+            "--registry-bundle-url",
+            "http://127.0.0.1:5000/v2",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 2
+    assert "REGISTRY_BUNDLE_ARGUMENTS_MUST_BE_PAIRED" in result.stderr
 
 
 def test_launcher_has_all_fail_closed_docker_options() -> None:
@@ -84,6 +113,40 @@ def test_runner_executes_ocr_only_through_the_trusted_validator() -> None:
     assert "def ocr_check" not in source
     assert '"code": "OCR_EXECUTION_OBSERVED"' in source
     assert '"ocr_parity": "UNKNOWN"' in source
+
+
+def test_github_oci_workflow_is_pinned_local_only_and_path_filtered() -> None:
+    workflow = (Path(__file__).parents[2] / ".github/workflows/reference-video-oci.yml").read_text(
+        encoding="utf-8"
+    )
+    uses = re.findall(r"uses:\s+([^\s#]+)", workflow)
+    assert uses
+    assert all(re.search(r"@[0-9a-f]{40}$", value) for value in uses)
+    assert "fetch-depth: 0" in workflow
+    assert "persist-credentials: false" in workflow
+    assert '"reference-video/**"' in workflow
+    assert '"deploy/reference-video-oci-verifier/**"' in workflow
+    assert (
+        "registry@sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373"
+        in workflow
+    )
+    assert "localhost:5000" in workflow
+    assert "docker login" not in workflow
+    assert "ghcr.io" not in workflow
+    assert "secrets." not in workflow
+    assert "retention-days: 3" in workflow
+    assert "docker rm --force" in workflow
+    assert "git clone --no-local --no-hardlinks" in workflow
+    assert "checkout --detach" in workflow
+    assert "rev-parse HEAD" in workflow
+    assert 'git -C "$DETACHED_REPO" status --porcelain' in workflow
+    assert 'sudo chown -R -- 65532:65532 "$DETACHED_REPO"' in workflow
+    assert "stat -c '%u:%g' \"$DETACHED_REPO\"" in workflow
+    assert "PROOFFLOW_REPO_ROOT" in workflow
+    assert (
+        'sudo rm -rf -- "$RUNNER_TEMP/proofflow-detached-repo" '
+        '"$RUNNER_TEMP/proofflow-reference-video.oci.tar"' in workflow
+    )
 
 
 def test_mutable_tag_is_not_an_image_reference() -> None:
@@ -440,3 +503,183 @@ def test_oci_archive_wrong_child_or_config_digest_fails_closed(tmp_path: Path) -
         inspect_oci_archive.inspect_archive(archive, "sha256:" + "a" * 64, config)
     with pytest.raises(inspect_oci_archive.InspectionFailure, match="CONFIG_DIGEST"):
         inspect_oci_archive.inspect_archive(archive, child, "sha256:" + "b" * 64)
+
+
+def _registry_payloads() -> tuple[str, str, dict[str, bytes]]:
+    config = json.dumps(
+        {"architecture": "amd64", "os": "linux", "config": {"User": "65532:65532"}},
+        separators=(",", ":"),
+    ).encode()
+    config_digest = "sha256:" + hashlib.sha256(config).hexdigest()
+    manifest = json.dumps(
+        {
+            "schemaVersion": 2,
+            "mediaType": "application/vnd.oci.image.manifest.v1+json",
+            "config": {
+                "mediaType": "application/vnd.oci.image.config.v1+json",
+                "digest": config_digest,
+                "size": len(config),
+            },
+            "layers": [
+                {
+                    "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                    "digest": "sha256:" + "a" * 64,
+                    "size": 1,
+                }
+            ],
+        },
+        separators=(",", ":"),
+    ).encode()
+    child_digest = "sha256:" + hashlib.sha256(manifest).hexdigest()
+    return child_digest, config_digest, {"manifest": manifest, "config": config}
+
+
+def test_registry_bundle_binds_manifest_and_config(monkeypatch: pytest.MonkeyPatch) -> None:
+    child, config, payloads = _registry_payloads()
+
+    def fetch(url: str, _limit: int, _types: set[str]) -> bytes:
+        return payloads["manifest"] if "/manifests/" in url else payloads["config"]
+
+    monkeypatch.setattr(inspect_registry_bundle, "fetch_bytes", fetch)
+    receipt = inspect_registry_bundle.inspect_registry_bundle(
+        "http://127.0.0.1:5000/v2", "fixture", child, config
+    )
+    assert receipt["status"] == "PASS"
+    assert receipt["observed_child_digest"] == child
+    assert receipt["observed_config_digest"] == config
+
+
+@pytest.mark.parametrize("attack", ["manifest_media", "config_digest", "layer_media", "duplicate"])
+def test_registry_bundle_attacks_fail_closed(monkeypatch: pytest.MonkeyPatch, attack: str) -> None:
+    child, config, payloads = _registry_payloads()
+    manifest = json.loads(payloads["manifest"])
+    if attack == "manifest_media":
+        manifest["mediaType"] = "application/octet-stream"
+        payloads["manifest"] = json.dumps(manifest, separators=(",", ":")).encode()
+        child = "sha256:" + hashlib.sha256(payloads["manifest"]).hexdigest()
+    elif attack == "config_digest":
+        manifest["config"]["digest"] = "sha256:" + "b" * 64
+        payloads["manifest"] = json.dumps(manifest, separators=(",", ":")).encode()
+        child = "sha256:" + hashlib.sha256(payloads["manifest"]).hexdigest()
+    elif attack == "layer_media":
+        manifest["layers"][0]["mediaType"] = "application/octet-stream"
+        payloads["manifest"] = json.dumps(manifest, separators=(",", ":")).encode()
+        child = "sha256:" + hashlib.sha256(payloads["manifest"]).hexdigest()
+    else:
+        payloads["manifest"] = b'{"schemaVersion":2,"schemaVersion":2}'
+        child = "sha256:" + hashlib.sha256(payloads["manifest"]).hexdigest()
+
+    def fetch(url: str, _limit: int, _types: set[str]) -> bytes:
+        return payloads["manifest"] if "/manifests/" in url else payloads["config"]
+
+    monkeypatch.setattr(inspect_registry_bundle, "fetch_bytes", fetch)
+    with pytest.raises(inspect_registry_bundle.BundleFailure):
+        inspect_registry_bundle.inspect_registry_bundle(
+            "http://127.0.0.1:5000/v2", "fixture", child, config
+        )
+
+
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        "https://127.0.0.1:5000/v2",
+        "http://localhost:5000/v2",
+        "http://127.0.0.1:5000/v3",
+        "http://user:pass@127.0.0.1:5000/v2",
+    ],
+)
+def test_registry_endpoint_is_loopback_v2_without_redirect_or_userinfo(endpoint: str) -> None:
+    with pytest.raises(inspect_registry_bundle.BundleFailure):
+        inspect_registry_bundle.validate_endpoint(endpoint, "fixture")
+    for repository in ("fixture//nested", "fixture/../escape", "fixture/./nested"):
+        with pytest.raises(inspect_registry_bundle.BundleFailure):
+            inspect_registry_bundle.validate_endpoint("http://127.0.0.1:5000/v2", repository)
+
+
+@pytest.mark.parametrize("field", ["architecture", "user"])
+def test_registry_config_platform_and_user_fail_closed(
+    monkeypatch: pytest.MonkeyPatch, field: str
+) -> None:
+    child, _config, payloads = _registry_payloads()
+    bad_config = {"architecture": "amd64", "os": "linux", "config": {"User": "65532:65532"}}
+    bad_config["architecture" if field == "architecture" else "os"] = "arm64"
+    if field == "user":
+        bad_config["architecture"] = "amd64"
+        bad_config["os"] = "linux"
+        bad_config["config"]["User"] = "0"
+    config_body = json.dumps(bad_config, separators=(",", ":")).encode()
+    bad_config_digest = "sha256:" + hashlib.sha256(config_body).hexdigest()
+    manifest = json.loads(payloads["manifest"])
+    manifest["config"]["digest"] = bad_config_digest
+    payloads["config"] = config_body
+    payloads["manifest"] = json.dumps(manifest, separators=(",", ":")).encode()
+    child = "sha256:" + hashlib.sha256(payloads["manifest"]).hexdigest()
+
+    def fetch(url: str, _limit: int, _types: set[str]) -> bytes:
+        return payloads["manifest"] if "/manifests/" in url else payloads["config"]
+
+    monkeypatch.setattr(inspect_registry_bundle, "fetch_bytes", fetch)
+    with pytest.raises(inspect_registry_bundle.BundleFailure):
+        inspect_registry_bundle.inspect_registry_bundle(
+            "http://127.0.0.1:5000/v2", "fixture", child, bad_config_digest
+        )
+
+
+def test_registry_bundle_rejects_nan_and_redirects() -> None:
+    with pytest.raises(inspect_registry_bundle.BundleFailure, match="NONFINITE"):
+        inspect_registry_bundle.strict_json(b'{"value":NaN}')
+
+    class RedirectHandler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(302)
+            self.send_header("Location", "https://evil.invalid/redirect")
+            self.end_headers()
+
+        def log_message(self, *_args):
+            return
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), RedirectHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        with pytest.raises(inspect_registry_bundle.BundleFailure, match="REDIRECT"):
+            inspect_registry_bundle.fetch_bytes(
+                f"http://127.0.0.1:{server.server_port}/v2/x",
+                1024,
+                inspect_registry_bundle.MANIFEST_MEDIA_TYPES,
+            )
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+        server.server_close()
+
+
+@pytest.mark.parametrize("attack", ["blob", "size", "duplicate-layer", "layer-count"])
+def test_registry_bundle_blob_and_layer_attacks_fail_closed(
+    monkeypatch: pytest.MonkeyPatch, attack: str
+) -> None:
+    child, config, payloads = _registry_payloads()
+    manifest = json.loads(payloads["manifest"])
+    if attack == "blob":
+        payloads["config"] = payloads["config"] + b"tamper"
+    elif attack == "size":
+        manifest["config"]["size"] += 1
+        payloads["manifest"] = json.dumps(manifest, separators=(",", ":")).encode()
+        child = "sha256:" + hashlib.sha256(payloads["manifest"]).hexdigest()
+    elif attack == "duplicate-layer":
+        manifest["layers"].append(dict(manifest["layers"][0]))
+        payloads["manifest"] = json.dumps(manifest, separators=(",", ":")).encode()
+        child = "sha256:" + hashlib.sha256(payloads["manifest"]).hexdigest()
+    else:
+        manifest["layers"] = [dict(manifest["layers"][0]) for _ in range(513)]
+        payloads["manifest"] = json.dumps(manifest, separators=(",", ":")).encode()
+        child = "sha256:" + hashlib.sha256(payloads["manifest"]).hexdigest()
+
+    def fetch(url: str, _limit: int, _types: set[str]) -> bytes:
+        return payloads["manifest"] if "/manifests/" in url else payloads["config"]
+
+    monkeypatch.setattr(inspect_registry_bundle, "fetch_bytes", fetch)
+    with pytest.raises(inspect_registry_bundle.BundleFailure):
+        inspect_registry_bundle.inspect_registry_bundle(
+            "http://127.0.0.1:5000/v2", "fixture", child, config
+        )

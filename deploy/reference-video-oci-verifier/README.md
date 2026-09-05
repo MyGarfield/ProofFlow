@@ -15,6 +15,16 @@ expected child manifest blob/media type, the config descriptor, and the config
 blob SHA-256/size/platform/user. It uses only Python's standard library and
 does not depend on `jq`.
 
+GitHub CI uses the equivalent localhost Registry v2 bundle path: the registry
+manifest bytes and config blob are fetched over loopback and checked with the
+same child/config/media/platform/layer contracts. Classic Docker `save` output
+is not mislabeled as OCI; the OCI archive path remains available for runtimes
+that actually export `oci-layout`. The registry-bundle path does not download
+every layer blob; layer descriptors are closed and content-addressed, while
+layer content integrity is supplied by Docker's verified local pull. The
+registry endpoint and image repository are required to be the same local
+`127.0.0.1:5000`/`localhost:5000` trust domain.
+
 It uses Docker with:
 
 - `linux/amd64`, `--pull=never`, `--network none`, read-only rootfs;
@@ -57,7 +67,7 @@ python:3.12-alpine@sha256:78e98729f8fc4099e53cffb3fe59fd15b18dfa4ace8c914dee0cef
 Python wheels are selected from `requirements.lock` with hashes and only
 binary wheels. Alpine package names and versions are in
 `ALPINE_PACKAGES.lock`; the build preflights the v3.24 `main` and `community`
-APKINDEX digests. The resulting image embeds the complete `/lib/apk/db/installed`
+decompressed APKINDEX content digests. The resulting image embeds the complete `/lib/apk/db/installed`
 package closure digest and package list in `/etc/proofflow/toolchain.json`.
 
 This does not yet claim a bit-for-bit reproducible rebuild: `apk add` resolves
@@ -138,3 +148,14 @@ downloads the exact image, runs this launcher against the exact artifact
 commit, and preserves the resulting receipt. A run with a local tag, mutable
 child, writable mount, host tool, missing security profile, timeout or output
 limit cannot satisfy that gate.
+
+## GitHub CI boundary
+
+`.github/workflows/reference-video-oci.yml` is a separate path-filtered
+workflow. It runs only when GitHub Actions accepts a push or pull request that
+changes `reference-video/**`, `deploy/reference-video-oci-verifier/**`, or the
+workflow itself. A dependency PR whose base branch is
+`feature/reference-runtime-evidence-only` must have Actions enabled for that
+branch; if the platform does not schedule the workflow, there is no CI receipt
+and no portability claim. The workflow pushes only to its ephemeral local
+registry and never logs in to or publishes an external registry.
