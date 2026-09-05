@@ -117,6 +117,7 @@ if ! "$HOST_PYTHON_BIN" "$SCRIPT_DIR/inspect_oci_archive.py" \
     --expected-child-digest "$EXPECTED_IMAGE_DIGEST" \
     --expected-config-digest "$EXPECTED_IMAGE_CONFIG_DIGEST" \
     >"$TMP_ROOT/archive-inspection.json" 2>"$TMP_ROOT/archive-inspection.err"; then
+    /bin/cat "$TMP_ROOT/archive-inspection.json" >&2 || true
     die "IMAGE_ARCHIVE_PIN_MISMATCH"
 fi
 
