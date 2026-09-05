@@ -59,7 +59,11 @@ done
 
 case "$DOCKER_BIN" in /*) ;; *) die "DOCKER_BIN_MUST_BE_ABSOLUTE" ;; esac
 case "$HOST_PYTHON_BIN" in /*) ;; *) die "HOST_PYTHON_BIN_MUST_BE_ABSOLUTE" ;; esac
-[ -n "$REGISTRY_BUNDLE_URL" ] && [ -n "$REGISTRY_REPOSITORY" ] || [ -z "$REGISTRY_BUNDLE_URL" ] && [ -z "$REGISTRY_REPOSITORY" ] || die "REGISTRY_BUNDLE_ARGUMENTS_MUST_BE_PAIRED"
+if { [ -n "$REGISTRY_BUNDLE_URL" ] && [ -z "$REGISTRY_REPOSITORY" ]; } || {
+    [ -z "$REGISTRY_BUNDLE_URL" ] && [ -n "$REGISTRY_REPOSITORY" ];
+}; then
+    die "REGISTRY_BUNDLE_ARGUMENTS_MUST_BE_PAIRED"
+fi
 if [ -n "$REGISTRY_BUNDLE_URL" ]; then
     [ "$REGISTRY_BUNDLE_URL" = "http://127.0.0.1:5000/v2" ] || die "REGISTRY_BUNDLE_ENDPOINT_MISMATCH"
     case "$IMAGE_REF" in

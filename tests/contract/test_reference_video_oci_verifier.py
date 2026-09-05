@@ -65,6 +65,20 @@ def test_dockerfile_pins_current_amd64_child_and_build_inputs() -> None:
     assert "IMAGE_CONFIG_DIGEST_MISMATCH" in launcher
     assert "REPO_DIGEST_MATCH=false" in launcher
     assert 'case "$IMAGE_REPO_DIGESTS" in *"$IMAGE_REF"*' not in launcher
+    result = __import__("subprocess").run(
+        [
+            "/bin/sh",
+            str(OCI / "run.sh"),
+            "--image",
+            "localhost:5000/fixture@sha256:" + "a" * 64,
+            "--registry-bundle-url",
+            "http://127.0.0.1:5000/v2",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 2
+    assert "REGISTRY_BUNDLE_ARGUMENTS_MUST_BE_PAIRED" in result.stderr
 
 
 def test_launcher_has_all_fail_closed_docker_options() -> None:
