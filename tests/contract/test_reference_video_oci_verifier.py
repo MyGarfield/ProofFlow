@@ -56,6 +56,7 @@ def test_dockerfile_pins_current_amd64_child_and_build_inputs() -> None:
     assert "IMAGE_REPO_DIGEST_NOT_CONFIRMED" in launcher
     assert "IMAGE_ARCHIVE_PIN_MISMATCH" in launcher
     assert "IMAGE_ID_INVALID" in launcher
+    assert "IMAGE_CONFIG_DIGEST_MISMATCH" in launcher
 
 
 def test_launcher_has_all_fail_closed_docker_options() -> None:
