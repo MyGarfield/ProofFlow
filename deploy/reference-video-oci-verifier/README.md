@@ -15,6 +15,16 @@ expected child manifest blob/media type, the config descriptor, and the config
 blob SHA-256/size/platform/user. It uses only Python's standard library and
 does not depend on `jq`.
 
+GitHub CI uses the equivalent localhost Registry v2 bundle path: the registry
+manifest bytes and config blob are fetched over loopback and checked with the
+same child/config/media/platform/layer contracts. Classic Docker `save` output
+is not mislabeled as OCI; the OCI archive path remains available for runtimes
+that actually export `oci-layout`. The registry-bundle path does not download
+every layer blob; layer descriptors are closed and content-addressed, while
+layer content integrity is supplied by Docker's verified local pull. The
+registry endpoint and image repository are required to be the same local
+`127.0.0.1:5000`/`localhost:5000` trust domain.
+
 It uses Docker with:
 
 - `linux/amd64`, `--pull=never`, `--network none`, read-only rootfs;

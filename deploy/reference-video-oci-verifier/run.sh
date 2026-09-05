@@ -4,6 +4,8 @@ set -eu
 
 DOCKER_BIN="/usr/bin/docker"
 HOST_PYTHON_BIN="/usr/bin/python3"
+REGISTRY_BUNDLE_URL=""
+REGISTRY_REPOSITORY=""
 IMAGE_REF=""
 REPO_ROOT=""
 ARTIFACT_ROOT=""
@@ -28,6 +30,7 @@ usage: run.sh --image NAME@sha256:CHILD_DIGEST --repo-root ABSOLUTE_DIR \
   --expected-manifest-sha256 sha256:DIGEST --expected-schema-sha256 sha256:DIGEST \
   --expected-validator-sha256 sha256:DIGEST --expected-image-digest sha256:DIGEST \
   --expected-image-config-digest sha256:DIGEST [--receipt-output ABSOLUTE_FILE] \
+  [--registry-bundle-url http://127.0.0.1:PORT/v2 --registry-repository NAME] \
   [--docker-bin ABSOLUTE_DOCKER] [--host-python-bin ABSOLUTE_PYTHON]
 EOF
     exit 2
@@ -37,6 +40,8 @@ while [ "$#" -gt 0 ]; do
     case "$1" in
         --docker-bin) [ "$#" -ge 2 ] || usage; DOCKER_BIN="$2"; shift 2 ;;
         --host-python-bin) [ "$#" -ge 2 ] || usage; HOST_PYTHON_BIN="$2"; shift 2 ;;
+        --registry-bundle-url) [ "$#" -ge 2 ] || usage; REGISTRY_BUNDLE_URL="$2"; shift 2 ;;
+        --registry-repository) [ "$#" -ge 2 ] || usage; REGISTRY_REPOSITORY="$2"; shift 2 ;;
         --image) [ "$#" -ge 2 ] || usage; IMAGE_REF="$2"; shift 2 ;;
         --repo-root) [ "$#" -ge 2 ] || usage; REPO_ROOT="$2"; shift 2 ;;
         --artifact-root) [ "$#" -ge 2 ] || usage; ARTIFACT_ROOT="$2"; shift 2 ;;
@@ -54,6 +59,14 @@ done
 
 case "$DOCKER_BIN" in /*) ;; *) die "DOCKER_BIN_MUST_BE_ABSOLUTE" ;; esac
 case "$HOST_PYTHON_BIN" in /*) ;; *) die "HOST_PYTHON_BIN_MUST_BE_ABSOLUTE" ;; esac
+[ -n "$REGISTRY_BUNDLE_URL" ] && [ -n "$REGISTRY_REPOSITORY" ] || [ -z "$REGISTRY_BUNDLE_URL" ] && [ -z "$REGISTRY_REPOSITORY" ] || die "REGISTRY_BUNDLE_ARGUMENTS_MUST_BE_PAIRED"
+if [ -n "$REGISTRY_BUNDLE_URL" ]; then
+    [ "$REGISTRY_BUNDLE_URL" = "http://127.0.0.1:5000/v2" ] || die "REGISTRY_BUNDLE_ENDPOINT_MISMATCH"
+    case "$IMAGE_REF" in
+        "localhost:5000/$REGISTRY_REPOSITORY"@sha256:*|"127.0.0.1:5000/$REGISTRY_REPOSITORY"@sha256:*) ;;
+        *) die "REGISTRY_IMAGE_REPOSITORY_MISMATCH" ;;
+    esac
+fi
 [ "${IMAGE_REF#*@}" != "$IMAGE_REF" ] || die "IMAGE_MUST_USE_IMMUTABLE_CHILD_DIGEST"
 IMAGE_DIGEST="${IMAGE_REF##*@}"
 [ "${#IMAGE_DIGEST}" -eq 71 ] || die "IMAGE_MUST_USE_IMMUTABLE_CHILD_DIGEST"
@@ -105,20 +118,40 @@ case "$IMAGE_ID" in sha256:?????????????????????????????????????????????????????
 [ "$IMAGE_ARCH" = "amd64" ] || die "IMAGE_CHILD_ARCHITECTURE_MISMATCH"
 [ "$IMAGE_OS" = "linux" ] || die "IMAGE_CHILD_OS_MISMATCH"
 [ "$IMAGE_USER" = "65532:65532" ] || die "IMAGE_USER_MISMATCH"
-case "$IMAGE_REPO_DIGESTS" in *"$IMAGE_REF"*) ;; *) die "IMAGE_REPO_DIGEST_NOT_CONFIRMED" ;; esac
+REPO_DIGEST_MATCH=false
+while IFS= read -r repo_digest; do
+    if [ "$repo_digest" = "$IMAGE_REF" ]; then
+        REPO_DIGEST_MATCH=true
+    fi
+done <<EOF
+$IMAGE_REPO_DIGESTS
+EOF
+[ "$REPO_DIGEST_MATCH" = true ] || die "IMAGE_REPO_DIGEST_NOT_CONFIRMED"
 
-IMAGE_ARCHIVE="$TMP_ROOT/image.oci.tar"
-if ! "$DOCKER_BIN" save --platform linux/amd64 --output "$IMAGE_ARCHIVE" "$IMAGE_REF" 2>"$TMP_ROOT/save.err"; then
-    die "IMAGE_ARCHIVE_EXPORT_FAILED"
-fi
-[ "$(/usr/bin/wc -c <"$IMAGE_ARCHIVE")" -le 1073741824 ] || die "IMAGE_ARCHIVE_OUTPUT_LIMIT_EXCEEDED"
-if ! "$HOST_PYTHON_BIN" "$SCRIPT_DIR/inspect_oci_archive.py" \
-    --archive "$IMAGE_ARCHIVE" \
-    --expected-child-digest "$EXPECTED_IMAGE_DIGEST" \
-    --expected-config-digest "$EXPECTED_IMAGE_CONFIG_DIGEST" \
-    >"$TMP_ROOT/archive-inspection.json" 2>"$TMP_ROOT/archive-inspection.err"; then
-    /bin/cat "$TMP_ROOT/archive-inspection.json" >&2 || true
-    die "IMAGE_ARCHIVE_PIN_MISMATCH"
+if [ -n "$REGISTRY_BUNDLE_URL" ]; then
+    if ! "$HOST_PYTHON_BIN" "$SCRIPT_DIR/inspect_registry_bundle.py" \
+        --registry "$REGISTRY_BUNDLE_URL" \
+        --repository "$REGISTRY_REPOSITORY" \
+        --expected-child-digest "$EXPECTED_IMAGE_DIGEST" \
+        --expected-config-digest "$EXPECTED_IMAGE_CONFIG_DIGEST" \
+        >"$TMP_ROOT/registry-inspection.json" 2>"$TMP_ROOT/registry-inspection.err"; then
+        /bin/cat "$TMP_ROOT/registry-inspection.json" >&2 || true
+        die "IMAGE_REGISTRY_BUNDLE_PIN_MISMATCH"
+    fi
+else
+    IMAGE_ARCHIVE="$TMP_ROOT/image.oci.tar"
+    if ! "$DOCKER_BIN" save --platform linux/amd64 --output "$IMAGE_ARCHIVE" "$IMAGE_REF" 2>"$TMP_ROOT/save.err"; then
+        die "IMAGE_ARCHIVE_EXPORT_FAILED"
+    fi
+    [ "$(/usr/bin/wc -c <"$IMAGE_ARCHIVE")" -le 1073741824 ] || die "IMAGE_ARCHIVE_OUTPUT_LIMIT_EXCEEDED"
+    if ! "$HOST_PYTHON_BIN" "$SCRIPT_DIR/inspect_oci_archive.py" \
+        --archive "$IMAGE_ARCHIVE" \
+        --expected-child-digest "$EXPECTED_IMAGE_DIGEST" \
+        --expected-config-digest "$EXPECTED_IMAGE_CONFIG_DIGEST" \
+        >"$TMP_ROOT/archive-inspection.json" 2>"$TMP_ROOT/archive-inspection.err"; then
+        /bin/cat "$TMP_ROOT/archive-inspection.json" >&2 || true
+        die "IMAGE_ARCHIVE_PIN_MISMATCH"
+    fi
 fi
 
 set +e

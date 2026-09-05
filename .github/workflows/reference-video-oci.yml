@@ -120,6 +120,8 @@ jobs:
             --expected-validator-sha256 sha256:bba1e9d75c5694a148da96f77f2e431bc23ce1248e6bac3f3a1db3bca8940051 \
             --expected-image-digest "${PROOFFLOW_IMAGE_REF##*@}" \
             --expected-image-config-digest "$PROOFFLOW_IMAGE_CONFIG_DIGEST" \
+            --registry-bundle-url http://127.0.0.1:5000/v2 \
+            --registry-repository proofflow-reference-video-verifier \
             --receipt-output "$RECEIPT"
           uv run python - "$RECEIPT" <<'PY'
           import hashlib
