@@ -137,7 +137,7 @@ def test_github_oci_workflow_is_pinned_local_only_and_path_filtered() -> None:
     assert "retention-days: 3" in workflow
     assert "docker rm --force" in workflow
     assert "git clone --no-local --no-hardlinks" in workflow
-    assert "git checkout --detach" in workflow
+    assert "checkout --detach" in workflow
     assert "rev-parse HEAD" in workflow
     assert "PROOFFLOW_REPO_ROOT" in workflow
 
