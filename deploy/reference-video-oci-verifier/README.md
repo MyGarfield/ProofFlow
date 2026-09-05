@@ -7,8 +7,9 @@ renderer and not proof of AgentTeams Worker or LLM execution.
 ## Security contract
 
 `run.sh` rejects mutable tags and requires a registry-resolved child digest and
-the separately observed image config digest. It checks both Docker
-`Descriptor.digest` and `RepoDigests`, then sends `docker save --platform
+the separately observed image config digest. It accepts Docker `.Id` only when
+the active image store exposes either that config digest or the pinned child
+digest, requires an exact `RepoDigests` entry, and sends `docker save --platform
 linux/amd64` through `inspect_oci_archive.py`. The inspector reads the OCI
 archive without extraction and verifies `oci-layout`, `index.json`, the
 expected child manifest blob/media type, the config descriptor, and the config
@@ -49,10 +50,17 @@ validator invocation without that identity remains capture-exact.
 
 ## Build
 
-Build from the repository root with the exact Dockerfile and platform:
+Prepare byte-locked inputs, then build from the repository root with all
+Dockerfile `RUN` networking disabled:
 
 ```sh
-docker build --platform linux/amd64 \
+mkdir -p /absolute/private/temp
+deploy/reference-video-oci-verifier/prepare_verifier_inputs.sh \
+  --repo-root "$PWD" \
+  --output /absolute/private/temp/verifier-inputs
+
+docker buildx build --load --platform linux/amd64 --network=none \
+  --build-context verifier_inputs=/absolute/private/temp/verifier-inputs \
   -f deploy/reference-video-oci-verifier/Dockerfile \
   -t proofflow-reference-video-verifier:local \
   .
@@ -64,17 +72,29 @@ The Dockerfile pins the current Python Alpine `linux/amd64` child digest:
 python:3.12-alpine@sha256:78e98729f8fc4099e53cffb3fe59fd15b18dfa4ace8c914dee0cefa5320068eb
 ```
 
-Python wheels are selected from `requirements.lock` with hashes and only
-binary wheels. Alpine package names and versions are in
-`ALPINE_PACKAGES.lock`; the build preflights the v3.24 `main` and `community`
-decompressed APKINDEX content digests. The resulting image embeds the complete `/lib/apk/db/installed`
-package closure digest and package list in `/etc/proofflow/toolchain.json`.
+`apk-closure.lock.json` closes 141 additional APKs (172,535,952 bytes) over
+repository, package metadata, build commit, filename, size, SHA-256 and signing
+key. `fetch_apk_closure.py` accepts only the official Alpine HTTPS paths,
+disables redirects and proxies, checks both signed APKINDEX content digests,
+rejects missing/extra/link/special members, and runs `/sbin/apk verify` with the
+fixed base image key and pinned key SHA-256. It never uses `--allow-untrusted`.
 
-This does not yet claim a bit-for-bit reproducible rebuild: `apk add` resolves
-through its configured repository and re-fetches the index after the preflight
-download. The installed closure and preflight index digests make this drift
-observable, but an offline bundle of exact `.apk` files is still required for a
-reproducible release.
+Python wheels remain selected by `requirements.lock` with `--require-hashes`
+and binary-only resolution. `wheel-closure.lock.json` additionally closes the
+six selected wheel filenames, sizes and SHA-256 values (821,982 bytes). The
+input preparation step is the only network-capable phase. The Docker build
+mounts the resulting directory as a read-only named context; `apk` uses only
+the two `file://` repositories with `--no-network`, pip uses only the mounted
+wheel directory with `--no-index`, and the input bytes do not become a layer.
+The resulting image still embeds the complete `/lib/apk/db/installed` package
+closure digest and package list in `/etc/proofflow/toolchain.json`.
+
+This is a network-separated build-input closure, not a permanent offline or
+bit-for-bit reproducibility claim. The official package and wheel URLs may stop
+serving the locked bytes, so future source availability remains `UNKNOWN` until
+the closure is stored in an authorized immutable external trust domain. Image
+digest reproducibility also remains unclaimed until two clean builds are
+compared under a fixed builder/exporter contract.
 
 The image identity records the base child, artifact/schema/validator pins,
 package-lock digests, platform, fixed tool paths, binary SHA-256 and versions,

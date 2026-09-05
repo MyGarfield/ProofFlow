@@ -6,8 +6,8 @@ ARG ARTIFACT_COMMIT=290ef94caf96cf3f1e4568cf8f19a52a8b460bc0
 ARG MANIFEST_SHA256=sha256:d031c112d517d1a6931c97fed6fc667a7fd2fd29872e04d901829b6bcfe2b92a
 ARG SCHEMA_SHA256=sha256:3af014e66ce304a5f205e5cb9b2900157d6469b72ff5601e1c7a1d447224c104
 ARG VALIDATOR_SHA256=sha256:bba1e9d75c5694a148da96f77f2e431bc23ce1248e6bac3f3a1db3bca8940051
-ARG MAIN_APKINDEX_CONTENT_SHA256=sha256:82a7fa67f13f0978d6a64cb1537fdf7682ec0c71c1671310fa2a3dc6339256fc
-ARG COMMUNITY_APKINDEX_CONTENT_SHA256=sha256:b18679447a0440d5412e45aff0a24883f3a6ac6642117b6242be44b3b2f0d91b
+ARG APK_CLOSURE_LOCK_SHA256=sha256:80cc09b5b86f8f3a6b55ab9495b65fbf1f0919fc30b8b2a3597324438595d5b5
+ARG WHEEL_CLOSURE_LOCK_SHA256=sha256:2b826aceb2a3c536e602dc6907fc1ddce860987138398478ccec4595d04fe361
 
 LABEL org.opencontainers.image.title="ProofFlow reference-video OCI verifier" \
       org.opencontainers.image.description="Fixed, fail-closed linux/amd64 verifier for synthetic reference evidence" \
@@ -17,7 +17,9 @@ LABEL org.opencontainers.image.title="ProofFlow reference-video OCI verifier" \
       org.proofflow.artifact.commit="$ARTIFACT_COMMIT" \
       org.proofflow.manifest.sha256="$MANIFEST_SHA256" \
       org.proofflow.schema.sha256="$SCHEMA_SHA256" \
-      org.proofflow.validator.sha256="$VALIDATOR_SHA256"
+      org.proofflow.validator.sha256="$VALIDATOR_SHA256" \
+      org.proofflow.apk-closure.sha256="$APK_CLOSURE_LOCK_SHA256" \
+      org.proofflow.wheel-closure.sha256="$WHEEL_CLOSURE_LOCK_SHA256"
 
 ENV LANG=C.UTF-8 \
     LC_ALL=C.UTF-8 \
@@ -30,28 +32,30 @@ WORKDIR /opt/proofflow
 
 COPY deploy/reference-video-oci-verifier/requirements.lock /opt/proofflow/requirements.lock
 COPY deploy/reference-video-oci-verifier/ALPINE_PACKAGES.lock /opt/proofflow/ALPINE_PACKAGES.lock
+COPY deploy/reference-video-oci-verifier/apk-closure.lock.json /opt/proofflow/apk-closure.lock.json
+COPY deploy/reference-video-oci-verifier/wheel-closure.lock.json /opt/proofflow/wheel-closure.lock.json
 
-# The index bytes are checked before resolution.  Package names and versions
-# are separately committed in ALPINE_PACKAGES.lock; a changed index fails the
-# build instead of silently selecting another package set.
-RUN set -eux; \
+# The named context is prepared and signature-verified outside the build.  It
+# is mounted read-only and never becomes an image layer.  All RUN networking is
+# disabled by the caller and apk is independently forced into no-network mode.
+RUN --mount=type=bind,from=verifier_inputs,source=.,target=/opt/proofflow-inputs,ro \
+    set -eux; \
     apk_arch="$(apk --print-arch)"; test "$apk_arch" = "x86_64"; \
+    echo "${APK_CLOSURE_LOCK_SHA256#sha256:}  /opt/proofflow/apk-closure.lock.json" | sha256sum -c -; \
     printf '%s\n%s\n' \
-      https://dl-cdn.alpinelinux.org/alpine/v3.24/main \
-      https://dl-cdn.alpinelinux.org/alpine/v3.24/community \
+      file:///opt/proofflow-inputs/v3.24/main \
+      file:///opt/proofflow-inputs/v3.24/community \
       > /etc/apk/repositories; \
-    wget -q -O /tmp/main-index.tar.gz https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86_64/APKINDEX.tar.gz; \
-    tar -xOf /tmp/main-index.tar.gz APKINDEX > /tmp/main-index; \
-    echo "${MAIN_APKINDEX_CONTENT_SHA256#sha256:}  /tmp/main-index" | sha256sum -c -; \
-    wget -q -O /tmp/community-index.tar.gz https://dl-cdn.alpinelinux.org/alpine/v3.24/community/x86_64/APKINDEX.tar.gz; \
-    tar -xOf /tmp/community-index.tar.gz APKINDEX > /tmp/community-index; \
-    echo "${COMMUNITY_APKINDEX_CONTENT_SHA256#sha256:}  /tmp/community-index" | sha256sum -c -; \
-    apk add --no-cache --no-progress $(sed -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' /opt/proofflow/ALPINE_PACKAGES.lock); \
-    rm -f /tmp/main-index.tar.gz /tmp/community-index.tar.gz /tmp/main-index /tmp/community-index
+    apk --no-network add --no-cache --no-progress \
+      $(sed -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' /opt/proofflow/ALPINE_PACKAGES.lock)
 
-RUN python -m pip install \
+RUN --mount=type=bind,from=verifier_inputs,source=wheels,target=/opt/proofflow-wheels,ro \
+    echo "${WHEEL_CLOSURE_LOCK_SHA256#sha256:}  /opt/proofflow/wheel-closure.lock.json" | sha256sum -c - \
+    && python -m pip install \
       --disable-pip-version-check \
       --no-cache-dir \
+      --no-index \
+      --find-links /opt/proofflow-wheels \
       --only-binary=:all: \
       --require-hashes \
       --requirement /opt/proofflow/requirements.lock \
@@ -74,7 +78,9 @@ RUN set -eux; \
       --alpine-lock /opt/proofflow/ALPINE_PACKAGES.lock \
       --python-lock /opt/proofflow/requirements.lock; \
     sha256sum /opt/proofflow/runner.py | cut -d ' ' -f 1 > /etc/proofflow/runner.sha256; \
-    rm -f /opt/proofflow/build_identity.py /opt/proofflow/ALPINE_PACKAGES.lock /opt/proofflow/requirements.lock; \
+    rm -f /opt/proofflow/build_identity.py /opt/proofflow/ALPINE_PACKAGES.lock \
+      /opt/proofflow/requirements.lock /opt/proofflow/apk-closure.lock.json; \
+    rm -f /opt/proofflow/wheel-closure.lock.json; \
     chmod 0444 /etc/proofflow/toolchain.json /etc/proofflow/runner.sha256 /opt/proofflow/receipt.schema.json
 
 USER 65532:65532

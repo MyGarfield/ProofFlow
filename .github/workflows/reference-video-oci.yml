@@ -53,6 +53,19 @@ jobs:
             echo "PROOFFLOW_ARTIFACT_COMMIT=$PINNED_ARTIFACT_COMMIT"
           } >> "$GITHUB_ENV"
 
+      - name: Prepare byte-locked verifier build inputs
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          VERIFIER_INPUT_PARENT="$RUNNER_TEMP/proofflow-verifier-input-parent"
+          VERIFIER_INPUTS="$VERIFIER_INPUT_PARENT/verifier-inputs"
+          mkdir -m 0700 "$VERIFIER_INPUT_PARENT"
+          deploy/reference-video-oci-verifier/prepare_verifier_inputs.sh \
+            --docker-bin /usr/bin/docker \
+            --repo-root "$GITHUB_WORKSPACE" \
+            --output "$VERIFIER_INPUTS"
+          echo "PROOFFLOW_VERIFIER_INPUTS=$VERIFIER_INPUTS" >> "$GITHUB_ENV"
+
       - name: Start local pinned registry
         shell: bash
         run: |
@@ -79,6 +92,8 @@ jobs:
           LOCAL_TAG="proofflow-reference-video-verifier:ci"
           REGISTRY_TAG="localhost:5000/proofflow-reference-video-verifier:ci"
           docker build --platform linux/amd64 \
+            --network=none \
+            --build-context verifier_inputs="$PROOFFLOW_VERIFIER_INPUTS" \
             --file deploy/reference-video-oci-verifier/Dockerfile \
             --tag "$LOCAL_TAG" .
           docker tag "$LOCAL_TAG" "$REGISTRY_TAG"
@@ -173,4 +188,7 @@ jobs:
         if: always()
         run: |
           docker rm --force "$REGISTRY_NAME" >/dev/null 2>&1 || true
-          sudo rm -rf -- "$RUNNER_TEMP/proofflow-detached-repo" "$RUNNER_TEMP/proofflow-reference-video.oci.tar"
+          sudo rm -rf -- \
+            "$RUNNER_TEMP/proofflow-detached-repo" \
+            "$RUNNER_TEMP/proofflow-reference-video.oci.tar" \
+            "$RUNNER_TEMP/proofflow-verifier-input-parent"

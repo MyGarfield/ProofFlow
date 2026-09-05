@@ -17,9 +17,11 @@ OCI = Path(__file__).parents[2] / "deploy/reference-video-oci-verifier"
 sys.path.insert(0, str(OCI))
 
 import build_identity  # noqa: E402
+import fetch_apk_closure  # noqa: E402
 import inspect_oci_archive  # noqa: E402
 import inspect_registry_bundle  # noqa: E402
 import runner  # noqa: E402
+import verify_wheel_closure  # noqa: E402
 import write_receipt  # noqa: E402
 
 EVIDENCE = Path(__file__).parents[2] / "reference-video/evidence"
@@ -45,7 +47,14 @@ def test_dockerfile_pins_current_amd64_child_and_build_inputs() -> None:
     assert "ARG ARTIFACT_COMMIT=290ef94caf96cf3f1e4568cf8f19a52a8b460bc0" in dockerfile
     assert "--require-hashes" in dockerfile
     assert "ALPINE_PACKAGES.lock" in dockerfile
-    assert "MAIN_APKINDEX_CONTENT_SHA256" in dockerfile
+    assert "APK_CLOSURE_LOCK_SHA256" in dockerfile
+    assert "WHEEL_CLOSURE_LOCK_SHA256" in dockerfile
+    assert "from=verifier_inputs" in dockerfile
+    assert "apk --no-network add" in dockerfile
+    assert "--no-index" in dockerfile
+    assert "file:///opt/proofflow-inputs/v3.24/main" in dockerfile
+    assert "dl-cdn.alpinelinux.org" not in dockerfile
+    assert "--allow-untrusted" not in dockerfile
     assert "USER 65532:65532" in dockerfile
     assert 'ENTRYPOINT ["/usr/local/bin/python3.12", "/opt/proofflow/runner.py"]' in dockerfile
     assert "COPY deploy/reference-video-oci-verifier/receipt.schema.json" in dockerfile
@@ -62,7 +71,9 @@ def test_dockerfile_pins_current_amd64_child_and_build_inputs() -> None:
     assert "IMAGE_REGISTRY_BUNDLE_PIN_MISMATCH" in launcher
     assert "REGISTRY_BUNDLE_ARGUMENTS_MUST_BE_PAIRED" in launcher
     assert "IMAGE_ID_INVALID" in launcher
-    assert "IMAGE_CONFIG_DIGEST_MISMATCH" in launcher
+    assert "IMAGE_STORE_IDENTITY_DIGEST_MISMATCH" in launcher
+    assert '"$IMAGE_ID" != "$EXPECTED_IMAGE_CONFIG_DIGEST"' in launcher
+    assert '"$IMAGE_ID" != "$EXPECTED_IMAGE_DIGEST"' in launcher
     assert "REPO_DIGEST_MATCH=false" in launcher
     assert 'case "$IMAGE_REPO_DIGESTS" in *"$IMAGE_REF"*' not in launcher
     result = __import__("subprocess").run(
@@ -136,6 +147,9 @@ def test_github_oci_workflow_is_pinned_local_only_and_path_filtered() -> None:
     assert "secrets." not in workflow
     assert "retention-days: 3" in workflow
     assert "docker rm --force" in workflow
+    assert "prepare_verifier_inputs.sh" in workflow
+    assert "--network=none" in workflow
+    assert '--build-context verifier_inputs="$PROOFFLOW_VERIFIER_INPUTS"' in workflow
     assert "git clone --no-local --no-hardlinks" in workflow
     assert "checkout --detach" in workflow
     assert "rev-parse HEAD" in workflow
@@ -143,10 +157,10 @@ def test_github_oci_workflow_is_pinned_local_only_and_path_filtered() -> None:
     assert 'sudo chown -R -- 65532:65532 "$DETACHED_REPO"' in workflow
     assert "stat -c '%u:%g' \"$DETACHED_REPO\"" in workflow
     assert "PROOFFLOW_REPO_ROOT" in workflow
-    assert (
-        'sudo rm -rf -- "$RUNNER_TEMP/proofflow-detached-repo" '
-        '"$RUNNER_TEMP/proofflow-reference-video.oci.tar"' in workflow
-    )
+    assert "sudo rm -rf --" in workflow
+    assert '"$RUNNER_TEMP/proofflow-detached-repo"' in workflow
+    assert '"$RUNNER_TEMP/proofflow-reference-video.oci.tar"' in workflow
+    assert '"$RUNNER_TEMP/proofflow-verifier-input-parent"' in workflow
 
 
 def test_mutable_tag_is_not_an_image_reference() -> None:
@@ -683,3 +697,269 @@ def test_registry_bundle_blob_and_layer_attacks_fail_closed(
         inspect_registry_bundle.inspect_registry_bundle(
             "http://127.0.0.1:5000/v2", "fixture", child, config
         )
+
+
+def test_apk_closure_lock_is_complete_sorted_and_unknown() -> None:
+    lock = fetch_apk_closure.load_lock(OCI / "apk-closure.lock.json")
+    assert lock["schema"] == fetch_apk_closure.SCHEMA
+    assert lock["package_count"] == 141
+    assert len(lock["packages"]) == 141
+    assert lock["availability"] == "UNKNOWN"
+    assert lock["base_image"] == (
+        "sha256:78e98729f8fc4099e53cffb3fe59fd15b18dfa4ace8c914dee0cefa5320068eb"
+    )
+    assert [item["filename"] for item in lock["packages"]] == sorted(
+        item["filename"] for item in lock["packages"]
+    )
+    roots = [
+        line.strip()
+        for line in (OCI / "ALPINE_PACKAGES.lock").read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+    assert lock["root_packages"] == roots
+    assert lock["total_package_bytes"] == sum(item["size"] for item in lock["packages"])
+    assert {item["architecture"] for item in lock["packages"]} == {"noarch", "x86_64"}
+    assert not list(OCI.rglob("*.apk"))
+    assert not list(OCI.rglob("*.whl"))
+
+
+@pytest.mark.parametrize(
+    ("mutation", "code"),
+    [
+        (lambda lock: lock.update(availability="PASS"), "AVAILABILITY"),
+        (lambda lock: lock.update(extra=True), "KEYSET"),
+        (lambda lock: lock["packages"][0].update(url="http://dl-cdn.alpinelinux.org/x"), "URL"),
+        (lambda lock: lock["packages"][0].update(url="https://evil.invalid/x"), "URL"),
+        (
+            lambda lock: lock["packages"][0].update(url=lock["packages"][0]["url"] + "?redirect=1"),
+            "URL",
+        ),
+        (
+            lambda lock: lock["packages"][1].update(name=lock["packages"][0]["name"]),
+            "DUPLICATE_PACKAGE_NAME",
+        ),
+        (lambda lock: lock.update(package_count=140), "PACKAGE_COUNT_MISMATCH"),
+        (lambda lock: lock.update(total_package_bytes=1), "TOTAL_PACKAGE_SIZE_MISMATCH"),
+        (lambda lock: lock.update(base_image="sha256:" + "0" * 64), "BASE_IMAGE"),
+        (
+            lambda lock: lock["packages"][0].update(signature_key="../../escape.rsa.pub"),
+            "SIGNATURE_KEY",
+        ),
+        (lambda lock: lock["root_packages"].append("missing=1.0-r0"), "ROOT_PACKAGE"),
+    ],
+)
+def test_apk_closure_lock_attacks_fail_closed(mutation, code: str) -> None:
+    lock = json.loads((OCI / "apk-closure.lock.json").read_text(encoding="utf-8"))
+    mutation(lock)
+    with pytest.raises(fetch_apk_closure.ClosureFailure, match=code):
+        fetch_apk_closure.validate_lock(lock)
+
+
+def test_apk_closure_strict_json_rejects_duplicate_and_nonfinite() -> None:
+    with pytest.raises(fetch_apk_closure.ClosureFailure, match="DUPLICATE"):
+        fetch_apk_closure._strict_json(b'{"schema":1,"schema":2}')
+    with pytest.raises(fetch_apk_closure.ClosureFailure, match="NONFINITE"):
+        fetch_apk_closure._strict_json(b'{"size":NaN}')
+
+
+def _fake_signed_archive(path: Path, *, pkginfo: bytes | None = None) -> None:
+    with tarfile.open(path, "w:gz") as archive:
+        signature = tarfile.TarInfo(".SIGN.RSA.alpine-devel@lists.alpinelinux.org-6165ee59.rsa.pub")
+        signature.size = 1
+        archive.addfile(signature, io.BytesIO(b"x"))
+        if pkginfo is not None:
+            metadata = tarfile.TarInfo(".PKGINFO")
+            metadata.size = len(pkginfo)
+            archive.addfile(metadata, io.BytesIO(pkginfo))
+
+
+def test_apk_package_metadata_signature_and_bytes_are_bound(tmp_path: Path) -> None:
+    path = tmp_path / "fixture-1.0-r0.apk"
+    pkginfo = b"\n".join(
+        (
+            b"pkgname = fixture",
+            b"pkgver = 1.0-r0",
+            b"origin = fixture",
+            b"commit = " + b"a" * 40,
+            b"arch = x86_64",
+        )
+    )
+    _fake_signed_archive(path, pkginfo=pkginfo)
+    package = {
+        "name": "fixture",
+        "version": "1.0-r0",
+        "origin": "fixture",
+        "build_commit": "a" * 40,
+        "architecture": "x86_64",
+        "size": path.stat().st_size,
+        "sha256": digest(path),
+        "signature_key": "alpine-devel@lists.alpinelinux.org-6165ee59.rsa.pub",
+    }
+    fetch_apk_closure.verify_package(path, package)
+    package["build_commit"] = "b" * 40
+    with pytest.raises(fetch_apk_closure.ClosureFailure, match="METADATA"):
+        fetch_apk_closure.verify_package(path, package)
+    package["build_commit"] = "a" * 40
+    package["sha256"] = "sha256:" + "0" * 64
+    with pytest.raises(fetch_apk_closure.ClosureFailure, match="BYTES"):
+        fetch_apk_closure.verify_package(path, package)
+
+
+def test_apk_index_content_and_signature_are_bound(tmp_path: Path) -> None:
+    path = tmp_path / "APKINDEX.tar.gz"
+    content = b"P:fixture\nV:1.0-r0\n"
+    with tarfile.open(path, "w:gz") as archive:
+        signature = tarfile.TarInfo(".SIGN.RSA.alpine-devel@lists.alpinelinux.org-6165ee59.rsa.pub")
+        signature.size = 1
+        archive.addfile(signature, io.BytesIO(b"x"))
+        index = tarfile.TarInfo("APKINDEX")
+        index.size = len(content)
+        archive.addfile(index, io.BytesIO(content))
+    repository = {
+        "signature_key": "alpine-devel@lists.alpinelinux.org-6165ee59.rsa.pub",
+        "index_content_sha256": "sha256:" + hashlib.sha256(content).hexdigest(),
+    }
+    fetch_apk_closure.verify_index(path, repository)
+    repository["index_content_sha256"] = "sha256:" + "0" * 64
+    with pytest.raises(fetch_apk_closure.ClosureFailure, match="INDEX_CONTENT"):
+        fetch_apk_closure.verify_index(path, repository)
+
+
+def test_apk_bundle_rejects_missing_extra_and_symlink_members(tmp_path: Path) -> None:
+    lock = fetch_apk_closure.load_lock(OCI / "apk-closure.lock.json")
+    with pytest.raises(fetch_apk_closure.ClosureFailure, match="MEMBER_SET"):
+        fetch_apk_closure.verify_directory(tmp_path, lock)
+    extra = tmp_path / "extra.apk"
+    extra.write_bytes(b"x")
+    with pytest.raises(fetch_apk_closure.ClosureFailure, match="MEMBER_SET"):
+        fetch_apk_closure.verify_directory(tmp_path, lock)
+    extra.unlink()
+    (tmp_path / "escape").symlink_to(tmp_path / "outside")
+    with pytest.raises(fetch_apk_closure.ClosureFailure, match="SYMLINK"):
+        fetch_apk_closure.verify_directory(tmp_path, lock)
+
+
+def test_apk_download_redirect_is_forbidden_and_part_is_removed(tmp_path: Path) -> None:
+    class RedirectHandler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            self.send_response(302)
+            self.send_header("Location", "https://evil.invalid/payload.apk")
+            self.end_headers()
+
+        def log_message(self, *_args) -> None:
+            return
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), RedirectHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    destination = tmp_path / "payload.apk"
+    try:
+        with pytest.raises(fetch_apk_closure.ClosureFailure, match="REDIRECT"):
+            fetch_apk_closure._download(
+                f"http://127.0.0.1:{server.server_port}/payload.apk",
+                destination,
+                1,
+                "sha256:" + "0" * 64,
+            )
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+        server.server_close()
+    assert not destination.exists()
+    assert not destination.with_name("payload.apk.part").exists()
+
+
+def test_verifier_input_preparation_has_bounded_network_phase() -> None:
+    script = (OCI / "prepare_verifier_inputs.sh").read_text(encoding="utf-8")
+    assert "python:3.12-alpine@sha256:78e987" in script
+    assert "--network bridge" in script
+    assert "--read-only" in script
+    assert "--cap-drop ALL" in script
+    assert "--security-opt no-new-privileges:true" in script
+    assert '--user "$HOST_UID:$HOST_GID"' in script
+    assert "fetch_apk_closure.py" in script
+    assert "verify_wheel_closure.py" in script
+    assert "OUTPUT_PARENT_MUST_BE_DEDICATED_EMPTY_DIRECTORY" in script
+    assert "--require-hashes" in script
+    assert "--only-binary=:all:" in script
+    assert "--allow-untrusted" not in script
+    assert "secrets." not in script
+
+
+def test_verifier_input_preparation_rejects_shared_output_parent(tmp_path: Path) -> None:
+    parent = tmp_path / "shared"
+    parent.mkdir()
+    (parent / "unrelated").write_text("must not be mounted", encoding="utf-8")
+    result = __import__("subprocess").run(
+        [
+            "/bin/sh",
+            str(OCI / "prepare_verifier_inputs.sh"),
+            "--docker-bin",
+            "/bin/sh",
+            "--repo-root",
+            str(Path(__file__).parents[2]),
+            "--output",
+            str(parent / "verifier-inputs"),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 2
+    assert "OUTPUT_PARENT_MUST_BE_DEDICATED_EMPTY_DIRECTORY" in result.stderr
+
+
+def test_wheel_closure_lock_is_exact_and_unknown() -> None:
+    lock = verify_wheel_closure.load_lock(OCI / "wheel-closure.lock.json")
+    assert lock["file_count"] == 6
+    assert lock["availability"] == "UNKNOWN"
+    assert lock["total_bytes"] == 821982
+    assert [item["filename"] for item in lock["files"]] == sorted(
+        item["filename"] for item in lock["files"]
+    )
+
+
+@pytest.mark.parametrize(
+    ("mutation", "code"),
+    [
+        (lambda lock: lock.update(availability="PASS"), "AVAILABILITY"),
+        (lambda lock: lock.update(extra=True), "KEYSET"),
+        (lambda lock: lock.update(base_image="sha256:" + "0" * 64), "BASE_IMAGE"),
+        (lambda lock: lock.update(file_count=7), "WHEEL_COUNT"),
+        (lambda lock: lock.update(total_bytes=1), "WHEEL_TOTAL_SIZE"),
+        (
+            lambda lock: lock["files"][1].update(filename=lock["files"][0]["filename"]),
+            "WHEEL_FILENAME",
+        ),
+    ],
+)
+def test_wheel_closure_lock_attacks_fail_closed(mutation, code: str) -> None:
+    lock = json.loads((OCI / "wheel-closure.lock.json").read_text(encoding="utf-8"))
+    mutation(lock)
+    with pytest.raises(verify_wheel_closure.WheelFailure, match=code):
+        verify_wheel_closure.validate_lock(lock)
+
+
+def test_wheel_directory_rejects_missing_extra_symlink_and_tamper(tmp_path: Path) -> None:
+    payload = b"wheel"
+    filename = "fixture-1.0-py3-none-any.whl"
+    path = tmp_path / filename
+    path.write_bytes(payload)
+    lock = {
+        "files": [
+            {
+                "filename": filename,
+                "size": len(payload),
+                "sha256": "sha256:" + hashlib.sha256(payload).hexdigest(),
+            }
+        ]
+    }
+    verify_wheel_closure.verify(tmp_path, lock)
+    path.write_bytes(payload + b"tamper")
+    with pytest.raises(verify_wheel_closure.WheelFailure, match="BYTES"):
+        verify_wheel_closure.verify(tmp_path, lock)
+    path.unlink()
+    with pytest.raises(verify_wheel_closure.WheelFailure, match="MEMBER_SET"):
+        verify_wheel_closure.verify(tmp_path, lock)
+    path.symlink_to(tmp_path / "outside")
+    with pytest.raises(verify_wheel_closure.WheelFailure, match="NOT_REGULAR"):
+        verify_wheel_closure.verify(tmp_path, lock)

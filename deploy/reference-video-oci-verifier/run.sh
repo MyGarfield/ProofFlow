@@ -118,7 +118,9 @@ IMAGE_OS="$(inspect '{{.Os}}')"
 IMAGE_USER="$(inspect '{{.Config.User}}')"
 IMAGE_REPO_DIGESTS="$(inspect '{{join .RepoDigests "\n"}}')"
 case "$IMAGE_ID" in sha256:????????????????????????????????????????????????????????????????) ;; *) die "IMAGE_ID_INVALID" ;; esac
-[ "$IMAGE_ID" = "$EXPECTED_IMAGE_CONFIG_DIGEST" ] || die "IMAGE_CONFIG_DIGEST_MISMATCH"
+if [ "$IMAGE_ID" != "$EXPECTED_IMAGE_CONFIG_DIGEST" ] && [ "$IMAGE_ID" != "$EXPECTED_IMAGE_DIGEST" ]; then
+    die "IMAGE_STORE_IDENTITY_DIGEST_MISMATCH"
+fi
 [ "$IMAGE_ARCH" = "amd64" ] || die "IMAGE_CHILD_ARCHITECTURE_MISMATCH"
 [ "$IMAGE_OS" = "linux" ] || die "IMAGE_CHILD_OS_MISMATCH"
 [ "$IMAGE_USER" = "65532:65532" ] || die "IMAGE_USER_MISMATCH"
