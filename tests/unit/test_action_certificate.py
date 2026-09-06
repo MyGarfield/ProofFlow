@@ -55,6 +55,7 @@ from proofflow.action_certificate import (
     verify_action_certificate,
 )
 from proofflow.cli import _parse_verification_time
+from proofflow.sqlite_replay_ledger import SQLiteReplayLedger
 
 NOW = datetime(2026, 8, 29, 4, 0, tzinfo=UTC)
 ROOT = Path(__file__).parents[2]
@@ -1208,6 +1209,19 @@ def test_process_local_reserve_once_is_atomic_under_concurrency(
         statuses = list(executor.map(attempt, range(64)))
     assert statuses.count(VerificationStatus.ACCEPT) == 1
     assert statuses.count(VerificationStatus.REJECT) == 63
+
+
+def test_sqlite_replay_reservation_is_rejected_after_reopen(
+    certificate_fixture: dict[str, Any], tmp_path: Path
+) -> None:
+    path = tmp_path / "replay.db"
+    first = verify(certificate_fixture, replay_ledger=SQLiteReplayLedger(path))
+    replay = verify(certificate_fixture, replay_ledger=SQLiteReplayLedger(path))
+
+    assert first.status == VerificationStatus.ACCEPT
+    assert first.reserved is True
+    assert replay.status == VerificationStatus.REJECT
+    assert replay.reason_codes == (VerificationReason.REPLAY_DETECTED,)
 
 
 def test_resource_bounds_unknown_fields_and_noncanonical_base64_fail_closed(

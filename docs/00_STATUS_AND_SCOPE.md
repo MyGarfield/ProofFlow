@@ -90,7 +90,8 @@ LLM，不能证明 Team/Matrix 协作、运行中 Skill 消费、模型质量或
 - Trace 缺失、冲突、缺参和越权时 fail closed；
 - 显式本地 Human 决定，批准与完整对象摘要绑定；
 - Package 文件哈希和独立验真；
-- ActionCertificate v0.1 的独立权限根预执行授权验签与进程内 reservation 参考门；
+- ActionCertificate v0.1 的独立权限根预执行授权验签、进程内 reservation 参考门，以及可选的
+  单主机 SQLite WAL 持久化 reservation 适配器；
 - ExecutionReceipt v0.1 的 exact-byte observer 验签、外部 ActionCertificate 接受结果交叉绑定、
   `OBSERVED | UNKNOWN` 证据状态与进程内 append-only 索引参考门；
 - 合成提示注入字段测试；
@@ -106,6 +107,7 @@ LLM，不能证明 Team/Matrix 协作、运行中 Skill 消费、模型质量或
 - 不自动对外发送、签署、提交、解雇、付款或写入企业系统；
 - 不声称已完成运行中 AgentTeams 多 Agent 协作、LLM、RAG、OCR、长期记忆或复杂 WebUI；
 - 不声称生产级身份、租户隔离、高可用、安全认证或领域准确率；
+- 不把单主机 SQLite 适配器声称为分布式 exactly-once、效果交付证明或生产级高可用账本；
 - 不同时验证多个行业；
 - 不把合成测试结果外推为生产表现。
 

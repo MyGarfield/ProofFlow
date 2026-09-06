@@ -33,7 +33,8 @@ GOAI 于 2026 年 8 月 25 日确认初赛作品有效，但项目未晋级复�
 - 与待批对象哈希绑定、对象变化即失效的 Human Gate；
 - Trace、受控 Markdown/JSON 草案、Package Manifest 和篡改检测；
 - Ruff、mypy、pytest 和 GitHub Actions；
-- ActionCertificate v0.1 的 DSSE/in-toto/Ed25519 预执行验证与进程内重放参考门；
+- ActionCertificate v0.1 的 DSSE/in-toto/Ed25519 预执行验证、进程内重放参考门与可选的
+  单主机 SQLite WAL 持久化 reservation 适配器；
 - ExecutionReceipt v0.1 的 observer-signed 执行尝试回执、外部 ActionCertificate 接受结果绑定与
   进程内 append-only 索引参考门；
 - AgentTeams v1.2.2 本地点时基础设施、六个 Worker CR 与八个 Skill 分发结果；

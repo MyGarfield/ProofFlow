@@ -47,8 +47,10 @@ The reference verifier is deliberately fail-closed:
    `ApprovalRevocationResolver` at verification time. Its snapshot carries mandatory UTC `as_of`
    and `valid_until` values. It is current only for
    `as_of <= verification_time <= valid_until`; both boundaries are inclusive.
-8. Only a fully verified candidate reaches `reserve_once`. The reference ledger atomically checks
-   tenant+nonce and tenant+idempotency key under one process lock.
+8. Only a fully verified candidate reaches `reserve_once`. `InMemoryReplayLedger` atomically checks
+   tenant+nonce and tenant+idempotency key under one process lock. The optional
+   `SQLiteReplayLedger` adapter performs the same check and reservation in one `BEGIN IMMEDIATE`
+   transaction against a local SQLite WAL database.
 
 `keyid` is only a local lookup-order hint. It neither supplies nor upgrades trust. The policy has no
 URL, JWK-set, certificate-chain, plugin, or remote-reference field, and the verifier performs no
@@ -56,7 +58,7 @@ network access.
 
 ## Closed outcomes
 
-- `ACCEPT`: all checks passed and the process-local ledger atomically reserved the intent.
+- `ACCEPT`: all checks passed and the configured ledger atomically reserved the intent.
 - `REJECT`: malformed/untrusted input, binding or policy mismatch, invalid time, revoked approval,
   self approval, replay, or idempotency conflict.
 - `UNKNOWN`: current approval revocation state or replay-ledger availability could not be
@@ -84,8 +86,10 @@ uv run proofflow certificate verify \
 ```
 
 Exit codes are `0=ACCEPT`, `1=REJECT`, `3=UNKNOWN`, and `2=input/configuration error`. A new CLI
-process creates a new reference ledger, so cross-process replay resistance is intentionally out of
-scope.
+process creates a new in-memory reference ledger, so the CLI itself does not provide cross-process
+replay resistance. Integrators that call the Python verifier directly may supply
+`SQLiteReplayLedger(path)` from `proofflow.sqlite_replay_ledger`; this is intentionally not enabled
+implicitly because selecting and operating a durable database is an operator decision.
 
 Exported schemas live under `schemas/action-certificate-*.schema.json` and are regenerated with:
 
@@ -116,10 +120,13 @@ execute custom semantics.
 ## Explicit non-claims and next gate
 
 This slice does not integrate Worker, LLM, MCP, A2A, OTLP, PostgreSQL, a policy engine, a workload
-identity provider, or any real external effect. The in-memory ledger is not durable and cannot
-provide multi-process or crash-safe exactly-once semantics. A DSSE signature proves integrity and
-configured signer provenance; it does not prove that the action, evidence, or business conclusion
-is true.
+identity provider, or any real external effect. The in-memory ledger remains process-local. The
+SQLite adapter makes accepted reservations durable across process restarts on one host and fails
+closed on storage, lock, integrity, or schema-version errors. It is not distributed, highly
+available, or proof of effect delivery; a database rollback or restore can also reintroduce replay
+risk. The database path is trusted operator configuration, and hostile filesystem path races are
+outside this reference adapter's threat model. A DSSE signature proves integrity and configured
+signer provenance; it does not prove that the action, evidence, or business conclusion is true.
 
 The dependency and `src/` changes make the existing tool-image SBOM/Trivy/build-input evidence
 stale. See [`deploy/tool-service/SUPPLY_CHAIN_EVIDENCE.md`](../deploy/tool-service/SUPPLY_CHAIN_EVIDENCE.md).
