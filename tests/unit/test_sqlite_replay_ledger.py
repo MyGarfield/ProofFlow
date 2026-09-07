@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import multiprocessing
+import os
 import sqlite3
 import stat
 from concurrent.futures import ThreadPoolExecutor
@@ -31,6 +32,36 @@ def process_reserve(path: str, start: Any, queue: Any) -> None:
     start.wait()
     status = reserve(SQLiteReplayLedger(path, busy_timeout_ms=10_000))
     queue.put(status.value)
+
+
+class CrashingSQLiteReplayLedger(SQLiteReplayLedger):
+    def _reserve(
+        self,
+        connection: sqlite3.Connection,
+        *,
+        tenant_id: str,
+        nonce: str,
+        idempotency_key: str,
+        intent_sha256: str,
+    ) -> ReservationStatus:
+        status = super()._reserve(
+            connection,
+            tenant_id=tenant_id,
+            nonce=nonce,
+            idempotency_key=idempotency_key,
+            intent_sha256=intent_sha256,
+        )
+        if status == ReservationStatus.RESERVED:
+            os._exit(73)
+        return status
+
+
+def process_crash_before_commit(path: str) -> None:
+    reserve(
+        CrashingSQLiteReplayLedger(path),
+        nonce="crash-nonce",
+        idempotency_key="crash-idempotency",
+    )
 
 
 def test_reservation_survives_close_and_reopen(tmp_path: Path) -> None:
@@ -102,6 +133,30 @@ def test_independent_processes_reserve_atomically(tmp_path: Path) -> None:
         assert process.exitcode == 0
     assert statuses.count(ReservationStatus.RESERVED.value) == 1
     assert statuses.count(ReservationStatus.REPLAY.value) == 5
+
+
+def test_process_crash_before_commit_leaves_no_partial_reservation(tmp_path: Path) -> None:
+    path = tmp_path / "replay.db"
+    assert reserve(SQLiteReplayLedger(path)) == ReservationStatus.RESERVED
+
+    context = multiprocessing.get_context("spawn")
+    process = context.Process(target=process_crash_before_commit, args=(str(path),))
+    process.start()
+    process.join(timeout=20)
+    assert process.exitcode == 73
+
+    reopened = SQLiteReplayLedger(path)
+    assert (
+        reserve(
+            reopened,
+            nonce="crash-nonce",
+            idempotency_key="crash-idempotency",
+        )
+        == ReservationStatus.RESERVED
+    )
+    connection = sqlite3.connect(path)
+    assert connection.execute("SELECT COUNT(*) FROM replay_reservations").fetchone() == (2,)
+    connection.close()
 
 
 def test_locked_corrupt_and_foreign_databases_fail_closed(tmp_path: Path) -> None:
