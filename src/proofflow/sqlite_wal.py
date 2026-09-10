@@ -13,7 +13,7 @@ from typing import cast
 _MAX_BUSY_TIMEOUT_MS = 60_000
 
 
-class SQLiteWalStore:
+class _SQLiteWalStore:
     """Internal base for one trusted local SQLite WAL database file."""
 
     def __init__(self, path: str | Path, *, busy_timeout_ms: int) -> None:
@@ -104,6 +104,3 @@ class SQLiteWalStore:
                 "AND name NOT LIKE 'sqlite_%'"
             )
         }
-
-
-__all__ = ["SQLiteWalStore"]

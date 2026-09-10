@@ -17,14 +17,14 @@ from proofflow.action_certificate import (
     SHA256_PATTERN,
     ReservationStatus,
 )
-from proofflow.sqlite_wal import SQLiteWalStore
+from proofflow.sqlite_wal import _SQLiteWalStore
 
 _SCHEMA_NAME = "proofflow.action-certificate-replay-ledger"
 _SCHEMA_VERSION = 1
 _MAX_CAPACITY = 1_000_000
 
 
-class SQLiteReplayLedger(SQLiteWalStore):
+class SQLiteReplayLedger(_SQLiteWalStore):
     """Persistent, cross-process replay reservations on one SQLite file.
 
     Every call uses one ``BEGIN IMMEDIATE`` transaction to preserve the
