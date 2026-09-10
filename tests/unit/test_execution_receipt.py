@@ -79,6 +79,7 @@ from proofflow.execution_receipt import (
     expected_execution_binding_for,
     verify_execution_receipt,
 )
+from proofflow.sqlite_receipt_index import SQLiteReceiptIndex
 
 NOW = datetime(2026, 8, 30, 4, 0, tzinfo=UTC)
 ROOT = Path(__file__).parents[2]
@@ -1415,6 +1416,21 @@ def test_receipt_index_idempotency_capacity_and_concurrency() -> None:
         statuses = list(executor.map(lambda _: append(), range(64)))
     assert statuses.count(ReceiptIndexStatus.APPENDED) == 1
     assert statuses.count(ReceiptIndexStatus.ALREADY_PRESENT) == 63
+
+
+def test_sqlite_receipt_index_is_idempotent_after_reopen(
+    receipt_fixture: dict[str, Any], tmp_path: Path
+) -> None:
+    path = tmp_path / "receipts.db"
+    first = verify(receipt_fixture, receipt_index=SQLiteReceiptIndex(path))
+    repeated = verify(receipt_fixture, receipt_index=SQLiteReceiptIndex(path))
+
+    assert first.status == VerificationStatus.ACCEPT
+    assert first.reason_codes == (ExecutionReceiptVerificationReason.APPENDED,)
+    assert first.recorded is True
+    assert repeated.status == VerificationStatus.ACCEPT
+    assert repeated.reason_codes == (ExecutionReceiptVerificationReason.ALREADY_PRESENT,)
+    assert repeated.recorded is True
 
 
 @pytest.mark.parametrize(

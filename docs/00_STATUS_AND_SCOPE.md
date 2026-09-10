@@ -93,7 +93,8 @@ LLM，不能证明 Team/Matrix 协作、运行中 Skill 消费、模型质量或
 - ActionCertificate v0.1 的独立权限根预执行授权验签、进程内 reservation 参考门，以及可选的
   单主机 SQLite WAL 持久化 reservation 适配器；
 - ExecutionReceipt v0.1 的 exact-byte observer 验签、外部 ActionCertificate 接受结果交叉绑定、
-  `OBSERVED | UNKNOWN` 证据状态与进程内 append-only 索引参考门；
+  `OBSERVED | UNKNOWN` 证据状态、进程内 append-only 索引与可选的单主机 SQLite WAL
+  持久化索引；
 - 合成提示注入字段测试；
 - 仅 loopback、公开合成数据的本地演示控制台及 `19 passed` 定向测试；
 - 三臂评测 manifest、Schema、CLI 和 fail-closed 合同；协议已验证但尚未执行；
