@@ -120,7 +120,9 @@ The verifier performs these steps in fixed order:
 4. Cross-check the external accepted ActionCertificate inputs and authority-root mapping.
 5. Apply observer purpose, scope, tenant, audience, time, revocation, independence, and threshold
    rules.
-6. Atomically append to a process-local, bounded, append-only index.
+6. Atomically append to the configured bounded, append-only index. `InMemoryReceiptIndex` uses one
+   process lock. The optional `SQLiteReceiptIndex` uses one `BEGIN IMMEDIATE` transaction against a
+   local SQLite WAL database.
 
 The index uses `(tenant, receipt_id)`, `(tenant, execution_id, attempt_id)`, and
 `(tenant, idempotency_key) -> intent_sha256`. It never overwrites or evicts:
@@ -131,7 +133,13 @@ The index uses `(tenant, receipt_id)`, `(tenant, execution_id, attempt_id)`, and
 - one idempotency key with another intent: `REJECT / IDEMPOTENCY_CONFLICT`;
 - unavailable or full index: `UNKNOWN / RECEIPT_INDEX_UNAVAILABLE`.
 
-The index is not durable, cross-process, crash safe, or evidence of exactly-once delivery.
+The in-memory index is not durable or cross-process. The SQLite adapter persists accepted receipt
+identity and idempotency intent across normal process restarts on one host, validates its schema and
+integrity before use, and fails closed on storage or lock errors. Each adapter requires its own
+database file; it cannot share the ActionCertificate replay-ledger file. It is not distributed,
+highly available, or evidence of exactly-once effect delivery. Restoring or rolling back its file
+can reintroduce previously recorded identities, and hostile filesystem path races are outside this
+reference adapter's threat model.
 
 ## CLI and Schemas
 
@@ -148,7 +156,10 @@ uv run proofflow receipt verify \
 ```
 
 Exit codes are `0=ACCEPT`, `1=REJECT`, `3=UNKNOWN`, and `2=input/configuration error`. Each CLI
-process creates a new index, so cross-process replay handling is out of scope.
+process creates a new in-memory index, so the CLI itself does not provide cross-process receipt
+identity. Integrators that call the Python verifier directly may supply `SQLiteReceiptIndex(path)`
+from `proofflow.sqlite_receipt_index`. This is not enabled implicitly because selecting, isolating,
+backing up, and monitoring a durable database are operator responsibilities.
 
 The machine contracts are exported as `schemas/execution-receipt-*.schema.json`. Regenerate and
 check them with:
