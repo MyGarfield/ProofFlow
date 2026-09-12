@@ -46,8 +46,15 @@ closure ID, execution ID, attempt ID, closure sequence, previous payload digest,
 idempotency intent. An exact payload replay is `ALREADY_PRESENT`; changed bytes,
 sequence gaps, previous-digest changes, or another closure for the same execution,
 attempt, and sequence are conflicts; closure IDs remain tenant-global. Capacity
-failure is `UNKNOWN`. This index is not durable, crash-safe,
-cross-process, or proof of exactly-once delivery.
+failure is `UNKNOWN`. The optional `SQLiteOutcomeClosureIndex` performs the same
+conflict ordering and sequence append in one `BEGIN IMMEDIATE` transaction against a
+local SQLite WAL database. It persists accepted identities and predecessor chains
+across normal process restarts, validates schema, relational integrity, and chain
+continuity before use, and fails closed on storage or lock errors. Each adapter needs
+its own database file; it cannot share the ActionCertificate or ExecutionReceipt file.
+It is not distributed, highly available, or proof of exactly-once effect delivery.
+Restoring or rolling back the file can reintroduce an old chain, and hostile filesystem
+path races are outside this reference adapter's threat model.
 An `UNKNOWN` closure is not appended in v0.1, so a later sequence cannot use an
 untrusted unknown as its predecessor; operators must retry with a new exact evidence
 set or leave the sequence open.
@@ -69,6 +76,11 @@ uv run proofflow outcome verify \
 
 Exit codes are `0=PASS`, `1=FAIL`, `2=input/configuration error`, `3=UNKNOWN`, and
 `4=UNSAFE_SUCCESS`.
+
+Each CLI process creates a new in-memory index. Integrators calling the Python verifier
+directly may supply `SQLiteOutcomeClosureIndex(path)` from
+`proofflow.sqlite_outcome_index`. This is not enabled implicitly because choosing,
+isolating, backing up, and monitoring durable state are operator responsibilities.
 
 `outcome-evidence.json` is a bounded local JSON map from each `sha256:` digest to
 canonical base64 bytes. The resolver validates the source event, every before/after

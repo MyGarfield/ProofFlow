@@ -37,6 +37,8 @@ GOAI 于 2026 年 8 月 25 日确认初赛作品有效，但项目未晋级复�
   单主机 SQLite WAL 持久化 reservation 适配器；
 - ExecutionReceipt v0.1 的 observer-signed 执行尝试回执、外部 ActionCertificate 接受结果绑定、
   进程内 append-only 索引与可选的单主机 SQLite WAL 持久化索引；
+- OutcomeClosure v0.1 的独立 outcome-observer 对账、闭集 verdict、序列链，以及可选的单主机
+  SQLite WAL 持久化 append-only 索引；
 - AgentTeams v1.2.2 本地点时基础设施、六个 Worker CR 与八个 Skill 分发结果；
 - 三个最小权限 MCP（evidence/rules/calc），均为 `ok` 且各暴露一个工具；
 - Manager 操作员以公开合成数据完成三次 evidence ingest → 四条规则引用 → 确定性计算的工具链，
