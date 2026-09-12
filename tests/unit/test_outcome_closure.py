@@ -6,6 +6,7 @@ import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -63,6 +64,7 @@ from proofflow.outcome_closure import (
     expected_outcome_binding_for,
     verify_outcome_closure,
 )
+from proofflow.sqlite_outcome_index import SQLiteOutcomeClosureIndex
 
 
 def _outcome_fixture(receipt: dict[str, Any]) -> dict[str, Any]:
@@ -689,6 +691,21 @@ def test_outcome_index_is_atomic_under_concurrency() -> None:
         statuses = list(executor.map(lambda _: append(), range(32)))
     assert statuses.count("APPENDED") == 1
     assert statuses.count("ALREADY_PRESENT") == 31
+
+
+def test_sqlite_outcome_index_is_idempotent_after_reopen(
+    outcome_fixture: dict[str, Any], tmp_path: Path
+) -> None:
+    path = tmp_path / "outcomes.db"
+    first = _verify(outcome_fixture, outcome_index=SQLiteOutcomeClosureIndex(path))
+    repeated = _verify(outcome_fixture, outcome_index=SQLiteOutcomeClosureIndex(path))
+
+    assert first.status == OutcomeVerdict.PASS
+    assert first.reason_codes == (OutcomeClosureVerificationReason.PASS_VERIFIED,)
+    assert first.recorded is True
+    assert repeated.status == OutcomeVerdict.PASS
+    assert repeated.reason_codes == (OutcomeClosureVerificationReason.PASS_ALREADY_PRESENT,)
+    assert repeated.recorded is True
 
 
 def test_known_failure_derives_fail_without_success_claim(outcome_fixture: dict[str, Any]) -> None:
